@@ -47,7 +47,7 @@ export default function StaffPage() {
       <PageHeader
         title="Staff & Scheduling"
         description="Rotas, annual leave, contracts and team management."
-        action={<Button>Publish rota</Button>}
+        actions={<Button>Publish rota</Button>}
       />
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
