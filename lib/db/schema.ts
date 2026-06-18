@@ -95,6 +95,114 @@ export const asset = pgTable("asset", {
   createdAt: timestamp("createdAt").notNull().defaultNow(),
 })
 
+// --- Operations ------------------------------------------------------------
+
+export const order = pgTable("order", {
+  id: serial("id").primaryKey(),
+  userId: text("userId").notNull(),
+  venueId: integer("venueId").notNull(),
+  reference: text("reference").notNull(),
+  supplier: text("supplier").notNull(),
+  items: integer("items").notNull().default(0),
+  totalPence: integer("totalPence").notNull().default(0),
+  status: text("status").notNull().default("Draft"),
+  due: text("due"),
+  createdAt: timestamp("createdAt").notNull().defaultNow(),
+})
+
+export const supplier = pgTable("supplier", {
+  id: serial("id").primaryKey(),
+  userId: text("userId").notNull(),
+  venueId: integer("venueId").notNull(),
+  name: text("name").notNull(),
+  category: text("category"),
+  terms: text("terms").notNull().default("Net 30"),
+  spendMtdPence: integer("spendMtdPence").notNull().default(0),
+  rating: text("rating").notNull().default("4.5"),
+  createdAt: timestamp("createdAt").notNull().defaultNow(),
+})
+
+export const maintenance = pgTable("maintenance", {
+  id: serial("id").primaryKey(),
+  userId: text("userId").notNull(),
+  venueId: integer("venueId").notNull(),
+  assetName: text("assetName").notNull(),
+  issue: text("issue"),
+  priority: text("priority").notNull().default("Medium"),
+  assignee: text("assignee"),
+  status: text("status").notNull().default("Open"),
+  createdAt: timestamp("createdAt").notNull().defaultNow(),
+})
+
+export const venueEvent = pgTable("venue_event", {
+  id: serial("id").primaryKey(),
+  userId: text("userId").notNull(),
+  venueId: integer("venueId").notNull(),
+  name: text("name").notNull(),
+  date: text("date"),
+  covers: integer("covers").notNull().default(0),
+  status: text("status").notNull().default("Provisional"),
+  owner: text("owner"),
+  createdAt: timestamp("createdAt").notNull().defaultNow(),
+})
+
+export const task = pgTable("task", {
+  id: serial("id").primaryKey(),
+  userId: text("userId").notNull(),
+  venueId: integer("venueId").notNull(),
+  title: text("title").notNull(),
+  area: text("area"),
+  assignee: text("assignee"),
+  due: text("due"),
+  done: boolean("done").notNull().default(false),
+  priority: text("priority").notNull().default("Medium"),
+  createdAt: timestamp("createdAt").notNull().defaultNow(),
+})
+
+// --- Compliance ------------------------------------------------------------
+
+export const complianceCheck = pgTable("compliance_check", {
+  id: serial("id").primaryKey(),
+  userId: text("userId").notNull(),
+  venueId: integer("venueId").notNull(),
+  name: text("name").notNull(),
+  frequency: text("frequency").notNull().default("Monthly"),
+  owner: text("owner"),
+  lastDone: text("lastDone"),
+  status: text("status").notNull().default("Due"),
+  createdAt: timestamp("createdAt").notNull().defaultNow(),
+})
+
+export const certificate = pgTable("certificate", {
+  id: serial("id").primaryKey(),
+  userId: text("userId").notNull(),
+  venueId: integer("venueId").notNull(),
+  name: text("name").notNull(),
+  authority: text("authority"),
+  expires: text("expires"),
+  status: text("status").notNull().default("Valid"),
+  createdAt: timestamp("createdAt").notNull().defaultNow(),
+})
+
+export const document = pgTable("document", {
+  id: serial("id").primaryKey(),
+  userId: text("userId").notNull(),
+  venueId: integer("venueId").notNull(),
+  name: text("name").notNull(),
+  category: text("category"),
+  updated: text("updated"),
+  owner: text("owner"),
+  createdAt: timestamp("createdAt").notNull().defaultNow(),
+})
+
 export type Venue = typeof venue.$inferSelect
 export type Member = typeof member.$inferSelect
 export type DbAsset = typeof asset.$inferSelect
+export type DbOrder = typeof order.$inferSelect
+export type DbSupplier = typeof supplier.$inferSelect
+export type DbMaintenance = typeof maintenance.$inferSelect
+export type DbEvent = typeof venueEvent.$inferSelect
+export type DbTask = typeof task.$inferSelect
+export type DbComplianceCheck = typeof complianceCheck.$inferSelect
+export type DbCertificate = typeof certificate.$inferSelect
+export type DbDocument = typeof document.$inferSelect
