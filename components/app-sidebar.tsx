@@ -8,6 +8,7 @@ import {
   Wallet,
   Users,
   ShieldCheck,
+  Package,
   Beer,
   Settings,
   LifeBuoy,
@@ -23,6 +24,7 @@ const sections = [
     label: "Modules",
     items: [
       { href: "/operations", label: "Operations", icon: ClipboardList },
+      { href: "/assets", label: "Asset Tracking", icon: Package },
       { href: "/financials", label: "Financials", icon: Wallet },
       { href: "/staff", label: "Staff & Scheduling", icon: Users },
       { href: "/compliance", label: "Compliance", icon: ShieldCheck },
