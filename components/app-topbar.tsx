@@ -10,6 +10,7 @@ import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import {
   DropdownMenu,
   DropdownMenuContent,
+  DropdownMenuGroup,
   DropdownMenuItem,
   DropdownMenuLabel,
   DropdownMenuSeparator,
@@ -75,7 +76,9 @@ export function AppTopbar() {
           <ChevronDown className="size-4 text-muted-foreground" />
         </DropdownMenuTrigger>
         <DropdownMenuContent align="start" className="w-64">
-          <DropdownMenuLabel>Switch venue</DropdownMenuLabel>
+          <DropdownMenuGroup>
+            <DropdownMenuLabel>Switch venue</DropdownMenuLabel>
+          </DropdownMenuGroup>
           {venues.map((v) => (
             <DropdownMenuItem key={v.id} onClick={() => switchVenue(v.id)}>
               <MapPin className="size-4 text-muted-foreground" />
@@ -116,10 +119,12 @@ export function AppTopbar() {
             </Avatar>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" className="w-56">
-            <DropdownMenuLabel className="font-normal">
-              <p className="truncate text-sm font-medium text-foreground">{user.name}</p>
-              <p className="truncate text-xs text-muted-foreground">{user.email}</p>
-            </DropdownMenuLabel>
+            <DropdownMenuGroup>
+              <DropdownMenuLabel className="font-normal">
+                <p className="truncate text-sm font-medium text-foreground">{user.name}</p>
+                <p className="truncate text-xs text-muted-foreground">{user.email}</p>
+              </DropdownMenuLabel>
+            </DropdownMenuGroup>
             <DropdownMenuSeparator />
             <DropdownMenuItem render={<Link href="/settings" />}>
               <Settings className="size-4" />
