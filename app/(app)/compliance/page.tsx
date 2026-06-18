@@ -32,7 +32,7 @@ export default function CompliancePage() {
       <PageHeader
         title="Compliance"
         description="Compliance checks, security audits, documents and certificates — always audit-ready."
-        action={<Button>Log a check</Button>}
+        actions={<Button>Log a check</Button>}
       />
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">

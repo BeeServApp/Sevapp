@@ -1,5 +1,6 @@
 "use client"
 
+import type React from "react"
 import { useRef, useState } from "react"
 import Image from "next/image"
 import { Plus, Upload, X } from "lucide-react"
@@ -23,32 +24,35 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
-import { type Asset } from "@/lib/mock-data"
+import { createAsset } from "@/app/actions/assets"
+import type { AssetCategory, AssetCondition, ViewAsset } from "@/lib/asset-types"
 
-const categories: Asset["category"][] = ["Bar", "Cellar", "Kitchen", "Furniture", "AV & Tech"]
-const conditions: Asset["condition"][] = ["Excellent", "Good", "Fair", "Needs repair"]
+const categories: AssetCategory[] = ["Bar", "Cellar", "Kitchen", "Furniture", "AV & Tech"]
+const conditions: AssetCondition[] = ["Excellent", "Good", "Fair", "Needs repair"]
 
 interface AddAssetDialogProps {
+  venueId: number
   nextAssetNumber: string
-  onAdd: (asset: Asset) => void
+  onCreated: (asset: ViewAsset) => void
 }
 
 const emptyForm = {
   name: "",
   description: "",
-  category: "" as Asset["category"] | "",
+  category: "" as AssetCategory | "",
   serial: "",
   price: "",
   purchaseDate: "",
-  condition: "" as Asset["condition"] | "",
+  condition: "" as AssetCondition | "",
   location: "",
   photo: "",
 }
 
-export function AddAssetDialog({ nextAssetNumber, onAdd }: AddAssetDialogProps) {
+export function AddAssetDialog({ venueId, nextAssetNumber, onCreated }: AddAssetDialogProps) {
   const [open, setOpen] = useState(false)
   const [form, setForm] = useState({ ...emptyForm })
   const [error, setError] = useState<string | null>(null)
+  const [saving, setSaving] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
 
   function update<K extends keyof typeof form>(key: K, value: (typeof form)[K]) {
@@ -65,10 +69,11 @@ export function AddAssetDialog({ nextAssetNumber, onAdd }: AddAssetDialogProps) 
   function reset() {
     setForm({ ...emptyForm })
     setError(null)
+    setSaving(false)
     if (fileInputRef.current) fileInputRef.current.value = ""
   }
 
-  function handleSubmit(e: React.FormEvent) {
+  async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
     if (!form.name.trim()) return setError("Please enter an asset name.")
     if (!form.category) return setError("Please choose a category.")
@@ -76,33 +81,48 @@ export function AddAssetDialog({ nextAssetNumber, onAdd }: AddAssetDialogProps) 
     const priceNum = Number.parseFloat(form.price)
     if (Number.isNaN(priceNum) || priceNum < 0) return setError("Please enter a valid price.")
 
-    const purchaseDate = form.purchaseDate
-      ? new Date(form.purchaseDate).toLocaleDateString("en-GB", {
-          day: "2-digit",
-          month: "short",
-          year: "numeric",
-        })
-      : new Date().toLocaleDateString("en-GB", {
-          day: "2-digit",
-          month: "short",
-          year: "numeric",
-        })
+    const purchaseDate = (form.purchaseDate ? new Date(form.purchaseDate) : new Date()).toLocaleDateString(
+      "en-GB",
+      { day: "2-digit", month: "short", year: "numeric" },
+    )
 
-    onAdd({
-      id: nextAssetNumber,
-      name: form.name.trim(),
-      description: form.description.trim() || "No description provided.",
-      category: form.category,
-      serial: form.serial.trim() || "—",
-      price: priceNum,
-      purchaseDate,
-      condition: form.condition,
-      location: form.location.trim() || "Unassigned",
-      photo: form.photo || "/placeholder.svg",
-    })
+    setError(null)
+    setSaving(true)
+    try {
+      const created = await createAsset({
+        venueId,
+        assetNumber: nextAssetNumber,
+        name: form.name.trim(),
+        description: form.description.trim() || "No description provided.",
+        category: form.category,
+        serial: form.serial.trim() || "—",
+        price: priceNum,
+        purchaseDate,
+        condition: form.condition,
+        location: form.location.trim() || "Unassigned",
+        photo: form.photo || "/placeholder.svg",
+      })
 
-    reset()
-    setOpen(false)
+      onCreated({
+        dbId: created.id,
+        id: created.assetNumber,
+        name: created.name,
+        description: created.description ?? "",
+        category: created.category as AssetCategory,
+        serial: created.serial ?? "—",
+        price: created.price,
+        purchaseDate: created.purchaseDate ?? purchaseDate,
+        condition: created.condition as AssetCondition,
+        location: created.location ?? "Unassigned",
+        photo: created.photo ?? "/placeholder.svg",
+      })
+
+      reset()
+      setOpen(false)
+    } catch (err) {
+      setSaving(false)
+      setError(err instanceof Error ? err.message : "Failed to save asset.")
+    }
   }
 
   return (
@@ -188,7 +208,7 @@ export function AddAssetDialog({ nextAssetNumber, onAdd }: AddAssetDialogProps) 
           <div className="grid gap-4 sm:grid-cols-2">
             <div className="grid gap-2">
               <Label htmlFor="asset-category">Category</Label>
-              <Select value={form.category} onValueChange={(v) => update("category", v as Asset["category"])}>
+              <Select value={form.category} onValueChange={(v) => update("category", v as AssetCategory)}>
                 <SelectTrigger id="asset-category">
                   <SelectValue placeholder="Select" />
                 </SelectTrigger>
@@ -203,7 +223,7 @@ export function AddAssetDialog({ nextAssetNumber, onAdd }: AddAssetDialogProps) 
             </div>
             <div className="grid gap-2">
               <Label htmlFor="asset-condition">Condition</Label>
-              <Select value={form.condition} onValueChange={(v) => update("condition", v as Asset["condition"])}>
+              <Select value={form.condition} onValueChange={(v) => update("condition", v as AssetCondition)}>
                 <SelectTrigger id="asset-condition">
                   <SelectValue placeholder="Select" />
                 </SelectTrigger>
@@ -265,10 +285,12 @@ export function AddAssetDialog({ nextAssetNumber, onAdd }: AddAssetDialogProps) 
           {error && <p className="text-sm text-destructive">{error}</p>}
 
           <DialogFooter>
-            <Button type="button" variant="outline" onClick={() => setOpen(false)}>
+            <Button type="button" variant="outline" onClick={() => setOpen(false)} disabled={saving}>
               Cancel
             </Button>
-            <Button type="submit">Add asset</Button>
+            <Button type="submit" disabled={saving}>
+              {saving ? "Saving..." : "Add asset"}
+            </Button>
           </DialogFooter>
         </form>
       </DialogContent>
