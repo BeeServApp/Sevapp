@@ -113,10 +113,8 @@ export function AddAssetDialog({ nextAssetNumber, onAdd }: AddAssetDialogProps) 
         if (!o) reset()
       }}
     >
-      <DialogTrigger asChild>
-        <Button className="gap-1.5">
-          <Plus className="size-4" /> Add asset
-        </Button>
+      <DialogTrigger render={<Button className="gap-1.5" />}>
+        <Plus className="size-4" /> Add asset
       </DialogTrigger>
       <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-lg">
         <DialogHeader>
