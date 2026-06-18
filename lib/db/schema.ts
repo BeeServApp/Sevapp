@@ -88,6 +88,7 @@ export const asset = pgTable("asset", {
   serial: text("serial"),
   price: integer("price").notNull().default(0),
   purchaseDate: text("purchaseDate"),
+  disposalDate: text("disposalDate"),
   condition: text("condition").notNull().default("Good"),
   location: text("location"),
   photo: text("photo"),

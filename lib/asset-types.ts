@@ -12,6 +12,7 @@ export interface ViewAsset {
   serial: string
   price: number
   purchaseDate: string
+  disposalDate: string
   condition: AssetCondition
   location: string
   photo: string

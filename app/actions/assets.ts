@@ -24,6 +24,7 @@ export async function createAsset(data: {
   serial: string
   price: number
   purchaseDate: string
+  disposalDate: string
   condition: string
   location: string
   photo: string
@@ -43,6 +44,7 @@ export async function createAsset(data: {
       serial: data.serial,
       price: Math.round(data.price),
       purchaseDate: data.purchaseDate,
+      disposalDate: data.disposalDate || null,
       condition: data.condition,
       location: data.location,
       photo: data.photo,
@@ -51,6 +53,45 @@ export async function createAsset(data: {
 
   revalidatePath("/assets")
   return created
+}
+
+export async function updateAsset(
+  id: number,
+  data: {
+    name: string
+    description: string
+    category: string
+    serial: string
+    price: number
+    purchaseDate: string
+    disposalDate: string
+    condition: string
+    location: string
+    photo: string
+  },
+) {
+  const userId = await getUserId()
+  if (!data.name.trim()) throw new Error("Asset name is required")
+
+  const [updated] = await db
+    .update(asset)
+    .set({
+      name: data.name.trim(),
+      description: data.description,
+      category: data.category,
+      serial: data.serial,
+      price: Math.round(data.price),
+      purchaseDate: data.purchaseDate,
+      disposalDate: data.disposalDate || null,
+      condition: data.condition,
+      location: data.location,
+      photo: data.photo,
+    })
+    .where(and(eq(asset.id, id), eq(asset.userId, userId)))
+    .returning()
+
+  revalidatePath("/assets")
+  return updated
 }
 
 export async function deleteAsset(id: number) {

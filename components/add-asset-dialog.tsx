@@ -24,38 +24,98 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
-import { createAsset } from "@/app/actions/assets"
+import { createAsset, updateAsset } from "@/app/actions/assets"
 import type { AssetCategory, AssetCondition, ViewAsset } from "@/lib/asset-types"
 
 const categories: AssetCategory[] = ["Bar", "Cellar", "Kitchen", "Furniture", "AV & Tech"]
 const conditions: AssetCondition[] = ["Excellent", "Good", "Fair", "Needs repair"]
 
-interface AddAssetDialogProps {
+// Convert a display date ("14 Mar 2023") into an <input type="date"> value.
+function toInputDate(display: string): string {
+  if (!display) return ""
+  const t = Date.parse(display)
+  if (Number.isNaN(t)) return ""
+  const d = new Date(t)
+  const m = String(d.getMonth() + 1).padStart(2, "0")
+  const day = String(d.getDate()).padStart(2, "0")
+  return `${d.getFullYear()}-${m}-${day}`
+}
+
+// Format an <input type="date"> value into the app's display format.
+function toDisplayDate(input: string): string {
+  if (!input) return ""
+  return new Date(input).toLocaleDateString("en-GB", {
+    day: "2-digit",
+    month: "short",
+    year: "numeric",
+  })
+}
+
+interface AssetDialogProps {
   venueId: number
-  nextAssetNumber: string
-  onCreated: (asset: ViewAsset) => void
+  mode?: "create" | "edit"
+  asset?: ViewAsset
+  nextAssetNumber?: string
+  onSaved: (asset: ViewAsset) => void
+  open?: boolean
+  onOpenChange?: (open: boolean) => void
 }
 
-const emptyForm = {
-  name: "",
-  description: "",
-  category: "" as AssetCategory | "",
-  serial: "",
-  price: "",
-  purchaseDate: "",
-  condition: "" as AssetCondition | "",
-  location: "",
-  photo: "",
+function emptyForm() {
+  return {
+    name: "",
+    description: "",
+    category: "" as AssetCategory | "",
+    serial: "",
+    price: "",
+    purchaseDate: "",
+    disposalDate: "",
+    condition: "" as AssetCondition | "",
+    location: "",
+    photo: "",
+  }
 }
 
-export function AddAssetDialog({ venueId, nextAssetNumber, onCreated }: AddAssetDialogProps) {
-  const [open, setOpen] = useState(false)
-  const [form, setForm] = useState({ ...emptyForm })
+function formFromAsset(a: ViewAsset) {
+  return {
+    name: a.name,
+    description: a.description === "No description provided." ? "" : a.description,
+    category: a.category,
+    serial: a.serial === "—" ? "" : a.serial,
+    price: String(a.price),
+    purchaseDate: toInputDate(a.purchaseDate),
+    disposalDate: toInputDate(a.disposalDate),
+    condition: a.condition,
+    location: a.location === "Unassigned" ? "" : a.location,
+    photo: a.photo === "/placeholder.svg" ? "" : a.photo,
+  }
+}
+
+export function AssetDialog({
+  venueId,
+  mode = "create",
+  asset,
+  nextAssetNumber,
+  onSaved,
+  open: controlledOpen,
+  onOpenChange,
+}: AssetDialogProps) {
+  const isEdit = mode === "edit"
+  const [uncontrolledOpen, setUncontrolledOpen] = useState(false)
+  const open = controlledOpen ?? uncontrolledOpen
+  const setOpen = onOpenChange ?? setUncontrolledOpen
+
+  const [form, setForm] = useState(() =>
+    isEdit && asset ? formFromAsset(asset) : emptyForm(),
+  )
   const [error, setError] = useState<string | null>(null)
   const [saving, setSaving] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
 
-  function update<K extends keyof typeof form>(key: K, value: (typeof form)[K]) {
+  function update<K extends keyof ReturnType<typeof emptyForm>>(
+    key: K,
+    value: ReturnType<typeof emptyForm>[K],
+  ) {
     setForm((prev) => ({ ...prev, [key]: value }))
   }
 
@@ -66,11 +126,15 @@ export function AddAssetDialog({ venueId, nextAssetNumber, onCreated }: AddAsset
     reader.readAsDataURL(file)
   }
 
-  function reset() {
-    setForm({ ...emptyForm })
-    setError(null)
-    setSaving(false)
-    if (fileInputRef.current) fileInputRef.current.value = ""
+  // When the dialog opens, sync the form with the latest asset (edit) or clear it (create).
+  function handleOpenChange(next: boolean) {
+    if (next) {
+      setForm(isEdit && asset ? formFromAsset(asset) : emptyForm())
+      setError(null)
+      setSaving(false)
+      if (fileInputRef.current) fileInputRef.current.value = ""
+    }
+    setOpen(next)
   }
 
   async function handleSubmit(e: React.FormEvent) {
@@ -80,44 +144,51 @@ export function AddAssetDialog({ venueId, nextAssetNumber, onCreated }: AddAsset
     if (!form.condition) return setError("Please choose a condition.")
     const priceNum = Number.parseFloat(form.price)
     if (Number.isNaN(priceNum) || priceNum < 0) return setError("Please enter a valid price.")
+    if (form.disposalDate && form.purchaseDate && Date.parse(form.disposalDate) < Date.parse(form.purchaseDate)) {
+      return setError("Disposal date cannot be before the purchase date.")
+    }
 
-    const purchaseDate = (form.purchaseDate ? new Date(form.purchaseDate) : new Date()).toLocaleDateString(
-      "en-GB",
-      { day: "2-digit", month: "short", year: "numeric" },
-    )
+    const purchaseDisplay = form.purchaseDate
+      ? toDisplayDate(form.purchaseDate)
+      : new Date().toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" })
+    const disposalDisplay = toDisplayDate(form.disposalDate)
+
+    const payload = {
+      name: form.name.trim(),
+      description: form.description.trim() || "No description provided.",
+      category: form.category,
+      serial: form.serial.trim() || "—",
+      price: priceNum,
+      purchaseDate: purchaseDisplay,
+      disposalDate: disposalDisplay,
+      condition: form.condition,
+      location: form.location.trim() || "Unassigned",
+      photo: form.photo || "/placeholder.svg",
+    }
 
     setError(null)
     setSaving(true)
     try {
-      const created = await createAsset({
-        venueId,
-        assetNumber: nextAssetNumber,
-        name: form.name.trim(),
-        description: form.description.trim() || "No description provided.",
-        category: form.category,
-        serial: form.serial.trim() || "—",
-        price: priceNum,
-        purchaseDate,
-        condition: form.condition,
-        location: form.location.trim() || "Unassigned",
-        photo: form.photo || "/placeholder.svg",
+      const saved =
+        isEdit && asset
+          ? await updateAsset(asset.dbId, payload)
+          : await createAsset({ venueId, assetNumber: nextAssetNumber ?? "AST-001", ...payload })
+
+      onSaved({
+        dbId: saved.id,
+        id: saved.assetNumber,
+        name: saved.name,
+        description: saved.description ?? "",
+        category: saved.category as AssetCategory,
+        serial: saved.serial ?? "—",
+        price: saved.price,
+        purchaseDate: saved.purchaseDate ?? purchaseDisplay,
+        disposalDate: saved.disposalDate ?? "",
+        condition: saved.condition as AssetCondition,
+        location: saved.location ?? "Unassigned",
+        photo: saved.photo ?? "/placeholder.svg",
       })
 
-      onCreated({
-        dbId: created.id,
-        id: created.assetNumber,
-        name: created.name,
-        description: created.description ?? "",
-        category: created.category as AssetCategory,
-        serial: created.serial ?? "—",
-        price: created.price,
-        purchaseDate: created.purchaseDate ?? purchaseDate,
-        condition: created.condition as AssetCondition,
-        location: created.location ?? "Unassigned",
-        photo: created.photo ?? "/placeholder.svg",
-      })
-
-      reset()
       setOpen(false)
     } catch (err) {
       setSaving(false)
@@ -126,21 +197,19 @@ export function AddAssetDialog({ venueId, nextAssetNumber, onCreated }: AddAsset
   }
 
   return (
-    <Dialog
-      open={open}
-      onOpenChange={(o) => {
-        setOpen(o)
-        if (!o) reset()
-      }}
-    >
-      <DialogTrigger render={<Button className="gap-1.5" />}>
-        <Plus className="size-4" /> Add asset
-      </DialogTrigger>
+    <Dialog open={open} onOpenChange={handleOpenChange}>
+      {!isEdit && (
+        <DialogTrigger render={<Button className="gap-1.5" />}>
+          <Plus className="size-4" /> Add asset
+        </DialogTrigger>
+      )}
       <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-lg">
         <DialogHeader>
-          <DialogTitle>Add asset</DialogTitle>
+          <DialogTitle>{isEdit ? "Edit asset" : "Add asset"}</DialogTitle>
           <DialogDescription>
-            Register a new fixture or fitting. Asset number {nextAssetNumber} will be assigned.
+            {isEdit
+              ? `Update the details for ${asset?.id}.`
+              : `Register a new fixture or fitting. Asset number ${nextAssetNumber} will be assigned.`}
           </DialogDescription>
         </DialogHeader>
 
@@ -272,14 +341,26 @@ export function AddAssetDialog({ venueId, nextAssetNumber, onCreated }: AddAsset
             </div>
           </div>
 
-          <div className="grid gap-2">
-            <Label htmlFor="asset-location">Location</Label>
-            <Input
-              id="asset-location"
-              value={form.location}
-              onChange={(e) => update("location", e.target.value)}
-              placeholder="e.g. Main Bar"
-            />
+          <div className="grid gap-4 sm:grid-cols-2">
+            <div className="grid gap-2">
+              <Label htmlFor="asset-location">Location</Label>
+              <Input
+                id="asset-location"
+                value={form.location}
+                onChange={(e) => update("location", e.target.value)}
+                placeholder="e.g. Main Bar"
+              />
+            </div>
+            <div className="grid gap-2">
+              <Label htmlFor="asset-disposal">Disposal date</Label>
+              <Input
+                id="asset-disposal"
+                type="date"
+                value={form.disposalDate}
+                onChange={(e) => update("disposalDate", e.target.value)}
+              />
+              <p className="text-xs text-muted-foreground">Leave blank if still in use.</p>
+            </div>
           </div>
 
           {error && <p className="text-sm text-destructive">{error}</p>}
@@ -289,7 +370,7 @@ export function AddAssetDialog({ venueId, nextAssetNumber, onCreated }: AddAsset
               Cancel
             </Button>
             <Button type="submit" disabled={saving}>
-              {saving ? "Saving..." : "Add asset"}
+              {saving ? "Saving..." : isEdit ? "Save changes" : "Add asset"}
             </Button>
           </DialogFooter>
         </form>

@@ -2,10 +2,11 @@
 
 import { useMemo, useState } from "react"
 import Image from "next/image"
-import { Package, PoundSterling, Layers, CalendarClock } from "lucide-react"
+import { Package, PoundSterling, Layers, CalendarClock, MoreVertical, Pencil, Trash2 } from "lucide-react"
 import { PageHeader } from "@/components/page-header"
-import { AddAssetDialog } from "@/components/add-asset-dialog"
+import { AssetDialog } from "@/components/add-asset-dialog"
 import { Badge } from "@/components/ui/badge"
+import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import {
@@ -16,6 +17,23 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table"
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog"
+import { deleteAsset } from "@/app/actions/assets"
 import type { AssetCondition, ViewAsset } from "@/lib/asset-types"
 import { cn } from "@/lib/utils"
 
@@ -48,12 +66,43 @@ function ConditionBadge({ condition }: { condition: AssetCondition }) {
   )
 }
 
+function DisposedBadge() {
+  return (
+    <Badge variant="outline" className="border-transparent bg-muted font-medium text-muted-foreground">
+      Disposed
+    </Badge>
+  )
+}
+
 function nextAssetNumber(list: ViewAsset[]) {
   const max = list.reduce((m, a) => {
     const n = Number.parseInt(a.id.replace(/\D/g, ""), 10)
     return Number.isNaN(n) ? m : Math.max(m, n)
   }, 0)
   return `AST-${String(max + 1).padStart(3, "0")}`
+}
+
+function AssetActions({ onEdit, onDelete }: { onEdit: () => void; onDelete: () => void }) {
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger
+        render={
+          <Button variant="ghost" size="icon" className="size-8 shrink-0">
+            <MoreVertical className="size-4" />
+            <span className="sr-only">Asset actions</span>
+          </Button>
+        }
+      />
+      <DropdownMenuContent align="end">
+        <DropdownMenuItem onClick={onEdit}>
+          <Pencil className="size-4" /> Edit
+        </DropdownMenuItem>
+        <DropdownMenuItem variant="destructive" onClick={onDelete}>
+          <Trash2 className="size-4" /> Remove
+        </DropdownMenuItem>
+      </DropdownMenuContent>
+    </DropdownMenu>
+  )
 }
 
 export function AssetsView({
@@ -64,40 +113,72 @@ export function AssetsView({
   venueId: number
 }) {
   const [assets, setAssets] = useState<ViewAsset[]>(initialAssets)
+  const [editing, setEditing] = useState<ViewAsset | null>(null)
+  const [deleting, setDeleting] = useState<ViewAsset | null>(null)
+  const [removing, setRemoving] = useState(false)
 
-  const totalValue = useMemo(() => assets.reduce((sum, a) => sum + a.price, 0), [assets])
+  // Disposed assets are no longer owned, so they are excluded from current value.
+  const activeAssets = useMemo(() => assets.filter((a) => !a.disposalDate), [assets])
+  const disposedCount = assets.length - activeAssets.length
+
+  const totalValue = useMemo(
+    () => activeAssets.reduce((sum, a) => sum + a.price, 0),
+    [activeAssets],
+  )
 
   const summary = useMemo(() => {
-    const mostRecent = [...assets].sort(
+    const mostRecent = [...activeAssets].sort(
       (a, b) => Date.parse(b.purchaseDate) - Date.parse(a.purchaseDate),
     )[0]
     return [
       { label: "Total fittings value", value: gbp.format(totalValue), icon: PoundSterling },
-      { label: "Tracked assets", value: String(assets.length), icon: Package },
+      {
+        label: "Active assets",
+        value: String(activeAssets.length),
+        icon: Package,
+        sub: disposedCount > 0 ? `${disposedCount} disposed` : undefined,
+      },
       {
         label: "Categories",
-        value: String(new Set(assets.map((a) => a.category)).size),
+        value: String(new Set(activeAssets.map((a) => a.category)).size),
         icon: Layers,
       },
       { label: "Latest purchase", value: mostRecent?.purchaseDate ?? "—", icon: CalendarClock },
     ]
-  }, [assets, totalValue])
+  }, [activeAssets, totalValue, disposedCount])
 
   const categoryValues = useMemo(
     () =>
       Object.entries(
-        assets.reduce<Record<string, number>>((acc, a) => {
+        activeAssets.reduce<Record<string, number>>((acc, a) => {
           acc[a.category] = (acc[a.category] ?? 0) + a.price
           return acc
         }, {}),
       )
         .map(([category, value]) => ({ category, value }))
         .sort((a, b) => b.value - a.value),
-    [assets],
+    [activeAssets],
   )
 
   function handleCreated(asset: ViewAsset) {
     setAssets((prev) => [asset, ...prev])
+  }
+
+  function handleUpdated(updated: ViewAsset) {
+    setAssets((prev) => prev.map((a) => (a.dbId === updated.dbId ? updated : a)))
+    setEditing(null)
+  }
+
+  async function handleDelete() {
+    if (!deleting) return
+    setRemoving(true)
+    try {
+      await deleteAsset(deleting.dbId)
+      setAssets((prev) => prev.filter((a) => a.dbId !== deleting.dbId))
+      setDeleting(null)
+    } finally {
+      setRemoving(false)
+    }
   }
 
   return (
@@ -106,10 +187,10 @@ export function AssetsView({
         title="Asset Tracking"
         description="Register and value the venue's fixtures and fittings."
         actions={
-          <AddAssetDialog
+          <AssetDialog
             venueId={venueId}
             nextAssetNumber={nextAssetNumber(assets)}
-            onCreated={handleCreated}
+            onSaved={handleCreated}
           />
         }
       />
@@ -123,18 +204,19 @@ export function AssetsView({
               <Icon className="size-4 text-muted-foreground" />
               <p className="mt-2 text-2xl font-semibold tracking-tight text-foreground">{s.value}</p>
               <p className="text-xs text-muted-foreground">{s.label}</p>
+              {s.sub && <p className="mt-0.5 text-xs text-muted-foreground/80">{s.sub}</p>}
             </Card>
           )
         })}
       </div>
 
       {/* Value by category */}
-      {assets.length > 0 && (
+      {activeAssets.length > 0 && (
         <Card className="mt-4">
           <CardHeader>
             <CardTitle>Fittings value by category</CardTitle>
             <p className="mt-1 text-sm text-muted-foreground">
-              Total replacement value across {assets.length} tracked assets
+              Total replacement value across {activeAssets.length} active assets
             </p>
           </CardHeader>
           <CardContent>
@@ -184,14 +266,17 @@ export function AssetsView({
           ) : (
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
               {assets.map((a) => (
-                <Card key={a.dbId} className="gap-0 overflow-hidden p-0">
+                <Card
+                  key={a.dbId}
+                  className={cn("gap-0 overflow-hidden p-0", a.disposalDate && "opacity-75")}
+                >
                   <div className="relative aspect-[4/3] w-full bg-muted">
                     <Image
                       src={a.photo || "/placeholder.svg"}
                       alt={a.name}
                       fill
                       sizes="(max-width: 768px) 100vw, 33vw"
-                      className="object-cover"
+                      className={cn("object-cover", a.disposalDate && "grayscale")}
                     />
                     <Badge
                       variant="outline"
@@ -203,7 +288,10 @@ export function AssetsView({
                   <CardContent className="flex flex-1 flex-col p-4">
                     <div className="flex items-start justify-between gap-2">
                       <p className="font-medium text-foreground">{a.name}</p>
-                      <ConditionBadge condition={a.condition} />
+                      <div className="flex items-center gap-1">
+                        {a.disposalDate ? <DisposedBadge /> : <ConditionBadge condition={a.condition} />}
+                        <AssetActions onEdit={() => setEditing(a)} onDelete={() => setDeleting(a)} />
+                      </div>
                     </div>
                     <p className="mt-1 text-sm text-muted-foreground">{a.description}</p>
                     <dl className="mt-4 grid grid-cols-2 gap-y-2 border-t border-border pt-3 text-sm">
@@ -213,6 +301,12 @@ export function AssetsView({
                       <dd className="text-right text-foreground">{a.location}</dd>
                       <dt className="text-muted-foreground">Purchased</dt>
                       <dd className="text-right text-foreground">{a.purchaseDate}</dd>
+                      {a.disposalDate && (
+                        <>
+                          <dt className="text-muted-foreground">Disposed</dt>
+                          <dd className="text-right text-foreground">{a.disposalDate}</dd>
+                        </>
+                      )}
                       <dt className="text-muted-foreground">Price</dt>
                       <dd className="text-right font-semibold text-foreground tabular-nums">
                         {gbp.format(a.price)}
@@ -237,13 +331,14 @@ export function AssetsView({
                     <TableHead>Serial</TableHead>
                     <TableHead>Category</TableHead>
                     <TableHead>Purchased</TableHead>
-                    <TableHead>Condition</TableHead>
+                    <TableHead>Status</TableHead>
                     <TableHead className="text-right">Price</TableHead>
+                    <TableHead className="w-10" />
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {assets.map((a) => (
-                    <TableRow key={a.dbId}>
+                    <TableRow key={a.dbId} className={cn(a.disposalDate && "opacity-75")}>
                       <TableCell className="font-medium">{a.id}</TableCell>
                       <TableCell>
                         <div className="flex items-center gap-3">
@@ -252,7 +347,10 @@ export function AssetsView({
                             alt={a.name}
                             width={40}
                             height={40}
-                            className="size-10 shrink-0 rounded-md object-cover"
+                            className={cn(
+                              "size-10 shrink-0 rounded-md object-cover",
+                              a.disposalDate && "grayscale",
+                            )}
                           />
                           <span className="min-w-0">{a.name}</span>
                         </div>
@@ -261,20 +359,24 @@ export function AssetsView({
                       <TableCell className="text-muted-foreground">{a.category}</TableCell>
                       <TableCell className="text-muted-foreground">{a.purchaseDate}</TableCell>
                       <TableCell>
-                        <ConditionBadge condition={a.condition} />
+                        {a.disposalDate ? <DisposedBadge /> : <ConditionBadge condition={a.condition} />}
                       </TableCell>
                       <TableCell className="text-right font-medium tabular-nums">
                         {gbp.format(a.price)}
+                      </TableCell>
+                      <TableCell>
+                        <AssetActions onEdit={() => setEditing(a)} onDelete={() => setDeleting(a)} />
                       </TableCell>
                     </TableRow>
                   ))}
                   <TableRow className="border-t-2">
                     <TableCell colSpan={6} className="font-medium">
-                      Total fittings value
+                      Total fittings value (active)
                     </TableCell>
                     <TableCell className="text-right text-base font-semibold tabular-nums">
                       {gbp.format(totalValue)}
                     </TableCell>
+                    <TableCell />
                   </TableRow>
                 </TableBody>
               </Table>
@@ -282,6 +384,41 @@ export function AssetsView({
           </Card>
         </TabsContent>
       </Tabs>
+
+      {/* Edit dialog (controlled) */}
+      {editing && (
+        <AssetDialog
+          venueId={venueId}
+          mode="edit"
+          asset={editing}
+          onSaved={handleUpdated}
+          open={!!editing}
+          onOpenChange={(o) => !o && setEditing(null)}
+        />
+      )}
+
+      {/* Delete confirmation */}
+      <AlertDialog open={!!deleting} onOpenChange={(o) => !o && setDeleting(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Remove asset?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This permanently removes {deleting?.id} – {deleting?.name} from the register. This cannot be
+              undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={removing}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              variant="destructive"
+              onClick={handleDelete}
+              disabled={removing}
+            >
+              {removing ? "Removing..." : "Remove asset"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </>
   )
 }

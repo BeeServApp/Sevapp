@@ -27,6 +27,7 @@ export default async function AssetsPage() {
     serial: a.serial ?? "—",
     price: a.price,
     purchaseDate: a.purchaseDate ?? "",
+    disposalDate: a.disposalDate ?? "",
     condition: a.condition as AssetCondition,
     location: a.location ?? "Unassigned",
     photo: a.photo ?? "/placeholder.svg",
