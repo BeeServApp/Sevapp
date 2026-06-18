@@ -1,9 +1,10 @@
 "use client"
 
+import { useMemo, useState } from "react"
 import Image from "next/image"
-import { Plus, Package, PoundSterling, Layers, CalendarClock } from "lucide-react"
+import { Package, PoundSterling, Layers, CalendarClock } from "lucide-react"
 import { PageHeader } from "@/components/page-header"
-import { Button } from "@/components/ui/button"
+import { AddAssetDialog } from "@/components/add-asset-dialog"
 import { Badge } from "@/components/ui/badge"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
@@ -15,7 +16,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table"
-import { assets, type Asset } from "@/lib/mock-data"
+import { assets as seedAssets, type Asset } from "@/lib/mock-data"
 import { cn } from "@/lib/utils"
 
 const gbp = new Intl.NumberFormat("en-GB", {
@@ -23,32 +24,6 @@ const gbp = new Intl.NumberFormat("en-GB", {
   currency: "GBP",
   maximumFractionDigits: 0,
 })
-
-const totalValue = assets.reduce((sum, a) => sum + a.price, 0)
-const mostRecent = [...assets].sort(
-  (a, b) => Date.parse(b.purchaseDate) - Date.parse(a.purchaseDate),
-)[0]
-
-const summary = [
-  { label: "Total fittings value", value: gbp.format(totalValue), icon: PoundSterling },
-  { label: "Tracked assets", value: String(assets.length), icon: Package },
-  {
-    label: "Categories",
-    value: String(new Set(assets.map((a) => a.category)).size),
-    icon: Layers,
-  },
-  { label: "Latest purchase", value: mostRecent.purchaseDate, icon: CalendarClock },
-]
-
-// Value grouped by category for the breakdown bar.
-const categoryValues = Object.entries(
-  assets.reduce<Record<string, number>>((acc, a) => {
-    acc[a.category] = (acc[a.category] ?? 0) + a.price
-    return acc
-  }, {}),
-)
-  .map(([category, value]) => ({ category, value }))
-  .sort((a, b) => b.value - a.value)
 
 const categoryColors = [
   "var(--color-chart-1)",
@@ -73,17 +48,58 @@ function ConditionBadge({ condition }: { condition: Asset["condition"] }) {
   )
 }
 
+function nextAssetNumber(list: Asset[]) {
+  const max = list.reduce((m, a) => {
+    const n = Number.parseInt(a.id.replace(/\D/g, ""), 10)
+    return Number.isNaN(n) ? m : Math.max(m, n)
+  }, 0)
+  return `AST-${String(max + 1).padStart(3, "0")}`
+}
+
 export default function AssetsPage() {
+  const [assets, setAssets] = useState<Asset[]>(seedAssets)
+
+  const totalValue = useMemo(() => assets.reduce((sum, a) => sum + a.price, 0), [assets])
+
+  const summary = useMemo(() => {
+    const mostRecent = [...assets].sort(
+      (a, b) => Date.parse(b.purchaseDate) - Date.parse(a.purchaseDate),
+    )[0]
+    return [
+      { label: "Total fittings value", value: gbp.format(totalValue), icon: PoundSterling },
+      { label: "Tracked assets", value: String(assets.length), icon: Package },
+      {
+        label: "Categories",
+        value: String(new Set(assets.map((a) => a.category)).size),
+        icon: Layers,
+      },
+      { label: "Latest purchase", value: mostRecent?.purchaseDate ?? "—", icon: CalendarClock },
+    ]
+  }, [assets, totalValue])
+
+  const categoryValues = useMemo(
+    () =>
+      Object.entries(
+        assets.reduce<Record<string, number>>((acc, a) => {
+          acc[a.category] = (acc[a.category] ?? 0) + a.price
+          return acc
+        }, {}),
+      )
+        .map(([category, value]) => ({ category, value }))
+        .sort((a, b) => b.value - a.value),
+    [assets],
+  )
+
+  function handleAdd(asset: Asset) {
+    setAssets((prev) => [asset, ...prev])
+  }
+
   return (
     <>
       <PageHeader
         title="Asset Tracking"
         description="Register and value the venue's fixtures and fittings."
-        actions={
-          <Button className="gap-1.5">
-            <Plus className="size-4" /> Add asset
-          </Button>
-        }
+        actions={<AddAssetDialog nextAssetNumber={nextAssetNumber(assets)} onAdd={handleAdd} />}
       />
 
       {/* Summary dashboard */}
