@@ -44,6 +44,7 @@ export function AppTopbar() {
   }
 
   return (
+    <>
     <header className="sticky top-0 z-30 flex h-16 items-center gap-3 border-b border-border bg-card/80 px-4 backdrop-blur md:px-6">
       <Button
         variant="ghost"
@@ -139,6 +140,8 @@ export function AppTopbar() {
         </DropdownMenu>
       </div>
 
+    </header>
+
       {mobileOpen && (
         <div className="fixed inset-0 z-50 md:hidden">
           <div className="absolute inset-0 bg-foreground/40" onClick={() => setMobileOpen(false)} />
@@ -147,6 +150,6 @@ export function AppTopbar() {
           </div>
         </div>
       )}
-    </header>
+    </>
   )
 }
