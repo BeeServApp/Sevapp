@@ -63,6 +63,7 @@ interface AssetDialogProps {
 
 function emptyForm() {
   return {
+    assetNumber: "",
     name: "",
     description: "",
     category: "" as AssetCategory | "",
@@ -78,6 +79,7 @@ function emptyForm() {
 
 function formFromAsset(a: ViewAsset) {
   return {
+    assetNumber: a.id,
     name: a.name,
     description: a.description === "No description provided." ? "" : a.description,
     category: a.category,
@@ -139,6 +141,7 @@ export function AssetDialog({
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
+    if (isEdit && !form.assetNumber.trim()) return setError("Please enter an asset number.")
     if (!form.name.trim()) return setError("Please enter an asset name.")
     if (!form.category) return setError("Please choose a category.")
     if (!form.condition) return setError("Please choose a condition.")
@@ -171,7 +174,7 @@ export function AssetDialog({
     try {
       const saved =
         isEdit && asset
-          ? await updateAsset(asset.dbId, payload)
+          ? await updateAsset(asset.dbId, { assetNumber: form.assetNumber.trim(), ...payload })
           : await createAsset({ venueId, assetNumber: nextAssetNumber ?? "AST-001", ...payload })
 
       onSaved({
@@ -252,6 +255,18 @@ export function AssetDialog({
               </button>
             )}
           </div>
+
+          {isEdit && (
+            <div className="grid gap-2">
+              <Label htmlFor="asset-number">Asset number</Label>
+              <Input
+                id="asset-number"
+                value={form.assetNumber}
+                onChange={(e) => update("assetNumber", e.target.value)}
+                placeholder="e.g. AST-001"
+              />
+            </div>
+          )}
 
           <div className="grid gap-2">
             <Label htmlFor="asset-name">Name</Label>

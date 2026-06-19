@@ -58,6 +58,7 @@ export async function createAsset(data: {
 export async function updateAsset(
   id: number,
   data: {
+    assetNumber: string
     name: string
     description: string
     category: string
@@ -72,10 +73,12 @@ export async function updateAsset(
 ) {
   const userId = await getUserId()
   if (!data.name.trim()) throw new Error("Asset name is required")
+  if (!data.assetNumber.trim()) throw new Error("Asset number is required")
 
   const [updated] = await db
     .update(asset)
     .set({
+      assetNumber: data.assetNumber.trim(),
       name: data.name.trim(),
       description: data.description,
       category: data.category,

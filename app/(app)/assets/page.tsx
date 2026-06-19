@@ -33,5 +33,5 @@ export default async function AssetsPage() {
     photo: a.photo ?? "/placeholder.svg",
   }))
 
-  return <AssetsView initialAssets={assets} venueId={venueId} />
+  return <AssetsView key={venueId} initialAssets={assets} venueId={venueId} />
 }
