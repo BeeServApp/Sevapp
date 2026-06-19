@@ -108,7 +108,9 @@ export function AssetDialog({
   const setOpen = onOpenChange ?? setUncontrolledOpen
 
   const [form, setForm] = useState(() =>
-    isEdit && asset ? formFromAsset(asset) : emptyForm(),
+    isEdit && asset
+      ? formFromAsset(asset)
+      : { ...emptyForm(), assetNumber: nextAssetNumber ?? "" },
   )
   const [error, setError] = useState<string | null>(null)
   const [saving, setSaving] = useState(false)
@@ -131,7 +133,11 @@ export function AssetDialog({
   // When the dialog opens, sync the form with the latest asset (edit) or clear it (create).
   function handleOpenChange(next: boolean) {
     if (next) {
-      setForm(isEdit && asset ? formFromAsset(asset) : emptyForm())
+      setForm(
+        isEdit && asset
+          ? formFromAsset(asset)
+          : { ...emptyForm(), assetNumber: nextAssetNumber ?? "" },
+      )
       setError(null)
       setSaving(false)
       if (fileInputRef.current) fileInputRef.current.value = ""
@@ -141,7 +147,7 @@ export function AssetDialog({
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
-    if (isEdit && !form.assetNumber.trim()) return setError("Please enter an asset number.")
+    if (!form.assetNumber.trim()) return setError("Please enter an asset number.")
     if (!form.name.trim()) return setError("Please enter an asset name.")
     if (!form.category) return setError("Please choose a category.")
     if (!form.condition) return setError("Please choose a condition.")
@@ -175,7 +181,7 @@ export function AssetDialog({
       const saved =
         isEdit && asset
           ? await updateAsset(asset.dbId, { assetNumber: form.assetNumber.trim(), ...payload })
-          : await createAsset({ venueId, assetNumber: nextAssetNumber ?? "AST-001", ...payload })
+          : await createAsset({ venueId, assetNumber: form.assetNumber.trim(), ...payload })
 
       onSaved({
         dbId: saved.id,
@@ -212,7 +218,7 @@ export function AssetDialog({
           <DialogDescription>
             {isEdit
               ? `Update the details for ${asset?.id}.`
-              : `Register a new fixture or fitting. Asset number ${nextAssetNumber} will be assigned.`}
+              : "Register a new fixture or fitting. You can edit the suggested asset number below."}
           </DialogDescription>
         </DialogHeader>
 
@@ -256,17 +262,15 @@ export function AssetDialog({
             )}
           </div>
 
-          {isEdit && (
-            <div className="grid gap-2">
-              <Label htmlFor="asset-number">Asset number</Label>
-              <Input
-                id="asset-number"
-                value={form.assetNumber}
-                onChange={(e) => update("assetNumber", e.target.value)}
-                placeholder="e.g. AST-001"
-              />
-            </div>
-          )}
+          <div className="grid gap-2">
+            <Label htmlFor="asset-number">Asset number</Label>
+            <Input
+              id="asset-number"
+              value={form.assetNumber}
+              onChange={(e) => update("assetNumber", e.target.value)}
+              placeholder="e.g. AST-001"
+            />
+          </div>
 
           <div className="grid gap-2">
             <Label htmlFor="asset-name">Name</Label>
