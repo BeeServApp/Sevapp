@@ -18,7 +18,7 @@ import { cn } from "@/lib/utils"
 const sections = [
   {
     label: "Workspace",
-    items: [{ href: "/", label: "Dashboard", icon: LayoutDashboard }],
+    items: [{ href: "/dashboard", label: "Dashboard", icon: LayoutDashboard }],
   },
   {
     label: "Modules",
@@ -56,8 +56,8 @@ export function AppSidebar({ onNavigate }: { onNavigate?: () => void }) {
             <ul className="flex flex-col gap-1">
               {section.items.map((item) => {
                 const active =
-                  item.href === "/"
-                    ? pathname === "/"
+                  item.href === "/dashboard"
+                    ? pathname === "/dashboard"
                     : pathname.startsWith(item.href)
                 const Icon = item.icon
                 return (
