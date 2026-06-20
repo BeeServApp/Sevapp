@@ -37,13 +37,13 @@ export function AppSidebar({ onNavigate }: { onNavigate?: () => void }) {
 
   return (
     <aside className="flex h-full w-64 flex-col bg-sidebar text-sidebar-foreground">
-      <div className="flex h-16 items-center border-b border-sidebar-border px-5">
+      <div className="flex h-20 items-center border-b border-sidebar-border px-5">
         <Image
           src="/beeserv-logo-black.png"
           alt="Beeserv — Serving Hospitality Operators"
-          width={140}
-          height={40}
-          className="h-9 w-auto object-contain"
+          width={200}
+          height={58}
+          className="h-12 w-auto object-contain"
           priority
         />
       </div>

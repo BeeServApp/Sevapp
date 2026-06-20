@@ -44,13 +44,13 @@ export function AuthForm({ mode }: { mode: "sign-in" | "sign-up" }) {
   return (
     <main className="flex min-h-svh items-center justify-center bg-background px-4">
       <div className="w-full max-w-sm">
-        <div className="mb-6 flex justify-center">
+        <div className="mb-8 flex justify-center">
           <Image
             src="/beeserv-logo-black.png"
             alt="Beeserv — Serving Hospitality Operators"
-            width={180}
-            height={52}
-            className="h-12 w-auto object-contain"
+            width={280}
+            height={80}
+            className="h-16 w-auto object-contain"
             priority
           />
         </div>

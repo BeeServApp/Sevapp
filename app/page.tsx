@@ -25,14 +25,14 @@ export default async function LandingPage() {
     <div className="flex min-h-screen flex-col bg-background text-foreground">
       {/* ── Nav ──────────────────────────────────────────────────── */}
       <header className="sticky top-0 z-50 border-b border-border bg-card/80 backdrop-blur">
-        <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-4 md:px-8">
+        <div className="mx-auto flex h-20 max-w-7xl items-center justify-between px-4 md:px-8">
           <Link href="/" className="flex items-center">
             <Image
               src="/beeserv-logo-black.png"
               alt="Beeserv — Serving Hospitality Operators"
-              width={140}
-              height={40}
-              className="h-9 w-auto object-contain"
+              width={220}
+              height={64}
+              className="h-12 w-auto object-contain md:h-14"
               priority
             />
           </Link>
@@ -287,6 +287,13 @@ export default async function LandingPage() {
       {/* ── CTA ──────────────────────────────────────────────────── */}
       <section className="border-t border-border bg-primary py-20 text-primary-foreground">
         <div className="mx-auto max-w-2xl px-4 text-center md:px-8">
+          <Image
+            src="/beeserv-logo-white.png"
+            alt="Beeserv — Serving Hospitality Operators"
+            width={240}
+            height={70}
+            className="mx-auto mb-8 h-14 w-auto object-contain md:h-16"
+          />
           <h2 className="text-balance font-heading text-3xl font-bold tracking-tight md:text-4xl">
             Ready to take control of your venue?
           </h2>
@@ -316,9 +323,9 @@ export default async function LandingPage() {
           <Image
             src="/beeserv-logo-black.png"
             alt="Beeserv"
-            width={120}
-            height={36}
-            className="h-8 w-auto object-contain"
+            width={180}
+            height={52}
+            className="h-12 w-auto object-contain"
           />
           <p className="text-center">
             &copy; {new Date().getFullYear()} Beeserv. Serving hospitality operators.
