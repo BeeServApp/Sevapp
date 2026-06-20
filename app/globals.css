@@ -178,3 +178,27 @@
     letter-spacing: -0.01em;
   }
 }
+
+/* Theme-aware brand logo visibility.
+   Matches the same conditions that flip the color tokens:
+   the .dark class and the prefers-color-scheme media query. */
+.logo-light {
+  display: block;
+}
+.logo-dark {
+  display: none;
+}
+.dark .logo-light {
+  display: none;
+}
+.dark .logo-dark {
+  display: block;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not(.light) .logo-light {
+    display: none;
+  }
+  :root:not(.light) .logo-dark {
+    display: block;
+  }
+}

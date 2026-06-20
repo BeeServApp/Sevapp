@@ -1,5 +1,5 @@
 import Link from "next/link"
-import Image from "next/image"
+import { BrandLogo } from "@/components/brand-logo"
 import {
   ClipboardList,
   Wallet,
@@ -27,14 +27,7 @@ export default async function LandingPage() {
       <header className="sticky top-0 z-50 border-b border-border bg-card/80 backdrop-blur">
         <div className="mx-auto flex h-20 max-w-7xl items-center justify-between px-4 md:px-8">
           <Link href="/" className="flex items-center">
-            <Image
-              src="/beeserv-logo-black.png"
-              alt="Beeserv — Serving Hospitality Operators"
-              width={220}
-              height={64}
-              className="h-12 w-auto object-contain md:h-14"
-              priority
-            />
+            <BrandLogo className="h-12 md:h-14" priority />
           </Link>
 
           <nav className="hidden items-center gap-6 md:flex">
@@ -287,13 +280,7 @@ export default async function LandingPage() {
       {/* ── CTA ──────────────────────────────────────────────────── */}
       <section className="border-t border-border bg-primary py-20 text-primary-foreground">
         <div className="mx-auto max-w-2xl px-4 text-center md:px-8">
-          <Image
-            src="/beeserv-logo-white.png"
-            alt="Beeserv — Serving Hospitality Operators"
-            width={240}
-            height={70}
-            className="mx-auto mb-8 h-14 w-auto object-contain md:h-16"
-          />
+          <BrandLogo variant="onPrimary" className="mx-auto mb-8 h-14 md:h-16" />
           <h2 className="text-balance font-heading text-3xl font-bold tracking-tight md:text-4xl">
             Ready to take control of your venue?
           </h2>
@@ -320,13 +307,7 @@ export default async function LandingPage() {
       {/* ── Footer ───────────────────────────────────────────────── */}
       <footer className="border-t border-border bg-card">
         <div className="mx-auto flex max-w-7xl flex-col items-center justify-between gap-4 px-4 py-8 text-sm text-muted-foreground md:flex-row md:px-8">
-          <Image
-            src="/beeserv-logo-black.png"
-            alt="Beeserv"
-            width={180}
-            height={52}
-            className="h-12 w-auto object-contain"
-          />
+          <BrandLogo className="h-12" />
           <p className="text-center">
             &copy; {new Date().getFullYear()} Beeserv. Serving hospitality operators.
           </p>

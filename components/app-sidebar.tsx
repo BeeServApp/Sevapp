@@ -1,8 +1,8 @@
 "use client"
 
 import Link from "next/link"
-import Image from "next/image"
 import { usePathname } from "next/navigation"
+import { BrandLogo } from "@/components/brand-logo"
 import {
   LayoutDashboard,
   ClipboardList,
@@ -38,14 +38,7 @@ export function AppSidebar({ onNavigate }: { onNavigate?: () => void }) {
   return (
     <aside className="flex h-full w-64 flex-col bg-sidebar text-sidebar-foreground">
       <div className="flex h-20 items-center border-b border-sidebar-border px-5">
-        <Image
-          src="/beeserv-logo-black.png"
-          alt="Beeserv — Serving Hospitality Operators"
-          width={200}
-          height={58}
-          className="h-12 w-auto object-contain"
-          priority
-        />
+        <BrandLogo className="h-12" priority />
       </div>
 
       <nav className="flex-1 overflow-y-auto px-3 py-5">
