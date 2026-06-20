@@ -15,26 +15,13 @@ const poppins = Poppins({
 })
 
 export const metadata: Metadata = {
-  title: 'Tapsheet — Pub & Hospitality Operations',
+  title: 'Beeserv — Serving Hospitality Operators',
   description:
-    'Run your venue from one dashboard: operations, financials, staff & scheduling, and compliance.',
+    'Run your venue from one dashboard: operations, financials, staff & scheduling, asset tracking, and compliance.',
   generator: 'v0.app',
   icons: {
-    icon: [
-      {
-        url: '/icon-light-32x32.png',
-        media: '(prefers-color-scheme: light)',
-      },
-      {
-        url: '/icon-dark-32x32.png',
-        media: '(prefers-color-scheme: dark)',
-      },
-      {
-        url: '/icon.svg',
-        type: 'image/svg+xml',
-      },
-    ],
-    apple: '/apple-icon.png',
+    icon: '/beeserv-icon.png',
+    apple: '/beeserv-icon.png',
   },
 }
 

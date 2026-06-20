@@ -260,6 +260,18 @@ export const expense = pgTable("expense", {
   createdAt: timestamp("createdAt").notNull().defaultNow(),
 })
 
+export const takings = pgTable("takings", {
+  id: serial("id").primaryKey(),
+  userId: text("userId").notNull(),
+  venueId: integer("venueId").notNull(),
+  dateISO: text("dateISO").notNull(),
+  wetPence: integer("wetPence").notNull().default(0),
+  foodPence: integer("foodPence").notNull().default(0),
+  eventsPence: integer("eventsPence").notNull().default(0),
+  retailPence: integer("retailPence").notNull().default(0),
+  createdAt: timestamp("createdAt").notNull().defaultNow(),
+})
+
 export type Venue = typeof venue.$inferSelect
 export type Member = typeof member.$inferSelect
 export type DbAsset = typeof asset.$inferSelect
@@ -276,3 +288,4 @@ export type DbRotaShift = typeof rotaShift.$inferSelect
 export type DbLeaveRequest = typeof leaveRequest.$inferSelect
 export type DbClockEvent = typeof clockEvent.$inferSelect
 export type DbExpense = typeof expense.$inferSelect
+export type DbTakings = typeof takings.$inferSelect

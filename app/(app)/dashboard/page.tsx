@@ -10,18 +10,25 @@ import Link from "next/link"
 import { PageHeader } from "@/components/page-header"
 import { StatCard } from "@/components/stat-card"
 import { StatusBadge } from "@/components/status-badge"
-import { Button, buttonVariants } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { buttonVariants } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
 import { RevenueChart, SalesMixChart } from "@/components/charts"
+import type { Kpi } from "@/lib/mock-data"
+import { getSession, getUserId, getActiveVenueId } from "@/lib/session"
+import { getVenues } from "@/app/actions/venues"
+import { getTasks, getEvents } from "@/app/actions/operations"
+import { getTakings } from "@/app/actions/takings"
+import { getExpenses } from "@/app/actions/financials"
 import {
-  dashboardKpis,
-  recentActivity,
-  salesMix,
-  tasks,
-  events,
-  venue,
-} from "@/lib/mock-data"
+  gbp0,
+  revenueThisWeek,
+  salesMix as computeSalesMix,
+  revenuePenceForWeek,
+  revenuePenceForMonth,
+  expensePenceForMonthByCategory,
+  thisMonthKey,
+} from "@/lib/finance"
 
 const quickLinks = [
   { href: "/operations", label: "Operations", desc: "Orders, suppliers, tasks", icon: ClipboardList },
@@ -30,25 +37,98 @@ const quickLinks = [
   { href: "/compliance", label: "Compliance", desc: "Checks & certificates", icon: ShieldCheck },
 ]
 
-export default function DashboardPage() {
-  const todaysTasks = tasks.slice(0, 5)
+function pctDelta(curr: number, prev: number) {
+  if (prev <= 0) return null
+  return ((curr - prev) / prev) * 100
+}
+
+export default async function DashboardPage() {
+  const session = await getSession()
+  const userId = await getUserId()
+  const venueId = await getActiveVenueId(userId)
+  const venues = await getVenues()
+  const activeVenue = venues.find((v) => v.id === venueId)
+  const firstName = (session?.user?.name || "there").split(" ")[0]
+
+  const [tasks, events, takings, expenses] = venueId
+    ? await Promise.all([
+        getTasks(venueId),
+        getEvents(venueId),
+        getTakings(venueId),
+        getExpenses(venueId),
+      ])
+    : [[], [], [], []]
+
+  // --- KPIs ----------------------------------------------------------------
+  const weekRevenue = revenuePenceForWeek(takings, 0)
+  const prevWeekRevenue = revenuePenceForWeek(takings, 7)
+  const weekDelta = pctDelta(weekRevenue, prevWeekRevenue)
+
+  const mk = thisMonthKey()
+  const monthRevenue = revenuePenceForMonth(takings, mk)
+  const stockMonth = expensePenceForMonthByCategory(expenses, mk, "Stock")
+  const labourMonth = expensePenceForMonthByCategory(expenses, mk, "Staff")
+  const gpPct = monthRevenue > 0 ? ((monthRevenue - stockMonth) / monthRevenue) * 100 : null
+  const labourPct = monthRevenue > 0 ? (labourMonth / monthRevenue) * 100 : null
+
+  const openTasks = tasks.filter((t) => !t.done)
+  const dueToday = openTasks.filter((t) => (t.due ?? "").toLowerCase() === "today").length
+
+  const hasTakings = takings.length > 0
+
+  const kpis: Kpi[] = [
+    {
+      label: "Net revenue (wk)",
+      value: hasTakings ? gbp0.format(weekRevenue / 100) : "—",
+      delta: hasTakings
+        ? weekDelta !== null
+          ? `${weekDelta >= 0 ? "+" : ""}${weekDelta.toFixed(1)}%`
+          : "New"
+        : "No data yet",
+      trend: hasTakings && weekDelta !== null ? (weekDelta >= 0 ? "up" : "down") : "flat",
+      hint: hasTakings ? "vs last week" : "log takings",
+    },
+    {
+      label: "Gross profit",
+      value: gpPct !== null ? `${gpPct.toFixed(1)}%` : "—",
+      delta: gpPct !== null ? "after stock cost" : "No data yet",
+      trend: "flat",
+      hint: "this month",
+    },
+    {
+      label: "Labour cost",
+      value: labourPct !== null ? `${labourPct.toFixed(1)}%` : "—",
+      delta: labourPct !== null ? "of revenue" : "No data yet",
+      trend: "flat",
+      hint: "this month",
+    },
+    {
+      label: "Open tasks",
+      value: String(openTasks.length),
+      delta: `${dueToday} due today`,
+      trend: "flat",
+      hint: "across team",
+    },
+  ]
+
+  const weekSeries = revenueThisWeek(takings)
+  const mix = computeSalesMix(takings)
+  const todaysTasks = openTasks.slice(0, 6)
   const upcoming = events.slice(0, 3)
 
   return (
     <>
       <PageHeader
-        title={`Good afternoon, ${venue.manager.split(" ")[0]}`}
-        description={`Here's how ${venue.name} is performing today.`}
-        actions={
-          <Button variant="outline" className="gap-2">
-            <CalendarDays className="size-4" />
-            This week
-          </Button>
+        title={`Good afternoon, ${firstName}`}
+        description={
+          activeVenue
+            ? `Here's how ${activeVenue.name} is performing today.`
+            : "Create a venue to get started."
         }
       />
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        {dashboardKpis.map((kpi) => (
+        {kpis.map((kpi) => (
           <StatCard key={kpi.label} kpi={kpi} />
         ))}
       </div>
@@ -57,8 +137,8 @@ export default function DashboardPage() {
         <Card className="lg:col-span-2">
           <CardHeader className="flex-row items-center justify-between">
             <div>
-              <CardTitle>Revenue vs target</CardTitle>
-              <p className="mt-1 text-sm text-muted-foreground">Daily takings this week</p>
+              <CardTitle>Revenue this week</CardTitle>
+              <p className="mt-1 text-sm text-muted-foreground">Daily takings, last 7 days</p>
             </div>
             <Link
               href="/financials"
@@ -71,7 +151,16 @@ export default function DashboardPage() {
             </Link>
           </CardHeader>
           <CardContent>
-            <RevenueChart />
+            {hasTakings ? (
+              <RevenueChart data={weekSeries} />
+            ) : (
+              <EmptyState
+                title="No takings logged yet"
+                body="Record daily sales in Financials to see your revenue trend."
+                href="/financials"
+                cta="Log takings"
+              />
+            )}
           </CardContent>
         </Card>
 
@@ -81,19 +170,25 @@ export default function DashboardPage() {
             <p className="mt-1 text-sm text-muted-foreground">Revenue by category</p>
           </CardHeader>
           <CardContent>
-            <SalesMixChart />
-            <ul className="mt-2 flex flex-col gap-2">
-              {salesMix.map((s) => (
-                <li key={s.category} className="flex items-center gap-2 text-sm">
-                  <span
-                    className="size-2.5 rounded-full"
-                    style={{ backgroundColor: s.fill }}
-                  />
-                  <span className="text-muted-foreground">{s.category}</span>
-                  <span className="ml-auto font-medium text-foreground">{s.value}%</span>
-                </li>
-              ))}
-            </ul>
+            {hasTakings ? (
+              <>
+                <SalesMixChart data={mix} />
+                <ul className="mt-2 flex flex-col gap-2">
+                  {mix.map((s) => (
+                    <li key={s.category} className="flex items-center gap-2 text-sm">
+                      <span className="size-2.5 rounded-full" style={{ backgroundColor: s.fill }} />
+                      <span className="text-muted-foreground">{s.category}</span>
+                      <span className="ml-auto font-medium text-foreground">{s.value}%</span>
+                    </li>
+                  ))}
+                </ul>
+              </>
+            ) : (
+              <EmptyState
+                title="No sales data"
+                body="Your category split appears once you log takings."
+              />
+            )}
           </CardContent>
         </Card>
       </div>
@@ -120,64 +215,36 @@ export default function DashboardPage() {
         })}
       </div>
 
-      <div className="mt-4 grid grid-cols-1 gap-4 lg:grid-cols-3">
+      <div className="mt-4 grid grid-cols-1 gap-4 lg:grid-cols-2">
         <Card>
           <CardHeader>
-            <CardTitle>Today&apos;s tasks</CardTitle>
+            <CardTitle>Open tasks</CardTitle>
           </CardHeader>
           <CardContent className="flex flex-col gap-1">
-            {todaysTasks.map((task) => (
-              <div
-                key={task.id}
-                className="flex items-center gap-3 rounded-md px-2 py-2 hover:bg-secondary"
-              >
-                <span
-                  className={
-                    task.done
-                      ? "flex size-4 items-center justify-center rounded-full bg-chart-2 text-[10px] text-card"
-                      : "size-4 rounded-full border-2 border-muted-foreground/40"
-                  }
-                  aria-hidden
+            {todaysTasks.length === 0 ? (
+              <p className="px-2 py-8 text-center text-sm text-muted-foreground">
+                No open tasks. Add tasks in Operations.
+              </p>
+            ) : (
+              todaysTasks.map((task) => (
+                <div
+                  key={task.id}
+                  className="flex items-center gap-3 rounded-md px-2 py-2 hover:bg-secondary"
                 >
-                  {task.done ? "✓" : ""}
-                </span>
-                <div className="min-w-0">
-                  <p
-                    className={
-                      task.done
-                        ? "truncate text-sm text-muted-foreground line-through"
-                        : "truncate text-sm font-medium text-foreground"
-                    }
-                  >
-                    {task.title}
-                  </p>
-                  <p className="text-xs text-muted-foreground">
-                    {task.area} · {task.assignee}
-                  </p>
+                  <span
+                    className="size-4 rounded-full border-2 border-muted-foreground/40"
+                    aria-hidden
+                  />
+                  <div className="min-w-0">
+                    <p className="truncate text-sm font-medium text-foreground">{task.title}</p>
+                    <p className="text-xs text-muted-foreground">
+                      {task.area} · {task.assignee}
+                    </p>
+                  </div>
+                  <span className="ml-auto text-xs text-muted-foreground">{task.due}</span>
                 </div>
-                <span className="ml-auto text-xs text-muted-foreground">{task.due}</span>
-              </div>
-            ))}
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader>
-            <CardTitle>Recent activity</CardTitle>
-          </CardHeader>
-          <CardContent className="flex flex-col gap-3">
-            {recentActivity.map((item) => (
-              <div key={item.id} className="flex gap-3 text-sm">
-                <span className="mt-1.5 size-2 shrink-0 rounded-full bg-primary/60" />
-                <div>
-                  <p className="text-foreground">
-                    <span className="font-medium">{item.who}</span> {item.action}{" "}
-                    <span className="text-muted-foreground">{item.target}</span>
-                  </p>
-                  <p className="text-xs text-muted-foreground">{item.time}</p>
-                </div>
-              </div>
-            ))}
+              ))
+            )}
           </CardContent>
         </Card>
 
@@ -186,28 +253,58 @@ export default function DashboardPage() {
             <CardTitle>Upcoming events</CardTitle>
           </CardHeader>
           <CardContent className="flex flex-col gap-3">
-            {upcoming.map((ev) => (
-              <div
-                key={ev.id}
-                className="flex items-center gap-3 rounded-md border border-border p-3"
-              >
-                <div className="flex size-10 flex-col items-center justify-center rounded-md bg-accent text-accent-foreground">
-                  <CalendarDays className="size-4" />
+            {upcoming.length === 0 ? (
+              <p className="py-8 text-center text-sm text-muted-foreground">
+                No events scheduled. Add events in Operations.
+              </p>
+            ) : (
+              upcoming.map((ev) => (
+                <div
+                  key={ev.id}
+                  className="flex items-center gap-3 rounded-md border border-border p-3"
+                >
+                  <div className="flex size-10 flex-col items-center justify-center rounded-md bg-accent text-accent-foreground">
+                    <CalendarDays className="size-4" />
+                  </div>
+                  <div className="min-w-0">
+                    <p className="truncate text-sm font-medium text-foreground">{ev.name}</p>
+                    <p className="text-xs text-muted-foreground">
+                      {ev.date} · {ev.covers} covers
+                    </p>
+                  </div>
+                  <div className="ml-auto">
+                    <StatusBadge status={ev.status} />
+                  </div>
                 </div>
-                <div className="min-w-0">
-                  <p className="truncate text-sm font-medium text-foreground">{ev.name}</p>
-                  <p className="text-xs text-muted-foreground">
-                    {ev.date} · {ev.covers} covers
-                  </p>
-                </div>
-                <div className="ml-auto">
-                  <StatusBadge status={ev.status} />
-                </div>
-              </div>
-            ))}
+              ))
+            )}
           </CardContent>
         </Card>
       </div>
     </>
+  )
+}
+
+function EmptyState({
+  title,
+  body,
+  href,
+  cta,
+}: {
+  title: string
+  body: string
+  href?: string
+  cta?: string
+}) {
+  return (
+    <div className="flex h-[220px] flex-col items-center justify-center gap-2 text-center">
+      <p className="text-sm font-medium text-foreground">{title}</p>
+      <p className="max-w-xs text-sm text-muted-foreground">{body}</p>
+      {href && cta && (
+        <Link href={href} className={cn(buttonVariants({ size: "sm" }), "mt-2")}>
+          {cta}
+        </Link>
+      )}
+    </div>
   )
 }

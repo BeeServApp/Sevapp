@@ -4,7 +4,7 @@ import type React from "react"
 import { useState } from "react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
-import { Beer } from "lucide-react"
+import { BrandLogo } from "@/components/brand-logo"
 import { authClient } from "@/lib/auth-client"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -44,14 +44,8 @@ export function AuthForm({ mode }: { mode: "sign-in" | "sign-up" }) {
   return (
     <main className="flex min-h-svh items-center justify-center bg-background px-4">
       <div className="w-full max-w-sm">
-        <div className="mb-6 flex items-center gap-2.5">
-          <div className="flex size-10 items-center justify-center rounded-xl bg-brand text-brand-foreground">
-            <Beer className="size-5" />
-          </div>
-          <div className="leading-tight">
-            <p className="font-heading text-base font-semibold text-foreground">Tapsheet</p>
-            <p className="text-xs text-muted-foreground">Powering hospitality ops</p>
-          </div>
+        <div className="mb-8 flex justify-center">
+          <BrandLogo className="h-16" priority />
         </div>
 
         <Card className="p-6">
