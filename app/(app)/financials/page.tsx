@@ -6,28 +6,128 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Progress } from "@/components/ui/progress"
 import { ProfitChart, ExpenseChart } from "@/components/charts"
 import { FinancialsExpenses } from "@/components/financials-view"
-import { financialKpis, expenseBreakdown } from "@/lib/mock-data"
+import { TakingsLog } from "@/components/takings-log"
+import type { Kpi } from "@/lib/mock-data"
 import { getUserId, getActiveVenueId } from "@/lib/session"
 import { getExpenses } from "@/app/actions/financials"
+import { getTakings } from "@/app/actions/takings"
+import {
+  gbp0,
+  profitSeries,
+  expenseBreakdown as computeExpenseBreakdown,
+  revenueByCategoryMTD,
+  revenuePenceForMonth,
+  expensePenceForMonth,
+  thisMonthKey,
+  lastMonthKey,
+} from "@/lib/finance"
 
-const targets = [
-  { label: "Wet sales", current: 24500, target: 26000 },
-  { label: "Food sales", current: 13100, target: 14000 },
-  { label: "Events", current: 3000, target: 2500 },
-  { label: "Total revenue", current: 182400, target: 193000 },
-]
+function pctDelta(curr: number, prev: number) {
+  if (prev <= 0) return null
+  return ((curr - prev) / prev) * 100
+}
 
-const insights = [
-  { tone: "up", text: "Wet GP is 1.1pt above target — strong margin on draught lines." },
-  { tone: "down", text: "Utilities up 4% vs last month; review off-peak energy usage." },
-  { tone: "up", text: "Food waste down to 3.2% after new prep schedule." },
-  { tone: "down", text: "1 invoice overdue (£320) — AceCool Ltd maintenance." },
-]
+interface Insight {
+  tone: "up" | "down"
+  text: string
+}
 
 export default async function FinancialsPage() {
   const userId = await getUserId()
   const venueId = await getActiveVenueId(userId)
-  const expenses = venueId ? await getExpenses(venueId) : []
+  const [expenses, takings] = venueId
+    ? await Promise.all([getExpenses(venueId), getTakings(venueId)])
+    : [[], []]
+
+  const mk = thisMonthKey()
+  const lmk = lastMonthKey()
+
+  const revenueMTD = revenuePenceForMonth(takings, mk)
+  const revenueLM = revenuePenceForMonth(takings, lmk)
+  const expensesMTD = expensePenceForMonth(expenses, mk)
+  const netProfit = revenueMTD - expensesMTD
+  const marginPct = revenueMTD > 0 ? (netProfit / revenueMTD) * 100 : null
+  const revDelta = pctDelta(revenueMTD, revenueLM)
+
+  const daysLogged = takings.filter((t) => t.dateISO.slice(0, 7) === mk).length
+  const avgDaily = daysLogged > 0 ? revenueMTD / daysLogged : 0
+
+  const hasTakings = takings.length > 0
+  const hasExpenses = expenses.length > 0
+  const hasAny = hasTakings || hasExpenses
+
+  const kpis: Kpi[] = [
+    {
+      label: "Revenue (MTD)",
+      value: hasTakings ? gbp0.format(revenueMTD / 100) : "—",
+      delta: hasTakings
+        ? revDelta !== null
+          ? `${revDelta >= 0 ? "+" : ""}${revDelta.toFixed(1)}%`
+          : "New"
+        : "No data yet",
+      trend: hasTakings && revDelta !== null ? (revDelta >= 0 ? "up" : "down") : "flat",
+      hint: hasTakings ? "vs last month" : "log takings",
+    },
+    {
+      label: "Net profit (MTD)",
+      value: hasAny ? gbp0.format(netProfit / 100) : "—",
+      delta: marginPct !== null ? `${marginPct.toFixed(1)}% margin` : "No data yet",
+      trend: netProfit >= 0 ? "up" : "down",
+      hint: "revenue − expenses",
+    },
+    {
+      label: "Total expenses (MTD)",
+      value: hasExpenses ? gbp0.format(expensesMTD / 100) : "—",
+      delta: hasExpenses ? `${expenses.length} records` : "No data yet",
+      trend: "flat",
+      hint: "this month",
+    },
+    {
+      label: "Avg daily takings",
+      value: daysLogged > 0 ? gbp0.format(avgDaily / 100) : "—",
+      delta: daysLogged > 0 ? `${daysLogged} days logged` : "No data yet",
+      trend: "flat",
+      hint: "this month",
+    },
+  ]
+
+  const plData = profitSeries(takings, expenses, 6)
+  const expenseMix = computeExpenseBreakdown(expenses)
+  const revByCat = revenueByCategoryMTD(takings)
+  const maxCat = Math.max(...revByCat.map((c) => c.pounds), 1)
+
+  // --- Spending insights (derived) ----------------------------------------
+  const insights: Insight[] = []
+  if (revDelta !== null) {
+    insights.push({
+      tone: revDelta >= 0 ? "up" : "down",
+      text: `Revenue is ${Math.abs(revDelta).toFixed(1)}% ${
+        revDelta >= 0 ? "up" : "down"
+      } versus last month.`,
+    })
+  }
+  if (hasExpenses && expenseMix.length > 0) {
+    insights.push({
+      tone: "down",
+      text: `${expenseMix[0].category} is your largest cost at ${expenseMix[0].value}% of spend.`,
+    })
+  }
+  const overdue = expenses.filter((e) => e.status === "Overdue")
+  if (overdue.length > 0) {
+    const overdueTotal = overdue.reduce((s, e) => s + e.amountPence, 0)
+    insights.push({
+      tone: "down",
+      text: `${overdue.length} overdue invoice${overdue.length > 1 ? "s" : ""} totalling ${gbp0.format(
+        overdueTotal / 100,
+      )}.`,
+    })
+  }
+  if (marginPct !== null) {
+    insights.push({
+      tone: marginPct >= 0 ? "up" : "down",
+      text: `Net margin is running at ${marginPct.toFixed(1)}% this month.`,
+    })
+  }
 
   return (
     <>
@@ -42,7 +142,7 @@ export default async function FinancialsPage() {
       />
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        {financialKpis.map((kpi) => (
+        {kpis.map((kpi) => (
           <StatCard key={kpi.label} kpi={kpi} />
         ))}
       </div>
@@ -54,7 +154,11 @@ export default async function FinancialsPage() {
             <p className="mt-1 text-sm text-muted-foreground">Revenue vs costs, last 6 months</p>
           </CardHeader>
           <CardContent>
-            <ProfitChart />
+            {hasAny ? (
+              <ProfitChart data={plData} />
+            ) : (
+              <EmptyBlock body="Log takings and expenses to build your P&L." />
+            )}
           </CardContent>
         </Card>
 
@@ -64,73 +168,66 @@ export default async function FinancialsPage() {
             <p className="mt-1 text-sm text-muted-foreground">Share of total spend</p>
           </CardHeader>
           <CardContent>
-            <ExpenseChart />
-            <ul className="mt-2 flex flex-col gap-2">
-              {expenseBreakdown.map((e) => (
-                <li key={e.category} className="flex items-center gap-2 text-sm">
-                  <span className="size-2.5 rounded-full" style={{ backgroundColor: e.fill }} />
-                  <span className="text-muted-foreground">{e.category}</span>
-                  <span className="ml-auto font-medium text-foreground">{e.value}%</span>
-                </li>
-              ))}
-            </ul>
+            {hasExpenses ? (
+              <>
+                <ExpenseChart data={expenseMix} />
+                <ul className="mt-2 flex flex-col gap-2">
+                  {expenseMix.map((e) => (
+                    <li key={e.category} className="flex items-center gap-2 text-sm">
+                      <span className="size-2.5 rounded-full" style={{ backgroundColor: e.fill }} />
+                      <span className="text-muted-foreground">{e.category}</span>
+                      <span className="ml-auto font-medium text-foreground">{e.value}%</span>
+                    </li>
+                  ))}
+                </ul>
+              </>
+            ) : (
+              <EmptyBlock body="Add expenses to see your spend breakdown." />
+            )}
           </CardContent>
         </Card>
       </div>
 
       <div className="mt-4 grid grid-cols-1 gap-4 lg:grid-cols-3">
+        {venueId ? (
+          <TakingsLog venueId={venueId} initialTakings={takings} />
+        ) : (
+          <Card className="lg:col-span-2">
+            <CardHeader>
+              <CardTitle>Daily takings</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <p className="text-sm text-muted-foreground">Create a venue to record takings.</p>
+            </CardContent>
+          </Card>
+        )}
+
         <Card>
           <CardHeader>
-            <CardTitle>Revenue targets</CardTitle>
+            <CardTitle>Revenue by category</CardTitle>
             <p className="mt-1 text-sm text-muted-foreground">Month to date</p>
           </CardHeader>
           <CardContent className="flex flex-col gap-5">
-            {targets.map((t) => {
-              const pct = Math.min(Math.round((t.current / t.target) * 100), 100)
-              return (
-                <div key={t.label}>
+            {hasTakings ? (
+              revByCat.map((c) => (
+                <div key={c.label}>
                   <div className="mb-1.5 flex items-center justify-between text-sm">
-                    <span className="font-medium text-foreground">{t.label}</span>
-                    <span className="text-muted-foreground">
-                      £{t.current.toLocaleString()} / £{t.target.toLocaleString()}
-                    </span>
+                    <span className="font-medium text-foreground">{c.label}</span>
+                    <span className="text-muted-foreground">{gbp0.format(c.pounds)}</span>
                   </div>
-                  <Progress value={pct} />
+                  <Progress value={Math.round((c.pounds / maxCat) * 100)} />
                 </div>
-              )
-            })}
+              ))
+            ) : (
+              <p className="py-6 text-center text-sm text-muted-foreground">
+                Log takings to see category revenue.
+              </p>
+            )}
           </CardContent>
         </Card>
+      </div>
 
-        <Card>
-          <CardHeader>
-            <CardTitle>Spending insights</CardTitle>
-          </CardHeader>
-          <CardContent className="flex flex-col gap-3">
-            {insights.map((ins, i) => {
-              const Icon = ins.tone === "up" ? TrendingUp : TrendingDown
-              return (
-                <div key={i} className="flex gap-3">
-                  <div
-                    className={
-                      ins.tone === "up"
-                        ? "flex size-7 shrink-0 items-center justify-center rounded-md bg-chart-2/15 text-chart-2"
-                        : "flex size-7 shrink-0 items-center justify-center rounded-md bg-destructive/12 text-destructive"
-                    }
-                  >
-                    <Icon className="size-4" />
-                  </div>
-                  <p className="text-sm text-foreground">{ins.text}</p>
-                </div>
-              )
-            })}
-            <div className="mt-1 flex items-center gap-2 rounded-md bg-accent/50 p-3 text-sm text-accent-foreground">
-              <Lightbulb className="size-4 shrink-0 text-primary" />
-              Net margin trending up 0.8pt this quarter.
-            </div>
-          </CardContent>
-        </Card>
-
+      <div className="mt-4 grid grid-cols-1 gap-4 lg:grid-cols-3">
         {venueId ? (
           <FinancialsExpenses venueId={venueId} initialExpenses={expenses} />
         ) : (
@@ -143,7 +240,52 @@ export default async function FinancialsPage() {
             </CardContent>
           </Card>
         )}
+
+        <Card className="lg:col-span-2">
+          <CardHeader>
+            <CardTitle>Spending insights</CardTitle>
+          </CardHeader>
+          <CardContent className="flex flex-col gap-3">
+            {insights.length === 0 ? (
+              <p className="py-6 text-center text-sm text-muted-foreground">
+                Insights appear once you log takings and expenses.
+              </p>
+            ) : (
+              <>
+                {insights.map((ins, i) => {
+                  const Icon = ins.tone === "up" ? TrendingUp : TrendingDown
+                  return (
+                    <div key={i} className="flex gap-3">
+                      <div
+                        className={
+                          ins.tone === "up"
+                            ? "flex size-7 shrink-0 items-center justify-center rounded-md bg-chart-2/15 text-chart-2"
+                            : "flex size-7 shrink-0 items-center justify-center rounded-md bg-destructive/12 text-destructive"
+                        }
+                      >
+                        <Icon className="size-4" />
+                      </div>
+                      <p className="text-sm text-foreground">{ins.text}</p>
+                    </div>
+                  )
+                })}
+                <div className="mt-1 flex items-center gap-2 rounded-md bg-accent/50 p-3 text-sm text-accent-foreground">
+                  <Lightbulb className="size-4 shrink-0 text-primary" />
+                  Figures update automatically as you log takings and expenses.
+                </div>
+              </>
+            )}
+          </CardContent>
+        </Card>
       </div>
     </>
+  )
+}
+
+function EmptyBlock({ body }: { body: string }) {
+  return (
+    <div className="flex h-[220px] items-center justify-center text-center">
+      <p className="max-w-xs text-sm text-muted-foreground">{body}</p>
+    </div>
   )
 }
