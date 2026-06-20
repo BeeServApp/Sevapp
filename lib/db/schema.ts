@@ -1,4 +1,4 @@
-import { pgTable, text, timestamp, boolean, serial, integer } from "drizzle-orm/pg-core"
+import { pgTable, text, timestamp, boolean, serial, integer, doublePrecision } from "drizzle-orm/pg-core"
 
 // --- Better Auth required tables -------------------------------------------
 // Column names are camelCase to match Better Auth's defaults. Do not rename.
@@ -195,6 +195,71 @@ export const document = pgTable("document", {
   createdAt: timestamp("createdAt").notNull().defaultNow(),
 })
 
+// --- Staff & Scheduling ---------------------------------------------------
+
+export const staffMember = pgTable("staff_member", {
+  id: serial("id").primaryKey(),
+  userId: text("userId").notNull(),
+  venueId: integer("venueId").notNull(),
+  name: text("name").notNull(),
+  role: text("role").notNull().default("Staff"),
+  contract: text("contract").notNull().default("Full-time"),
+  hoursWk: integer("hoursWk").notNull().default(0),
+  status: text("status").notNull().default("Off"),
+  createdAt: timestamp("createdAt").notNull().defaultNow(),
+})
+
+export const rotaShift = pgTable("rota_shift", {
+  id: serial("id").primaryKey(),
+  userId: text("userId").notNull(),
+  venueId: integer("venueId").notNull(),
+  staffMemberId: integer("staffMemberId").notNull(),
+  weekStart: text("weekStart").notNull(),
+  day: text("day").notNull(),
+  shiftTime: text("shiftTime"),
+  createdAt: timestamp("createdAt").notNull().defaultNow(),
+})
+
+export const leaveRequest = pgTable("leave_request", {
+  id: serial("id").primaryKey(),
+  userId: text("userId").notNull(),
+  venueId: integer("venueId").notNull(),
+  staffMemberId: integer("staffMemberId").notNull(),
+  name: text("name").notNull(),
+  type: text("type").notNull().default("Annual"),
+  dates: text("dates").notNull(),
+  days: integer("days").notNull().default(1),
+  status: text("status").notNull().default("Pending"),
+  createdAt: timestamp("createdAt").notNull().defaultNow(),
+})
+
+export const clockEvent = pgTable("clock_event", {
+  id: serial("id").primaryKey(),
+  userId: text("userId").notNull(),
+  venueId: integer("venueId").notNull(),
+  staffMemberId: integer("staffMemberId").notNull(),
+  staffName: text("staffName").notNull(),
+  type: text("type").notNull().default("in"),
+  lat: doublePrecision("lat"),
+  lng: doublePrecision("lng"),
+  locationLabel: text("locationLabel"),
+  createdAt: timestamp("createdAt").notNull().defaultNow(),
+})
+
+// --- Financials -----------------------------------------------------------
+
+export const expense = pgTable("expense", {
+  id: serial("id").primaryKey(),
+  userId: text("userId").notNull(),
+  venueId: integer("venueId").notNull(),
+  category: text("category").notNull(),
+  vendor: text("vendor").notNull(),
+  amountPence: integer("amountPence").notNull().default(0),
+  date: text("date").notNull(),
+  status: text("status").notNull().default("Pending"),
+  createdAt: timestamp("createdAt").notNull().defaultNow(),
+})
+
 export type Venue = typeof venue.$inferSelect
 export type Member = typeof member.$inferSelect
 export type DbAsset = typeof asset.$inferSelect
@@ -206,3 +271,8 @@ export type DbTask = typeof task.$inferSelect
 export type DbComplianceCheck = typeof complianceCheck.$inferSelect
 export type DbCertificate = typeof certificate.$inferSelect
 export type DbDocument = typeof document.$inferSelect
+export type DbStaffMember = typeof staffMember.$inferSelect
+export type DbRotaShift = typeof rotaShift.$inferSelect
+export type DbLeaveRequest = typeof leaveRequest.$inferSelect
+export type DbClockEvent = typeof clockEvent.$inferSelect
+export type DbExpense = typeof expense.$inferSelect

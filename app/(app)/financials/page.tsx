@@ -1,20 +1,14 @@
 import { Download, TrendingUp, TrendingDown, Lightbulb } from "lucide-react"
 import { PageHeader } from "@/components/page-header"
 import { StatCard } from "@/components/stat-card"
-import { StatusBadge } from "@/components/status-badge"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Progress } from "@/components/ui/progress"
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table"
 import { ProfitChart, ExpenseChart } from "@/components/charts"
-import { financialKpis, expenses, expenseBreakdown } from "@/lib/mock-data"
+import { FinancialsExpenses } from "@/components/financials-view"
+import { financialKpis, expenseBreakdown } from "@/lib/mock-data"
+import { getUserId, getActiveVenueId } from "@/lib/session"
+import { getExpenses } from "@/app/actions/financials"
 
 const targets = [
   { label: "Wet sales", current: 24500, target: 26000 },
@@ -30,7 +24,11 @@ const insights = [
   { tone: "down", text: "1 invoice overdue (£320) — AceCool Ltd maintenance." },
 ]
 
-export default function FinancialsPage() {
+export default async function FinancialsPage() {
+  const userId = await getUserId()
+  const venueId = await getActiveVenueId(userId)
+  const expenses = venueId ? await getExpenses(venueId) : []
+
   return (
     <>
       <PageHeader
@@ -133,34 +131,18 @@ export default function FinancialsPage() {
           </CardContent>
         </Card>
 
-        <Card>
-          <CardHeader>
-            <CardTitle>Recent expenses</CardTitle>
-          </CardHeader>
-          <CardContent className="px-0">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Category</TableHead>
-                  <TableHead className="text-right">Amount</TableHead>
-                  <TableHead>Status</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {expenses.map((x) => (
-                  <TableRow key={x.id}>
-                    <TableCell>
-                      <p className="font-medium text-foreground">{x.category}</p>
-                      <p className="text-xs text-muted-foreground">{x.vendor} · {x.date}</p>
-                    </TableCell>
-                    <TableCell className="text-right font-medium tabular-nums">{x.amount}</TableCell>
-                    <TableCell><StatusBadge status={x.status} /></TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </CardContent>
-        </Card>
+        {venueId ? (
+          <FinancialsExpenses venueId={venueId} initialExpenses={expenses} />
+        ) : (
+          <Card>
+            <CardHeader>
+              <CardTitle>Recent expenses</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <p className="text-sm text-muted-foreground">Create a venue to track expenses.</p>
+            </CardContent>
+          </Card>
+        )}
       </div>
     </>
   )

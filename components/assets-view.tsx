@@ -2,7 +2,8 @@
 
 import { useMemo, useState } from "react"
 import Image from "next/image"
-import { Package, PoundSterling, Layers, CalendarClock, MoreVertical, Pencil, Trash2 } from "lucide-react"
+import { Package, PoundSterling, Layers, CalendarClock, MoreVertical, Pencil, Trash2, Download } from "lucide-react"
+import * as XLSX from "xlsx"
 import { PageHeader } from "@/components/page-header"
 import { AssetDialog } from "@/components/add-asset-dialog"
 import { Badge } from "@/components/ui/badge"
@@ -114,6 +115,26 @@ export function AssetsView({
 }) {
   const [assets, setAssets] = useState<ViewAsset[]>(initialAssets)
   const [editing, setEditing] = useState<ViewAsset | null>(null)
+
+  function handleExportExcel() {
+    const rows = assets.map((a) => ({
+      "Asset No.": a.id,
+      Name: a.name,
+      Description: a.description,
+      Category: a.category,
+      "Serial No.": a.serial,
+      "Price (£)": a.price,
+      Condition: a.condition,
+      Location: a.location,
+      "Purchase Date": a.purchaseDate,
+      "Disposal Date": a.disposalDate || "",
+    }))
+    const ws = XLSX.utils.json_to_sheet(rows)
+    const wb = XLSX.utils.book_new()
+    XLSX.utils.book_append_sheet(wb, ws, "Assets")
+    XLSX.writeFile(wb, "asset-register.xlsx")
+  }
+
   const [deleting, setDeleting] = useState<ViewAsset | null>(null)
   const [removing, setRemoving] = useState(false)
 
@@ -187,11 +208,21 @@ export function AssetsView({
         title="Asset Tracking"
         description="Register and value the venue's fixtures and fittings."
         actions={
-          <AssetDialog
-            venueId={venueId}
-            nextAssetNumber={nextAssetNumber(assets)}
-            onSaved={handleCreated}
-          />
+          <div className="flex items-center gap-2">
+            <Button
+              variant="outline"
+              className="gap-1.5"
+              onClick={handleExportExcel}
+              disabled={assets.length === 0}
+            >
+              <Download className="size-4" /> Export to Excel
+            </Button>
+            <AssetDialog
+              venueId={venueId}
+              nextAssetNumber={nextAssetNumber(assets)}
+              onSaved={handleCreated}
+            />
+          </div>
         }
       />
 
