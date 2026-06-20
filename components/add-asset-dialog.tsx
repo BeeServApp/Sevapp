@@ -123,11 +123,25 @@ export function AssetDialog({
     setForm((prev) => ({ ...prev, [key]: value }))
   }
 
-  function handlePhoto(file: File | undefined) {
+  async function handlePhoto(file: File | undefined) {
     if (!file) return
-    const reader = new FileReader()
-    reader.onload = () => update("photo", String(reader.result))
-    reader.readAsDataURL(file)
+    setError(null)
+    setSaving(true)
+    try {
+      const fd = new FormData()
+      fd.append("file", file)
+      const res = await fetch("/api/upload-asset-image", { method: "POST", body: fd })
+      if (!res.ok) {
+        const json = await res.json().catch(() => ({}))
+        throw new Error((json as { error?: string }).error ?? "Upload failed")
+      }
+      const { url } = (await res.json()) as { url: string }
+      update("photo", url)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Image upload failed.")
+    } finally {
+      setSaving(false)
+    }
   }
 
   // When the dialog opens, sync the form with the latest asset (edit) or clear it (create).
