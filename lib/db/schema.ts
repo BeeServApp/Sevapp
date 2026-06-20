@@ -246,6 +246,54 @@ export const clockEvent = pgTable("clock_event", {
   createdAt: timestamp("createdAt").notNull().defaultNow(),
 })
 
+// --- Task Management -------------------------------------------------------
+
+export const taskCheck = pgTable("task_check", {
+  id: serial("id").primaryKey(),
+  userId: text("userId").notNull(),
+  venueId: integer("venueId").notNull(),
+  title: text("title").notNull(),
+  category: text("category").notNull().default("Checklist"),
+  assignee: text("assignee"),
+  dueDate: text("dueDate"),
+  dueTime: text("dueTime"),
+  frequency: text("frequency").notNull().default("Daily"),
+  priority: text("priority").notNull().default("Medium"),
+  requiresPhoto: boolean("requiresPhoto").notNull().default(false),
+  status: text("status").notNull().default("Pending"),
+  notes: text("notes"),
+  photoUrl: text("photoUrl"),
+  completedBy: text("completedBy"),
+  completedAt: timestamp("completedAt"),
+  createdAt: timestamp("createdAt").notNull().defaultNow(),
+})
+
+export const taskCheckItem = pgTable("task_check_item", {
+  id: serial("id").primaryKey(),
+  userId: text("userId").notNull(),
+  taskId: integer("taskId").notNull(),
+  label: text("label").notNull(),
+  done: boolean("done").notNull().default(false),
+  sortOrder: integer("sortOrder").notNull().default(0),
+  createdAt: timestamp("createdAt").notNull().defaultNow(),
+})
+
+export const correctiveAction = pgTable("corrective_action", {
+  id: serial("id").primaryKey(),
+  userId: text("userId").notNull(),
+  venueId: integer("venueId").notNull(),
+  title: text("title").notNull(),
+  description: text("description"),
+  sourceTaskId: integer("sourceTaskId"),
+  priority: text("priority").notNull().default("Medium"),
+  assignee: text("assignee"),
+  dueDate: text("dueDate"),
+  status: text("status").notNull().default("Open"),
+  photoUrl: text("photoUrl"),
+  resolvedAt: timestamp("resolvedAt"),
+  createdAt: timestamp("createdAt").notNull().defaultNow(),
+})
+
 // --- Financials -----------------------------------------------------------
 
 export const expense = pgTable("expense", {
@@ -289,3 +337,6 @@ export type DbLeaveRequest = typeof leaveRequest.$inferSelect
 export type DbClockEvent = typeof clockEvent.$inferSelect
 export type DbExpense = typeof expense.$inferSelect
 export type DbTakings = typeof takings.$inferSelect
+export type DbTaskCheck = typeof taskCheck.$inferSelect
+export type DbTaskCheckItem = typeof taskCheckItem.$inferSelect
+export type DbCorrectiveAction = typeof correctiveAction.$inferSelect
