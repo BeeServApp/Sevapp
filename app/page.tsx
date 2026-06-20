@@ -1,4 +1,5 @@
 import Link from "next/link"
+import Image from "next/image"
 import {
   ClipboardList,
   Wallet,
@@ -9,7 +10,6 @@ import {
   Clock,
   FileSpreadsheet,
   ArrowRight,
-  Beer,
   CheckCircle2,
 } from "lucide-react"
 import { buttonVariants } from "@/components/ui/button"
@@ -26,14 +26,16 @@ export default async function LandingPage() {
       {/* ── Nav ──────────────────────────────────────────────────── */}
       <header className="sticky top-0 z-50 border-b border-border bg-card/80 backdrop-blur">
         <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-4 md:px-8">
-          <div className="flex items-center gap-2.5">
-            <div className="flex size-9 items-center justify-center rounded-xl bg-brand text-brand-foreground">
-              <Beer className="size-5" />
-            </div>
-            <span className="font-heading text-base font-semibold tracking-tight text-foreground">
-              Tapsheet
-            </span>
-          </div>
+          <Link href="/" className="flex items-center">
+            <Image
+              src="/beeserv-logo-black.png"
+              alt="Beeserv — Serving Hospitality Operators"
+              width={140}
+              height={40}
+              className="h-9 w-auto object-contain"
+              priority
+            />
+          </Link>
 
           <nav className="hidden items-center gap-6 md:flex">
             <a href="#features" className="text-sm text-muted-foreground transition-colors hover:text-foreground">
@@ -69,8 +71,8 @@ export default async function LandingPage() {
             Run your whole venue from one dashboard
           </h1>
           <p className="mt-5 text-balance text-base leading-relaxed text-muted-foreground md:text-lg">
-            Tapsheet brings operations, financials, staff scheduling, asset tracking, and compliance
-            into a single platform — so you spend less time on admin and more time behind the bar.
+            Beeserv brings operations, financials, staff scheduling, asset tracking, and compliance
+            into a single platform — so you spend less time on admin and more time serving your guests.
           </p>
           <div className="mt-8 flex flex-wrap items-center justify-center gap-3">
             <Link href="/sign-up" className={cn(buttonVariants({ size: "lg" }), "gap-2")}>
@@ -89,7 +91,7 @@ export default async function LandingPage() {
             <span className="size-2.5 rounded-full bg-destructive/60" />
             <span className="size-2.5 rounded-full bg-[oklch(0.8_0.12_75)]/80" />
             <span className="size-2.5 rounded-full bg-brand/60" />
-            <span className="ml-3 text-xs text-muted-foreground">tapsheet.app/dashboard</span>
+            <span className="ml-3 text-xs text-muted-foreground">beeserv.app/dashboard</span>
           </div>
           <div className="grid grid-cols-2 divide-x divide-border md:grid-cols-4">
             {[
@@ -289,7 +291,7 @@ export default async function LandingPage() {
             Ready to take control of your venue?
           </h2>
           <p className="mt-4 text-base leading-relaxed text-primary-foreground/70">
-            Join operators across the UK using Tapsheet to manage their pubs, bars, and restaurants.
+            Join operators across the UK using Beeserv to manage their pubs, bars, and restaurants.
           </p>
           <div className="mt-8 flex flex-wrap items-center justify-center gap-3">
             <Link
@@ -311,14 +313,15 @@ export default async function LandingPage() {
       {/* ── Footer ───────────────────────────────────────────────── */}
       <footer className="border-t border-border bg-card">
         <div className="mx-auto flex max-w-7xl flex-col items-center justify-between gap-4 px-4 py-8 text-sm text-muted-foreground md:flex-row md:px-8">
-          <div className="flex items-center gap-2">
-            <div className="flex size-7 items-center justify-center rounded-lg bg-brand text-brand-foreground">
-              <Beer className="size-4" />
-            </div>
-            <span className="font-heading font-semibold text-foreground">Tapsheet</span>
-          </div>
+          <Image
+            src="/beeserv-logo-black.png"
+            alt="Beeserv"
+            width={120}
+            height={36}
+            className="h-8 w-auto object-contain"
+          />
           <p className="text-center">
-            &copy; {new Date().getFullYear()} Tapsheet. Built for hospitality operators.
+            &copy; {new Date().getFullYear()} Beeserv. Serving hospitality operators.
           </p>
           <div className="flex items-center gap-4">
             <Link href="/sign-in" className="transition-colors hover:text-foreground">Sign in</Link>

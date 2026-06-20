@@ -1,6 +1,7 @@
 "use client"
 
 import Link from "next/link"
+import Image from "next/image"
 import { usePathname } from "next/navigation"
 import {
   LayoutDashboard,
@@ -9,7 +10,6 @@ import {
   Users,
   ShieldCheck,
   Package,
-  Beer,
   Settings,
   LifeBuoy,
 } from "lucide-react"
@@ -37,14 +37,15 @@ export function AppSidebar({ onNavigate }: { onNavigate?: () => void }) {
 
   return (
     <aside className="flex h-full w-64 flex-col bg-sidebar text-sidebar-foreground">
-      <div className="flex h-16 items-center gap-2.5 border-b border-sidebar-border px-5">
-        <div className="flex size-9 items-center justify-center rounded-xl bg-brand text-brand-foreground">
-          <Beer className="size-5" />
-        </div>
-        <div className="leading-tight">
-          <p className="font-heading text-sm font-semibold text-sidebar-accent-foreground">Tapsheet</p>
-          <p className="text-xs text-sidebar-foreground/70">Powering hospitality ops</p>
-        </div>
+      <div className="flex h-16 items-center border-b border-sidebar-border px-5">
+        <Image
+          src="/beeserv-logo-black.png"
+          alt="Beeserv — Serving Hospitality Operators"
+          width={140}
+          height={40}
+          className="h-9 w-auto object-contain"
+          priority
+        />
       </div>
 
       <nav className="flex-1 overflow-y-auto px-3 py-5">

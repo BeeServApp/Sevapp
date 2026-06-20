@@ -51,7 +51,7 @@
 }
 
 :root {
-  /* Tapsheet — clean hospitality ops theme (Airserve/Hopsy inspired) */
+  /* Beeserv — Hospitality Ops Platform */
   color-scheme: light;
   --background: oklch(0.984 0.002 247);
   --foreground: oklch(0.21 0.02 255);
@@ -65,15 +65,15 @@
   --secondary-foreground: oklch(0.3 0.018 255);
   --muted: oklch(0.965 0.003 247);
   --muted-foreground: oklch(0.53 0.015 255);
-  --accent: oklch(0.95 0.035 168);
-  --accent-foreground: oklch(0.42 0.08 172);
+  --accent: oklch(0.96 0.05 95);
+  --accent-foreground: oklch(0.4 0.08 90);
   --destructive: oklch(0.585 0.2 27);
   --border: oklch(0.922 0.004 247);
   --input: oklch(0.922 0.004 247);
-  --ring: oklch(0.72 0.12 168);
-  --brand: oklch(0.72 0.13 168);
-  --brand-foreground: oklch(0.99 0.01 168);
-  --chart-1: oklch(0.72 0.13 168);
+  --ring: oklch(0.82 0.15 95);
+  --brand: oklch(0.84 0.18 95);
+  --brand-foreground: oklch(0.18 0.04 90);
+  --chart-1: oklch(0.84 0.18 95);
   --chart-2: oklch(0.6 0.13 250);
   --chart-3: oklch(0.42 0.02 255);
   --chart-4: oklch(0.8 0.12 75);
@@ -86,7 +86,7 @@
   --sidebar-accent: oklch(0.965 0.003 247);
   --sidebar-accent-foreground: oklch(0.24 0.016 255);
   --sidebar-border: oklch(0.922 0.004 247);
-  --sidebar-ring: oklch(0.72 0.12 168);
+  --sidebar-ring: oklch(0.82 0.15 95);
 }
 
 .dark {
