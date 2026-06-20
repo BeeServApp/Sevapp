@@ -11,6 +11,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   const session = await getSession()
   if (!session?.user) redirect("/sign-in")
 
+
   await ensureSeeded(session.user.id, session.user.name, session.user.email)
 
   const venues = await getVenues()
