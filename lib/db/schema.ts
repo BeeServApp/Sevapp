@@ -282,6 +282,8 @@ export const rotaShift = pgTable("rota_shift", {
   payRatePence: integer("payRatePence").notNull().default(0),
   // "draft" until the rota is published, then "published".
   status: text("status").notNull().default("draft"),
+  // Set when this shift was generated from a recurring shift pattern.
+  patternId: integer("patternId"),
   createdAt: timestamp("createdAt").notNull().defaultNow(),
 })
 
@@ -424,6 +426,65 @@ export const tipEntry = pgTable("tip_entry", {
   method: text("method").notNull().default("cash"),
   pooled: boolean("pooled").notNull().default(false),
   note: text("note"),
+  createdAt: timestamp("createdAt").notNull().defaultNow(),
+})
+
+// Recurring shift template: auto-generates draft shifts into matching weeks.
+export const shiftPattern = pgTable("shift_pattern", {
+  id: serial("id").primaryKey(),
+  userId: text("userId").notNull(),
+  venueId: integer("venueId").notNull(),
+  // 0 = recurring open shift; otherwise the staff member it repeats for.
+  staffMemberId: integer("staffMemberId").notNull().default(0),
+  day: text("day").notNull(),
+  role: text("role"),
+  startTime: text("startTime"),
+  endTime: text("endTime"),
+  color: text("color").default("green"),
+  breakMins: integer("breakMins").notNull().default(0),
+  notes: text("notes"),
+  payRatePence: integer("payRatePence").notNull().default(0),
+  // Repeat cadence in weeks (1 = weekly, 2 = fortnightly, ...).
+  repeatWeeks: integer("repeatWeeks").notNull().default(1),
+  // The weekStart this pattern begins from; cadence is measured from here.
+  anchorWeek: text("anchorWeek").notNull(),
+  active: boolean("active").notNull().default(true),
+  createdAt: timestamp("createdAt").notNull().defaultNow(),
+})
+
+// A named, reusable week of shifts that can be applied to any week.
+export const rotaTemplate = pgTable("rota_template", {
+  id: serial("id").primaryKey(),
+  userId: text("userId").notNull(),
+  venueId: integer("venueId").notNull(),
+  name: text("name").notNull(),
+  createdAt: timestamp("createdAt").notNull().defaultNow(),
+})
+
+export const rotaTemplateShift = pgTable("rota_template_shift", {
+  id: serial("id").primaryKey(),
+  userId: text("userId").notNull(),
+  templateId: integer("templateId").notNull(),
+  staffMemberId: integer("staffMemberId").notNull().default(0),
+  day: text("day").notNull(),
+  role: text("role"),
+  startTime: text("startTime"),
+  endTime: text("endTime"),
+  color: text("color").default("green"),
+  breakMins: integer("breakMins").notNull().default(0),
+  notes: text("notes"),
+  payRatePence: integer("payRatePence").notNull().default(0),
+  createdAt: timestamp("createdAt").notNull().defaultNow(),
+})
+
+// A to-do attached to a specific rota shift, visible to the assigned staff.
+export const shiftTask = pgTable("shift_task", {
+  id: serial("id").primaryKey(),
+  userId: text("userId").notNull(),
+  shiftId: integer("shiftId").notNull(),
+  label: text("label").notNull(),
+  done: boolean("done").notNull().default(false),
+  sortOrder: integer("sortOrder").notNull().default(0),
   createdAt: timestamp("createdAt").notNull().defaultNow(),
 })
 
@@ -726,6 +787,10 @@ export type DbAvailability = typeof availability.$inferSelect
 export type DbShiftSwap = typeof shiftSwap.$inferSelect
 export type DbTimecard = typeof timecard.$inferSelect
 export type DbTipEntry = typeof tipEntry.$inferSelect
+export type DbShiftPattern = typeof shiftPattern.$inferSelect
+export type DbRotaTemplate = typeof rotaTemplate.$inferSelect
+export type DbRotaTemplateShift = typeof rotaTemplateShift.$inferSelect
+export type DbShiftTask = typeof shiftTask.$inferSelect
 export type DbExpense = typeof expense.$inferSelect
 export type DbTakings = typeof takings.$inferSelect
 export type DbTaskCheck = typeof taskCheck.$inferSelect
