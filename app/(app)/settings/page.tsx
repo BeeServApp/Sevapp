@@ -4,21 +4,28 @@ import { getActiveVenueId, getSession, guardOwnerPage } from "@/lib/session"
 import { getVenues } from "@/app/actions/venues"
 import { getCompany } from "@/app/actions/company"
 import { getMembers } from "@/app/actions/members"
+import { getBillingState, syncSubscriptionFromCheckout } from "@/app/actions/billing"
 import { SETTINGS_TABS } from "@/lib/nav-config"
 
 export default async function SettingsPage({
   searchParams,
 }: {
-  searchParams: Promise<{ tab?: string }>
+  searchParams: Promise<{ tab?: string; session_id?: string; checkout?: string }>
 }) {
   const session = await getSession()
   if (!session?.user) redirect("/sign-in")
   await guardOwnerPage()
 
-  const { tab } = await searchParams
+  const { tab, session_id } = await searchParams
   const validTabs = SETTINGS_TABS.map((t) => t.id)
   const defaultTab = tab && validTabs.includes(tab) ? tab : "account"
 
+  // Returning from Stripe Checkout — confirm and persist the subscription.
+  if (session_id) {
+    await syncSubscriptionFromCheckout(session_id).catch(() => {})
+  }
+
+  const billing = await getBillingState()
   const company = await getCompany()
   const venues = await getVenues()
   const activeVenueId = await getActiveVenueId(session.user.id)
@@ -58,6 +65,7 @@ export default async function SettingsPage({
       }))}
       activeVenueName={activeVenue?.name ?? "this venue"}
       defaultTab={defaultTab}
+      billing={billing}
     />
   )
 }
