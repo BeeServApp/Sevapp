@@ -412,11 +412,13 @@ export function ComplianceView({
   checks,
   certificates,
   documents,
+  embedded = false,
 }: {
   venueId: number
   checks: DbComplianceCheck[]
   certificates: DbCertificate[]
   documents: DbDocument[]
+  embedded?: boolean
 }) {
   const router = useRouter()
   const [busyId, setBusyId] = useState<number | null>(null)
@@ -491,11 +493,23 @@ export function ComplianceView({
 
   return (
     <div className="flex flex-col gap-6">
-      <PageHeader
-        title="Compliance"
-        description="Compliance checks, certificates and documents — always audit-ready."
-        actions={<CheckDialog venueId={venueId} />}
-      />
+      {embedded ? (
+        <div className="flex items-center justify-between gap-4">
+          <div>
+            <h2 className="text-lg font-semibold">Certificates &amp; documents</h2>
+            <p className="text-sm text-muted-foreground">
+              Compliance checks, certificates and documents — always audit-ready.
+            </p>
+          </div>
+          <CheckDialog venueId={venueId} />
+        </div>
+      ) : (
+        <PageHeader
+          title="Compliance"
+          description="Compliance checks, certificates and documents — always audit-ready."
+          actions={<CheckDialog venueId={venueId} />}
+        />
+      )}
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
         {kpis.map((kpi) => (

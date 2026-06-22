@@ -285,12 +285,122 @@ export const correctiveAction = pgTable("corrective_action", {
   title: text("title").notNull(),
   description: text("description"),
   sourceTaskId: integer("sourceTaskId"),
+  sourceAuditId: integer("sourceAuditId"),
   priority: text("priority").notNull().default("Medium"),
   assignee: text("assignee"),
   dueDate: text("dueDate"),
   status: text("status").notNull().default("Open"),
   photoUrl: text("photoUrl"),
   resolvedAt: timestamp("resolvedAt"),
+  createdAt: timestamp("createdAt").notNull().defaultNow(),
+})
+
+// --- Safety Management -----------------------------------------------------
+
+export const safetyRecord = pgTable("safety_record", {
+  id: serial("id").primaryKey(),
+  userId: text("userId").notNull(),
+  venueId: integer("venueId").notNull(),
+  module: text("module").notNull().default("Fire Safety"),
+  name: text("name").notNull(),
+  reference: text("reference"),
+  owner: text("owner"),
+  frequency: text("frequency").notNull().default("Annual"),
+  lastDone: text("lastDone"),
+  nextDue: text("nextDue"),
+  status: text("status").notNull().default("Due"),
+  notes: text("notes"),
+  createdAt: timestamp("createdAt").notNull().defaultNow(),
+})
+
+export const riskAssessment = pgTable("risk_assessment", {
+  id: serial("id").primaryKey(),
+  userId: text("userId").notNull(),
+  venueId: integer("venueId").notNull(),
+  title: text("title").notNull(),
+  area: text("area"),
+  assessor: text("assessor"),
+  reviewDate: text("reviewDate"),
+  status: text("status").notNull().default("Draft"),
+  createdAt: timestamp("createdAt").notNull().defaultNow(),
+})
+
+export const riskHazard = pgTable("risk_hazard", {
+  id: serial("id").primaryKey(),
+  userId: text("userId").notNull(),
+  assessmentId: integer("assessmentId").notNull(),
+  hazard: text("hazard").notNull(),
+  whoAtRisk: text("whoAtRisk"),
+  likelihood: integer("likelihood").notNull().default(1),
+  severity: integer("severity").notNull().default(1),
+  controls: text("controls"),
+  sortOrder: integer("sortOrder").notNull().default(0),
+  createdAt: timestamp("createdAt").notNull().defaultNow(),
+})
+
+export const staffPolicy = pgTable("staff_policy", {
+  id: serial("id").primaryKey(),
+  userId: text("userId").notNull(),
+  venueId: integer("venueId").notNull(),
+  title: text("title").notNull(),
+  category: text("category").notNull().default("General"),
+  version: text("version").notNull().default("1.0"),
+  reviewDate: text("reviewDate"),
+  fileUrl: text("fileUrl"),
+  content: text("content"),
+  status: text("status").notNull().default("Published"),
+  createdAt: timestamp("createdAt").notNull().defaultNow(),
+})
+
+export const policyAck = pgTable("policy_ack", {
+  id: serial("id").primaryKey(),
+  userId: text("userId").notNull(),
+  policyId: integer("policyId").notNull(),
+  staffName: text("staffName").notNull(),
+  acknowledgedAt: timestamp("acknowledgedAt").notNull().defaultNow(),
+})
+
+export const dailyChecklist = pgTable("daily_checklist", {
+  id: serial("id").primaryKey(),
+  userId: text("userId").notNull(),
+  venueId: integer("venueId").notNull(),
+  title: text("title").notNull(),
+  module: text("module").notNull().default("Opening"),
+  timeOfDay: text("timeOfDay"),
+  frequency: text("frequency").notNull().default("Daily"),
+  items: text("items"),
+  active: boolean("active").notNull().default(true),
+  createdAt: timestamp("createdAt").notNull().defaultNow(),
+})
+
+export const dailyChecklistRun = pgTable("daily_checklist_run", {
+  id: serial("id").primaryKey(),
+  userId: text("userId").notNull(),
+  venueId: integer("venueId").notNull(),
+  checklistId: integer("checklistId").notNull(),
+  dateISO: text("dateISO").notNull(),
+  completedItems: text("completedItems"),
+  totalItems: integer("totalItems").notNull().default(0),
+  doneCount: integer("doneCount").notNull().default(0),
+  status: text("status").notNull().default("Pending"),
+  completedBy: text("completedBy"),
+  notes: text("notes"),
+  completedAt: timestamp("completedAt"),
+  createdAt: timestamp("createdAt").notNull().defaultNow(),
+})
+
+export const audit = pgTable("audit", {
+  id: serial("id").primaryKey(),
+  userId: text("userId").notNull(),
+  venueId: integer("venueId").notNull(),
+  title: text("title").notNull(),
+  module: text("module").notNull().default("H&S"),
+  auditor: text("auditor"),
+  auditDate: text("auditDate"),
+  score: integer("score"),
+  maxScore: integer("maxScore").notNull().default(100),
+  findings: text("findings"),
+  status: text("status").notNull().default("Scheduled"),
   createdAt: timestamp("createdAt").notNull().defaultNow(),
 })
 
@@ -340,3 +450,11 @@ export type DbTakings = typeof takings.$inferSelect
 export type DbTaskCheck = typeof taskCheck.$inferSelect
 export type DbTaskCheckItem = typeof taskCheckItem.$inferSelect
 export type DbCorrectiveAction = typeof correctiveAction.$inferSelect
+export type DbSafetyRecord = typeof safetyRecord.$inferSelect
+export type DbRiskAssessment = typeof riskAssessment.$inferSelect
+export type DbRiskHazard = typeof riskHazard.$inferSelect
+export type DbStaffPolicy = typeof staffPolicy.$inferSelect
+export type DbPolicyAck = typeof policyAck.$inferSelect
+export type DbDailyChecklist = typeof dailyChecklist.$inferSelect
+export type DbDailyChecklistRun = typeof dailyChecklistRun.$inferSelect
+export type DbAudit = typeof audit.$inferSelect
