@@ -1,6 +1,6 @@
 "use client"
 
-import { useMemo, useState, useTransition } from "react"
+import { useEffect, useMemo, useState, useTransition } from "react"
 import {
   Users,
   Clock,
@@ -146,6 +146,11 @@ export function StaffView({
   const [staff, setStaff] = useState<DbStaffMember[]>(initialStaff)
   const [leaveReqs, setLeaveReqs] = useState<DbLeaveRequest[]>(initialLeave)
   const [shifts, setShifts] = useState<DbRotaShift[]>(initialShifts)
+  // Re-sync from the server whenever a router.refresh() delivers fresh shifts
+  // (bulk add, auto-fill, clear week, recurring pattern generation, week nav).
+  useEffect(() => {
+    setShifts(initialShifts)
+  }, [initialShifts])
   const [clockEvents, setClockEvents] = useState<DbClockEvent[]>(initialClockEvents)
   const [swaps, setSwaps] = useState<DbShiftSwap[]>(initialSwaps)
   const [inviteStatuses, setInviteStatuses] =
