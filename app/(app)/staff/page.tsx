@@ -1,12 +1,15 @@
 import type { Metadata } from "next"
-import { getUserId, getActiveVenueId } from "@/lib/session"
+import { getActiveVenueId, getCurrentUser } from "@/lib/session"
 import {
   getStaffMembers,
   getLeaveRequests,
   getRotaShifts,
   getClockEvents,
+  getStaffInviteStatuses,
+  getMyShifts,
 } from "@/app/actions/staff"
 import { StaffView } from "@/components/staff-view"
+import { StaffPortal } from "@/components/staff/staff-portal"
 
 export const metadata: Metadata = {
   title: "Staff & Scheduling — Tapsheet",
@@ -24,8 +27,25 @@ function currentWeekStart() {
 }
 
 export default async function StaffPage() {
-  const userId = await getUserId()
-  const venueId = await getActiveVenueId(userId)
+  const me = await getCurrentUser()
+  const weekStart = currentWeekStart()
+
+  // ── Staff portal: focused, personal view of their own schedule ──────────────
+  if (me.appRole === "staff") {
+    const myShifts = await getMyShifts(weekStart)
+    return (
+      <StaffPortal
+        name={me.name}
+        weekStart={weekStart}
+        rotaDays={ROTA_DAYS}
+        initialShifts={myShifts}
+        staffMemberId={me.staffMemberId}
+      />
+    )
+  }
+
+  // ── Owner: full scheduling management ───────────────────────────────────────
+  const venueId = await getActiveVenueId(me.accountId)
 
   if (!venueId) {
     return (
@@ -35,13 +55,12 @@ export default async function StaffPage() {
     )
   }
 
-  const weekStart = currentWeekStart()
-
-  const [staffMembers, leaveRequests, rotaShifts, clockEvents] = await Promise.all([
+  const [staffMembers, leaveRequests, rotaShifts, clockEvents, inviteStatuses] = await Promise.all([
     getStaffMembers(venueId),
     getLeaveRequests(venueId),
     getRotaShifts(venueId, weekStart),
     getClockEvents(venueId),
+    getStaffInviteStatuses(venueId),
   ])
 
   return (
@@ -51,6 +70,7 @@ export default async function StaffPage() {
       initialLeave={leaveRequests}
       initialShifts={rotaShifts}
       initialClockEvents={clockEvents}
+      initialInviteStatuses={inviteStatuses}
       weekStart={weekStart}
       rotaDays={ROTA_DAYS}
     />

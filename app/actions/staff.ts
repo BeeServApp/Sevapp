@@ -301,6 +301,54 @@ export async function getMyShifts(weekStart: string) {
     .orderBy(asc(rotaShift.day))
 }
 
+/** The logged-in staff member's own profile (status, venue, etc.). */
+export async function getMyProfile() {
+  const me = await getCurrentUser()
+  if (me.staffMemberId == null) return null
+  const [m] = await db
+    .select()
+    .from(staffMember)
+    .where(and(eq(staffMember.id, me.staffMemberId), eq(staffMember.userId, me.accountId)))
+    .limit(1)
+  return m ?? null
+}
+
+/** Staff self clock-in/out from the portal. Records against their own record. */
+export async function selfClock(type: "in" | "out", coords: { lat: number; lng: number } | null) {
+  const me = await getCurrentUser()
+  if (me.staffMemberId == null) throw new Error("Not a staff account")
+  const [m] = await db
+    .select()
+    .from(staffMember)
+    .where(and(eq(staffMember.id, me.staffMemberId), eq(staffMember.userId, me.accountId)))
+    .limit(1)
+  if (!m) throw new Error("Staff record not found")
+
+  const locationLabel = coords ? `${coords.lat.toFixed(5)}, ${coords.lng.toFixed(5)}` : null
+  const [created] = await db
+    .insert(clockEvent)
+    .values({
+      userId: me.accountId,
+      venueId: m.venueId,
+      staffMemberId: m.id,
+      staffName: m.name,
+      type,
+      lat: coords?.lat ?? null,
+      lng: coords?.lng ?? null,
+      locationLabel,
+    })
+    .returning()
+
+  await db
+    .update(staffMember)
+    .set({ status: type === "in" ? "On shift" : "Off" })
+    .where(and(eq(staffMember.id, m.id), eq(staffMember.userId, me.accountId)))
+
+  await emitChange(me.accountId, "all")
+  revalidatePath("/staff")
+  return created
+}
+
 // ── Leave requests ───────────────────────────────────────────────────────────
 
 export async function getLeaveRequests(venueId: number) {

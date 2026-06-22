@@ -53,10 +53,11 @@ import {
   updateLeaveStatus,
   clockIn,
   clockOut,
-  upsertShift,
   createLeaveRequest,
   deleteStaffMember,
 } from "@/app/actions/staff"
+import { createStaffInvite, revokeStaffInvite } from "@/app/actions/invites"
+import { RotaBoard } from "@/components/staff/rota-board"
 import type {
   DbStaffMember,
   DbLeaveRequest,
@@ -64,6 +65,7 @@ import type {
   DbClockEvent,
 } from "@/lib/db/schema"
 import { cn } from "@/lib/utils"
+import { Copy, Check, Link2 } from "lucide-react"
 
 function initials(name: string) {
   return name
@@ -91,6 +93,7 @@ interface Props {
   initialLeave: DbLeaveRequest[]
   initialShifts: DbRotaShift[]
   initialClockEvents: DbClockEvent[]
+  initialInviteStatuses: Record<number, { status: string; token: string }>
   weekStart: string
   rotaDays: string[]
 }
@@ -103,6 +106,7 @@ export function StaffView({
   initialLeave,
   initialShifts,
   initialClockEvents,
+  initialInviteStatuses,
   weekStart,
   rotaDays,
 }: Props) {
@@ -110,7 +114,53 @@ export function StaffView({
   const [leaveReqs, setLeaveReqs] = useState<DbLeaveRequest[]>(initialLeave)
   const [shifts, setShifts] = useState<DbRotaShift[]>(initialShifts)
   const [clockEvents, setClockEvents] = useState<DbClockEvent[]>(initialClockEvents)
+  const [inviteStatuses, setInviteStatuses] =
+    useState<Record<number, { status: string; token: string }>>(initialInviteStatuses)
+  const [copiedId, setCopiedId] = useState<number | null>(null)
+  const [invitingId, setInvitingId] = useState<number | null>(null)
   const [isPending, startTransition] = useTransition()
+
+  function inviteUrl(token: string) {
+    if (typeof window === "undefined") return `/join/${token}`
+    return `${window.location.origin}/join/${token}`
+  }
+
+  async function handleInvite(member: DbStaffMember) {
+    setInvitingId(member.id)
+    try {
+      const inv = await createStaffInvite(member.id, member.email ?? undefined)
+      setInviteStatuses((prev) => ({ ...prev, [member.id]: { status: "pending", token: inv.token } }))
+      const url = inviteUrl(inv.token)
+      try {
+        await navigator.clipboard.writeText(url)
+        setCopiedId(member.id)
+        setTimeout(() => setCopiedId((c) => (c === member.id ? null : c)), 2000)
+      } catch {
+        /* clipboard may be blocked; link is still shown */
+      }
+    } finally {
+      setInvitingId(null)
+    }
+  }
+
+  async function handleCopyInvite(member: DbStaffMember, token: string) {
+    try {
+      await navigator.clipboard.writeText(inviteUrl(token))
+      setCopiedId(member.id)
+      setTimeout(() => setCopiedId((c) => (c === member.id ? null : c)), 2000)
+    } catch {
+      /* ignore */
+    }
+  }
+
+  async function handleRevoke(member: DbStaffMember) {
+    await revokeStaffInvite(member.id)
+    setInviteStatuses((prev) => {
+      const next = { ...prev }
+      delete next[member.id]
+      return next
+    })
+  }
 
   // ── Derived stats ─────────────────────────────────────────────────────────
   const onShift = useMemo(() => staff.filter((s) => s.status === "On shift").length, [staff])
@@ -126,6 +176,8 @@ export function StaffView({
     contract: "Full-time",
     hoursWk: "40",
     status: "Off",
+    email: "",
+    phone: "",
   })
   const [staffError, setStaffError] = useState<string | null>(null)
   const [staffSaving, setStaffSaving] = useState(false)
@@ -144,10 +196,12 @@ export function StaffView({
         contract: staffForm.contract,
         hoursWk: hrs,
         status: staffForm.status,
+        email: staffForm.email.trim() || undefined,
+        phone: staffForm.phone.trim() || undefined,
       })
       setStaff((prev) => [...prev, created])
       setAddStaffOpen(false)
-      setStaffForm({ name: "", role: "Staff", contract: "Full-time", hoursWk: "40", status: "Off" })
+      setStaffForm({ name: "", role: "Staff", contract: "Full-time", hoursWk: "40", status: "Off", email: "", phone: "" })
     } catch {
       setStaffError("Failed to add staff member.")
     } finally {
@@ -200,41 +254,6 @@ export function StaffView({
       const updated = await updateLeaveStatus(id, status)
       setLeaveReqs((prev) => prev.map((l) => (l.id === id ? updated : l)))
     })
-  }
-
-  // ── Rota cell edit ────────────────────────────────────────────────────────
-  const [editingShift, setEditingShift] = useState<{
-    staffMemberId: number
-    day: string
-    current: string
-  } | null>(null)
-  const [shiftTime, setShiftTime] = useState("")
-
-  function openShiftEditor(staffMemberId: number, day: string, current: string) {
-    setEditingShift({ staffMemberId, day, current })
-    setShiftTime(current)
-  }
-
-  async function saveShift() {
-    if (!editingShift) return
-    const saved = await upsertShift({
-      venueId,
-      staffMemberId: editingShift.staffMemberId,
-      weekStart,
-      day: editingShift.day,
-      shiftTime: shiftTime.trim() || null,
-    })
-    setShifts((prev) => {
-      const filtered = prev.filter(
-        (s) => !(s.staffMemberId === editingShift.staffMemberId && s.day === editingShift.day),
-      )
-      return [...filtered, saved]
-    })
-    setEditingShift(null)
-  }
-
-  function getShift(staffMemberId: number, day: string) {
-    return shifts.find((s) => s.staffMemberId === staffMemberId && s.day === day)?.shiftTime ?? null
   }
 
   // ── GPS Clock In / Out ────────────────────────────────────────────────────
@@ -383,64 +402,14 @@ export function StaffView({
 
         {/* ── Rota ── */}
         <TabsContent value="rota" className="mt-4">
-          <Card>
-            <CardHeader>
-              <CardTitle>Weekly rota — w/c {weekStart}</CardTitle>
-              <p className="mt-1 text-xs text-muted-foreground">Click a cell to edit a shift.</p>
-            </CardHeader>
-            <CardContent className="overflow-x-auto p-0">
-              {staff.length === 0 ? (
-                <p className="px-6 py-8 text-center text-sm text-muted-foreground">
-                  Add staff members to build the rota.
-                </p>
-              ) : (
-                <table className="w-full border-collapse text-sm">
-                  <thead>
-                    <tr>
-                      <th className="sticky left-0 bg-card px-4 py-3 text-left font-medium text-muted-foreground">
-                        Staff
-                      </th>
-                      {rotaDays.map((d) => (
-                        <th
-                          key={d}
-                          className="px-3 py-3 text-center font-medium text-muted-foreground"
-                        >
-                          {d}
-                        </th>
-                      ))}
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {staff.map((s) => (
-                      <tr key={s.id} className="border-t border-border">
-                        <td className="sticky left-0 bg-card px-4 py-3 font-medium whitespace-nowrap">
-                          {s.name}
-                        </td>
-                        {rotaDays.map((day) => {
-                          const shift = getShift(s.id, day)
-                          return (
-                            <td key={day} className="px-2 py-2 text-center">
-                              <button
-                                type="button"
-                                onClick={() => openShiftEditor(s.id, day, shift ?? "")}
-                                className="inline-flex min-w-[52px] items-center justify-center rounded-md border border-transparent px-2 py-1 text-xs transition-colors hover:border-border hover:bg-accent"
-                              >
-                                {shift ? (
-                                  <span className="font-medium text-foreground">{shift}</span>
-                                ) : (
-                                  <span className="text-muted-foreground/40">+ add</span>
-                                )}
-                              </button>
-                            </td>
-                          )
-                        })}
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              )}
-            </CardContent>
-          </Card>
+          <RotaBoard
+            venueId={venueId}
+            weekStart={weekStart}
+            rotaDays={rotaDays}
+            staff={staff}
+            shifts={shifts}
+            onShiftsChange={setShifts}
+          />
         </TabsContent>
 
         {/* ── Team ── */}
@@ -463,30 +432,76 @@ export function StaffView({
                     <TableRow>
                       <TableHead>Name</TableHead>
                       <TableHead>Role</TableHead>
-                      <TableHead>Contract</TableHead>
                       <TableHead className="text-right">Hours/wk</TableHead>
                       <TableHead>Status</TableHead>
+                      <TableHead>App access</TableHead>
                       <TableHead className="w-10" />
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {staff.map((s) => (
+                    {staff.map((s) => {
+                      const invite = inviteStatuses[s.id]
+                      const linked = !!s.linkedUserId
+                      return (
                       <TableRow key={s.id}>
                         <TableCell>
                           <div className="flex items-center gap-3">
                             <Avatar className="size-8">
                               <AvatarFallback className="text-xs">{initials(s.name)}</AvatarFallback>
                             </Avatar>
-                            <span className="font-medium">{s.name}</span>
+                            <div className="leading-tight">
+                              <div className="font-medium">{s.name}</div>
+                              {s.email ? (
+                                <div className="text-xs text-muted-foreground">{s.email}</div>
+                              ) : null}
+                            </div>
                           </div>
                         </TableCell>
                         <TableCell className="text-muted-foreground">{s.role}</TableCell>
-                        <TableCell>
-                          <Badge variant="outline">{s.contract}</Badge>
-                        </TableCell>
                         <TableCell className="text-right tabular-nums">{s.hoursWk}h</TableCell>
                         <TableCell>
                           <StatusBadge status={s.status} />
+                        </TableCell>
+                        <TableCell>
+                          {linked ? (
+                            <Badge variant="outline" className="border-transparent bg-chart-2/15 text-chart-2">
+                              <Check className="size-3" /> Linked
+                            </Badge>
+                          ) : invite?.status === "pending" ? (
+                            <div className="flex items-center gap-1">
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                className="h-7"
+                                onClick={() => handleCopyInvite(s, invite.token)}
+                              >
+                                {copiedId === s.id ? (
+                                  <><Check className="size-3.5" /> Copied</>
+                                ) : (
+                                  <><Copy className="size-3.5" /> Copy link</>
+                                )}
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className="h-7 text-muted-foreground hover:text-destructive"
+                                onClick={() => handleRevoke(s)}
+                              >
+                                Revoke
+                              </Button>
+                            </div>
+                          ) : (
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              className="h-7"
+                              disabled={invitingId === s.id}
+                              onClick={() => handleInvite(s)}
+                            >
+                              <Link2 className="size-3.5" />
+                              {invitingId === s.id ? "Creating..." : "Invite"}
+                            </Button>
+                          )}
                         </TableCell>
                         <TableCell>
                           <Button
@@ -500,7 +515,8 @@ export function StaffView({
                           </Button>
                         </TableCell>
                       </TableRow>
-                    ))}
+                      )
+                    })}
                   </TableBody>
                 </Table>
               )}
@@ -717,6 +733,30 @@ export function StaffView({
                 </Select>
               </div>
             </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="grid gap-2">
+                <Label htmlFor="s-email">Email</Label>
+                <Input
+                  id="s-email"
+                  type="email"
+                  value={staffForm.email}
+                  onChange={(e) => setStaffForm((f) => ({ ...f, email: e.target.value }))}
+                  placeholder="for app invite & alerts"
+                />
+              </div>
+              <div className="grid gap-2">
+                <Label htmlFor="s-phone">Phone</Label>
+                <Input
+                  id="s-phone"
+                  value={staffForm.phone}
+                  onChange={(e) => setStaffForm((f) => ({ ...f, phone: e.target.value }))}
+                  placeholder="optional"
+                />
+              </div>
+            </div>
+            <p className="text-xs text-muted-foreground">
+              Add an email so you can invite this person to the staff app and email them their shifts.
+            </p>
             {staffError && <p className="text-sm text-destructive">{staffError}</p>}
           </div>
           <DialogFooter>
@@ -883,30 +923,6 @@ export function StaffView({
         </DialogContent>
       </Dialog>
 
-      {/* ── Rota cell editor ── */}
-      <Dialog open={!!editingShift} onOpenChange={(o) => !o && setEditingShift(null)}>
-        <DialogContent className="sm:max-w-xs">
-          <DialogHeader>
-            <DialogTitle>Edit shift</DialogTitle>
-            <DialogDescription>
-              {editingShift?.day} — enter a shift time (e.g. 9am–5pm) or leave blank to clear.
-            </DialogDescription>
-          </DialogHeader>
-          <div className="grid gap-2">
-            <Label htmlFor="shift-time">Shift time</Label>
-            <Input
-              id="shift-time"
-              value={shiftTime}
-              onChange={(e) => setShiftTime(e.target.value)}
-              placeholder="e.g. 10am–6pm"
-            />
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setEditingShift(null)}>Cancel</Button>
-            <Button onClick={saveShift}>Save shift</Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
     </>
   )
 }
