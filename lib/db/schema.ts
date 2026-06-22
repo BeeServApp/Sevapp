@@ -404,6 +404,52 @@ export const audit = pgTable("audit", {
   createdAt: timestamp("createdAt").notNull().defaultNow(),
 })
 
+// --- Food Safety (HACCP) ---------------------------------------------------
+
+export const foodCheck = pgTable("food_check", {
+  id: serial("id").primaryKey(),
+  userId: text("userId").notNull(),
+  venueId: integer("venueId").notNull(),
+  name: text("name").notNull(),
+  area: text("area").notNull().default("Fridge"),
+  type: text("type").notNull().default("Temperature"),
+  minTemp: integer("minTemp"),
+  maxTemp: integer("maxTemp"),
+  frequency: text("frequency").notNull().default("Daily"),
+  timeOfDay: text("timeOfDay"),
+  active: boolean("active").notNull().default(true),
+  sortOrder: integer("sortOrder").notNull().default(0),
+  createdAt: timestamp("createdAt").notNull().defaultNow(),
+})
+
+export const foodCheckLog = pgTable("food_check_log", {
+  id: serial("id").primaryKey(),
+  userId: text("userId").notNull(),
+  venueId: integer("venueId").notNull(),
+  checkId: integer("checkId").notNull(),
+  dateISO: text("dateISO").notNull(),
+  tempReading: integer("tempReading"),
+  passed: boolean("passed").notNull().default(true),
+  correctiveAction: text("correctiveAction"),
+  loggedBy: text("loggedBy"),
+  notes: text("notes"),
+  createdAt: timestamp("createdAt").notNull().defaultNow(),
+})
+
+export const foodPolicy = pgTable("food_policy", {
+  id: serial("id").primaryKey(),
+  userId: text("userId").notNull(),
+  venueId: integer("venueId").notNull(),
+  title: text("title").notNull(),
+  category: text("category").notNull().default("HACCP"),
+  version: text("version").notNull().default("1.0"),
+  reviewDate: text("reviewDate"),
+  fileUrl: text("fileUrl"),
+  content: text("content"),
+  status: text("status").notNull().default("Published"),
+  createdAt: timestamp("createdAt").notNull().defaultNow(),
+})
+
 // --- Financials -----------------------------------------------------------
 
 export const expense = pgTable("expense", {
@@ -427,6 +473,41 @@ export const takings = pgTable("takings", {
   foodPence: integer("foodPence").notNull().default(0),
   eventsPence: integer("eventsPence").notNull().default(0),
   retailPence: integer("retailPence").notNull().default(0),
+  createdAt: timestamp("createdAt").notNull().defaultNow(),
+})
+
+// --- Gaming machines (UK Machine Games Duty) -------------------------------
+
+export const gamingMachine = pgTable("gaming_machine", {
+  id: serial("id").primaryKey(),
+  userId: text("userId").notNull(),
+  venueId: integer("venueId").notNull(),
+  name: text("name").notNull(),
+  siteCode: text("siteCode"),
+  machineType: text("machineType").notNull().default("AWP"),
+  mgdBand: text("mgdBand").notNull().default("Standard"),
+  locationSharePct: integer("locationSharePct").notNull().default(50),
+  assetId: integer("assetId"),
+  active: boolean("active").notNull().default(true),
+  createdAt: timestamp("createdAt").notNull().defaultNow(),
+})
+
+export const gamingEntry = pgTable("gaming_entry", {
+  id: serial("id").primaryKey(),
+  userId: text("userId").notNull(),
+  venueId: integer("venueId").notNull(),
+  machineId: integer("machineId").notNull(),
+  collectionDateISO: text("collectionDateISO").notNull(),
+  days: integer("days").notNull().default(0),
+  totalIncomePence: integer("totalIncomePence").notNull().default(0),
+  refillsPence: integer("refillsPence").notNull().default(0),
+  netPence: integer("netPence").notNull().default(0),
+  mgdRateBps: integer("mgdRateBps").notNull().default(2000),
+  mgdPence: integer("mgdPence").notNull().default(0),
+  locationSharePct: integer("locationSharePct").notNull().default(50),
+  locationSharePence: integer("locationSharePence").notNull().default(0),
+  supplierSharePence: integer("supplierSharePence").notNull().default(0),
+  notes: text("notes"),
   createdAt: timestamp("createdAt").notNull().defaultNow(),
 })
 
@@ -458,3 +539,8 @@ export type DbPolicyAck = typeof policyAck.$inferSelect
 export type DbDailyChecklist = typeof dailyChecklist.$inferSelect
 export type DbDailyChecklistRun = typeof dailyChecklistRun.$inferSelect
 export type DbAudit = typeof audit.$inferSelect
+export type DbFoodCheck = typeof foodCheck.$inferSelect
+export type DbFoodCheckLog = typeof foodCheckLog.$inferSelect
+export type DbFoodPolicy = typeof foodPolicy.$inferSelect
+export type DbGamingMachine = typeof gamingMachine.$inferSelect
+export type DbGamingEntry = typeof gamingEntry.$inferSelect
