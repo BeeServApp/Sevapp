@@ -21,7 +21,7 @@ export default async function LandingPage() {
   const session = await getSession()
   if (session?.user) {
     const me = await getCurrentUser()
-    redirect(me.appRole === "staff" ? "/staff" : "/dashboard")
+    redirect(me.appRole === "staff" ? "/portal/home" : "/dashboard")
   }
 
   return (

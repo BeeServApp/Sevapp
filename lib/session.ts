@@ -77,7 +77,7 @@ export async function requireOwner(): Promise<CurrentUser> {
  */
 export async function guardOwnerPage(): Promise<CurrentUser> {
   const me = await getCurrentUser()
-  if (me.appRole !== "owner") redirect("/staff")
+  if (me.appRole !== "owner") redirect("/portal/home")
   return me
 }
 
