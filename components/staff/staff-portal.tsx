@@ -43,10 +43,11 @@ import {
 import { selfClock } from "@/app/actions/staff"
 import { setAvailability, requestSwap } from "@/app/actions/scheduling"
 import { staffToggleTaskItem, staffUpdateTaskStatus, type TaskWithItems } from "@/app/actions/tasks"
+import { toggleShiftTask } from "@/app/actions/shift-planning"
 import { Checkbox } from "@/components/ui/checkbox"
 import { Progress } from "@/components/ui/progress"
 import { WeekNav } from "@/components/staff/week-nav"
-import type { DbRotaShift, DbAvailability, DbShiftSwap, DbTimecard } from "@/lib/db/schema"
+import type { DbRotaShift, DbAvailability, DbShiftSwap, DbTimecard, DbShiftTask } from "@/lib/db/schema"
 import {
   colorClasses,
   shiftHours,
@@ -66,6 +67,7 @@ interface Props {
   initialSwaps: DbShiftSwap[]
   initialTimecards: DbTimecard[]
   initialTasks: TaskWithItems[]
+  initialShiftTasks: DbShiftTask[]
   staffMemberId: number | null
   venueId: number
 }
@@ -89,11 +91,30 @@ export function StaffPortal({
   initialSwaps,
   initialTimecards,
   initialTasks,
+  initialShiftTasks,
   staffMemberId,
   venueId,
 }: Props) {
   const [shifts] = useState<DbRotaShift[]>(initialShifts)
   const [tasks, setTasks] = useState<TaskWithItems[]>(initialTasks)
+  const [shiftTasks, setShiftTasks] = useState<DbShiftTask[]>(initialShiftTasks)
+  const shiftTasksByShift = useMemo(() => {
+    const m = new Map<number, DbShiftTask[]>()
+    for (const t of shiftTasks) {
+      const arr = m.get(t.shiftId) ?? []
+      arr.push(t)
+      m.set(t.shiftId, arr)
+    }
+    for (const arr of m.values()) arr.sort((a, b) => a.sortOrder - b.sortOrder)
+    return m
+  }, [shiftTasks])
+
+  function toggleShiftTaskLocal(id: number, done: boolean) {
+    setShiftTasks((prev) => prev.map((t) => (t.id === id ? { ...t, done } : t)))
+    startTransition(() => {
+      toggleShiftTask(id, done)
+    })
+  }
   const openTaskCount = tasks.filter((t) => t.status !== "Completed").length
   const [availability, setAvailabilityState] = useState<DbAvailability[]>(initialAvailability)
   const [swaps, setSwaps] = useState<DbShiftSwap[]>(initialSwaps)
@@ -337,6 +358,8 @@ export function StaffPortal({
                             dayShifts.map((s) => {
                               const cc = colorClasses(s.color)
                               const pending = pendingSwapShiftIds.has(s.id)
+                              const sTasks = shiftTasksByShift.get(s.id) ?? []
+                              const sDone = sTasks.filter((t) => t.done).length
                               return (
                                 <div key={s.id} className={cn("rounded-md border px-2.5 py-1.5 text-sm", cc.block)}>
                                   <div className="flex items-center justify-between gap-2">
@@ -363,6 +386,35 @@ export function StaffPortal({
                                       </button>
                                     )}
                                   </div>
+                                  {sTasks.length > 0 && (
+                                    <div className="mt-2 border-t border-current/15 pt-1.5">
+                                      <div className="mb-1 flex items-center gap-1 text-[10px] font-medium uppercase tracking-wide opacity-70">
+                                        <ListChecks className="size-3" />
+                                        Shift tasks {sDone}/{sTasks.length}
+                                      </div>
+                                      <ul className="flex flex-col gap-1">
+                                        {sTasks.map((t) => (
+                                          <li key={t.id} className="flex items-center gap-2">
+                                            <Checkbox
+                                              id={`shifttask-${t.id}`}
+                                              checked={t.done}
+                                              onCheckedChange={(c) => toggleShiftTaskLocal(t.id, c === true)}
+                                              className="size-3.5"
+                                            />
+                                            <label
+                                              htmlFor={`shifttask-${t.id}`}
+                                              className={cn(
+                                                "text-xs",
+                                                t.done ? "line-through opacity-60" : "opacity-90",
+                                              )}
+                                            >
+                                              {t.label}
+                                            </label>
+                                          </li>
+                                        ))}
+                                      </ul>
+                                    </div>
+                                  )}
                                 </div>
                               )
                             })

@@ -681,12 +681,14 @@ export function RotaBoard({
 
           {/* Templates */}
           <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="outline" size="sm">
-                <LayoutTemplate className="size-4" />
-                Templates
-              </Button>
-            </DropdownMenuTrigger>
+            <DropdownMenuTrigger
+              render={
+                <Button variant="outline" size="sm">
+                  <LayoutTemplate className="size-4" />
+                  Templates
+                </Button>
+              }
+            />
             <DropdownMenuContent align="end" className="w-64">
               <DropdownMenuItem onClick={() => setTemplateOpen(true)}>
                 <LayoutTemplate className="size-4" /> Save this week as template…
@@ -747,11 +749,14 @@ export function RotaBoard({
 
           {/* More actions */}
           <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="outline" size="sm" aria-label="More rota actions">
-                <MoreHorizontal className="size-4" />
-              </Button>
-            </DropdownMenuTrigger>
+            <DropdownMenuTrigger
+              render={
+                <Button variant="outline" size="sm" aria-label="More rota actions">
+                  <MoreHorizontal className="size-4" />
+                  More
+                </Button>
+              }
+            />
             <DropdownMenuContent align="end" className="w-56">
               <DropdownMenuLabel>Bulk actions</DropdownMenuLabel>
               <DropdownMenuItem onClick={handleUnassignAll} disabled={isActing}>
@@ -992,7 +997,7 @@ export function RotaBoard({
                 </div>
                 {form.recurring && (
                   <div className="mt-3">
-                    <Select value={form.repeatWeeks} onValueChange={(v) => setForm((f) => ({ ...f, repeatWeeks: v }))}>
+                    <Select value={form.repeatWeeks} onValueChange={(v) => setForm((f) => ({ ...f, repeatWeeks: v ?? "1" }))}>
                       <SelectTrigger>
                         <SelectValue />
                       </SelectTrigger>
@@ -1120,7 +1125,7 @@ export function RotaBoard({
               <Label>Assign to</Label>
               <Select
                 value={bulk.staffMemberId}
-                onValueChange={(v) => setBulk((b) => ({ ...b, staffMemberId: v }))}
+                onValueChange={(v) => setBulk((b) => ({ ...b, staffMemberId: v ?? "open" }))}
               >
                 <SelectTrigger>
                   <SelectValue />
