@@ -81,6 +81,9 @@ export const venue = pgTable("venue", {
   status: text("status").notNull().default("Active"),
   openingDate: text("openingDate"),
   notes: text("notes"),
+  // Square integration: the mapped Square location id for this venue (if any).
+  // The human-readable name is resolved live from the Square API.
+  squareLocationId: text("squareLocationId"),
   createdAt: timestamp("createdAt").notNull().defaultNow(),
 })
 
@@ -116,6 +119,21 @@ export const company = pgTable("company", {
   subscriptionQuantity: integer("subscriptionQuantity"),
   trialEndsAt: timestamp("trialEndsAt"),
   currentPeriodEnd: timestamp("currentPeriodEnd"),
+  createdAt: timestamp("createdAt").notNull().defaultNow(),
+  updatedAt: timestamp("updatedAt").notNull().defaultNow(),
+})
+
+// One Square OAuth connection per account owner (scoped by accountId).
+// Access/refresh tokens are stored AES-256-GCM encrypted; never sent to the client.
+export const squareConnection = pgTable("square_connection", {
+  id: serial("id").primaryKey(),
+  accountId: text("accountId").notNull(),
+  merchantId: text("merchantId"),
+  merchantName: text("merchantName"),
+  accessToken: text("accessToken").notNull(),
+  refreshToken: text("refreshToken").notNull(),
+  scopes: text("scopes"),
+  expiresAt: timestamp("expiresAt"),
   createdAt: timestamp("createdAt").notNull().defaultNow(),
   updatedAt: timestamp("updatedAt").notNull().defaultNow(),
 })
