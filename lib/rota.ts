@@ -84,3 +84,58 @@ export function timeLabel(startTime: string | null, endTime: string | null, fall
   if (startTime && endTime) return `${startTime}–${endTime}`
   return fallback ?? ""
 }
+
+// ── Week / date helpers ───────────────────────────────────────────────────────
+
+export const ROTA_DAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"] as const
+
+/** Monday (ISO yyyy-mm-dd) of the week containing the given date (default: now). */
+export function weekStartOf(date = new Date()): string {
+  const d = new Date(date)
+  const day = d.getDay() // 0 = Sun
+  const diff = day === 0 ? -6 : 1 - day
+  d.setDate(d.getDate() + diff)
+  return d.toISOString().slice(0, 10)
+}
+
+/** Shift a yyyy-mm-dd week start by N weeks (positive = forward). */
+export function addWeeks(weekStart: string, weeks: number): string {
+  const d = new Date(`${weekStart}T00:00:00`)
+  d.setDate(d.getDate() + weeks * 7)
+  return d.toISOString().slice(0, 10)
+}
+
+/** yyyy-mm-dd for a given day label within a week. */
+export function dateForDay(weekStart: string, day: string): string {
+  const idx = (ROTA_DAYS as readonly string[]).indexOf(day)
+  const d = new Date(`${weekStart}T00:00:00`)
+  d.setDate(d.getDate() + Math.max(0, idx))
+  return d.toISOString().slice(0, 10)
+}
+
+/** Day label (Mon..Sun) for a yyyy-mm-dd date. */
+export function dayLabelOf(dateISO: string): string {
+  const d = new Date(`${dateISO}T00:00:00`)
+  const js = d.getDay() // 0 = Sun
+  return (ROTA_DAYS as readonly string[])[js === 0 ? 6 : js - 1]
+}
+
+/** Human label for a week range e.g. "6–12 Jan 2026". */
+export function weekRangeLabel(weekStart: string): string {
+  const start = new Date(`${weekStart}T00:00:00`)
+  const end = new Date(start)
+  end.setDate(start.getDate() + 6)
+  const sameMonth = start.getMonth() === end.getMonth()
+  const dd = (d: Date) => d.getDate()
+  const mon = (d: Date) => d.toLocaleDateString("en-GB", { month: "short" })
+  const yr = end.getFullYear()
+  if (sameMonth) return `${dd(start)}–${dd(end)} ${mon(end)} ${yr}`
+  return `${dd(start)} ${mon(start)} – ${dd(end)} ${mon(end)} ${yr}`
+}
+
+/** Escape a value for inclusion in a CSV cell. */
+export function csvCell(value: string | number | null | undefined): string {
+  const s = value == null ? "" : String(value)
+  if (/[",\n]/.test(s)) return `"${s.replace(/"/g, '""')}"`
+  return s
+}

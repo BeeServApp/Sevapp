@@ -1,7 +1,8 @@
 "use client"
 
 import { useMemo, useState, useTransition } from "react"
-import { Plus, Send, Trash2, Clock, Coffee, StickyNote } from "lucide-react"
+import { useRouter } from "next/navigation"
+import { Plus, Send, Trash2, Clock, Coffee, StickyNote, CopyPlus, AlertTriangle } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
@@ -24,7 +25,8 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import { saveShift, moveShift, deleteShift, publishRota, type ShiftInput } from "@/app/actions/staff"
-import type { DbStaffMember, DbRotaShift } from "@/lib/db/schema"
+import { copyRota } from "@/app/actions/scheduling"
+import type { DbStaffMember, DbRotaShift, DbAvailability, DbSchedulingSettings } from "@/lib/db/schema"
 import {
   SHIFT_COLORS,
   colorClasses,
@@ -33,6 +35,7 @@ import {
   formatMoney,
   timeLabel,
 } from "@/lib/rota"
+import { WeekNav } from "@/components/staff/week-nav"
 import { cn } from "@/lib/utils"
 
 interface Props {
@@ -41,6 +44,8 @@ interface Props {
   rotaDays: string[]
   staff: DbStaffMember[]
   shifts: DbRotaShift[]
+  availability: DbAvailability[]
+  settings: DbSchedulingSettings
   onShiftsChange: (updater: (prev: DbRotaShift[]) => DbRotaShift[]) => void
 }
 
@@ -52,11 +57,35 @@ interface EditorState {
   day: string
 }
 
-export function RotaBoard({ venueId, weekStart, rotaDays, staff, shifts, onShiftsChange }: Props) {
+export function RotaBoard({ venueId, weekStart, rotaDays, staff, shifts, availability, settings, onShiftsChange }: Props) {
+  const router = useRouter()
   const [isPublishing, startPublish] = useTransition()
+  const [isCopying, startCopy] = useTransition()
   const [dragId, setDragId] = useState<number | null>(null)
   const [dropTarget, setDropTarget] = useState<string | null>(null)
   const [publishMsg, setPublishMsg] = useState<string | null>(null)
+
+  const overtimeLimit = settings?.overtimeWeeklyHours ?? 0
+
+  // Availability lookup: staffMemberId -> day -> row
+  const availByStaffDay = useMemo(() => {
+    const map = new Map<string, DbAvailability>()
+    for (const a of availability) map.set(`${a.staffMemberId}:${a.day}`, a)
+    return map
+  }, [availability])
+
+  function handleCopyLastWeek() {
+    setPublishMsg(null)
+    startCopy(async () => {
+      const res = await copyRota(venueId, weekStart)
+      if (res.copied === 0) {
+        setPublishMsg("No shifts found in the previous week to copy.")
+      } else {
+        setPublishMsg(`Copied ${res.copied} shift${res.copied > 1 ? "s" : ""} from last week as drafts.`)
+        router.refresh()
+      }
+    })
+  }
 
   // ── Editor dialog ───────────────────────────────────────────────────────────
   const [editor, setEditor] = useState<EditorState | null>(null)
@@ -105,7 +134,17 @@ export function RotaBoard({ venueId, weekStart, rotaDays, staff, shifts, onShift
   // ── Open editor ────────────────────────────────────────────────────────────
   function openNew(staffMemberId: number, day: string) {
     setEditor({ shift: null, staffMemberId, day })
-    setForm({ role: "", startTime: "09:00", endTime: "17:00", color: "green", breakMins: "0", payRate: "", notes: "" })
+    const member = staff.find((s) => s.id === staffMemberId)
+    const defaultRate = member?.defaultPayRatePence ? (member.defaultPayRatePence / 100).toFixed(2) : ""
+    setForm({
+      role: member?.role && member.role !== "Staff" ? member.role : "",
+      startTime: "09:00",
+      endTime: "17:00",
+      color: "green",
+      breakMins: "0",
+      payRate: defaultRate,
+      notes: "",
+    })
   }
 
   function openEdit(shift: DbRotaShift) {
@@ -242,10 +281,15 @@ export function RotaBoard({ venueId, weekStart, rotaDays, staff, shifts, onShift
   function Cell({ staffMemberId, day }: { staffMemberId: number; day: string }) {
     const cellShifts = shiftsFor(staffMemberId, day)
     const key = `${staffMemberId}:${day}`
+    const avail = staffMemberId > 0 ? availByStaffDay.get(key) : undefined
+    const unavailable = avail?.status === "unavailable"
+    const preferred = avail?.status === "preferred"
     return (
       <td
         className={cn(
           "align-top border-l border-border p-1.5",
+          unavailable && "bg-rose-50/60",
+          preferred && "bg-emerald-50/40",
           dropTarget === key && "bg-accent/60 ring-1 ring-inset ring-primary/40",
         )}
         onDragOver={(e) => {
@@ -255,6 +299,20 @@ export function RotaBoard({ venueId, weekStart, rotaDays, staff, shifts, onShift
         onDragLeave={() => setDropTarget((t) => (t === key ? null : t))}
         onDrop={() => onDrop(staffMemberId, day)}
       >
+        {avail ? (
+          <div
+            className={cn(
+              "mb-1 flex items-center gap-1 text-[10px] font-medium",
+              unavailable ? "text-rose-600" : "text-emerald-600",
+            )}
+            title={avail.note ?? undefined}
+          >
+            <span className={cn("size-1.5 rounded-full", unavailable ? "bg-rose-500" : "bg-emerald-500")} />
+            {unavailable
+              ? "Unavailable"
+              : `Prefers${avail.startTime ? ` ${avail.startTime}–${avail.endTime}` : ""}`}
+          </div>
+        ) : null}
         <div className="flex flex-col gap-1.5">
           {cellShifts.map((s) => (
             <ShiftBlock key={s.id} shift={s} />
@@ -276,11 +334,12 @@ export function RotaBoard({ venueId, weekStart, rotaDays, staff, shifts, onShift
     <Card className="overflow-hidden">
       {/* Toolbar */}
       <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border px-4 py-3">
-        <div>
-          <h3 className="font-semibold text-foreground">Rota — w/c {weekStart}</h3>
-          <p className="text-xs text-muted-foreground">
-            Drag shifts between staff and days. Click a shift to edit, or a blank cell to add.
-          </p>
+        <div className="flex flex-wrap items-center gap-3">
+          <WeekNav weekStart={weekStart} />
+          <Button variant="outline" size="sm" onClick={handleCopyLastWeek} disabled={isCopying}>
+            <CopyPlus className="size-4" />
+            {isCopying ? "Copying..." : "Copy last week"}
+          </Button>
         </div>
         <div className="flex items-center gap-3">
           <div className="text-right text-xs text-muted-foreground">
@@ -332,14 +391,28 @@ export function RotaBoard({ venueId, weekStart, rotaDays, staff, shifts, onShift
               </tr>
 
               {/* Staff rows */}
-              {staff.map((s) => (
+              {staff.map((s) => {
+                const hrs = rowHours(s.id)
+                const overtime = overtimeLimit > 0 && hrs > overtimeLimit
+                return (
                 <tr key={s.id} className="border-b border-border">
                   <td className="sticky left-0 z-10 bg-card px-4 py-2">
                     <div className="font-medium text-foreground">{s.name}</div>
-                    <div className="text-xs text-muted-foreground">
-                      {formatHours(rowHours(s.id))}
+                    <div
+                      className={cn(
+                        "flex items-center gap-1 text-xs",
+                        overtime ? "font-medium text-amber-600" : "text-muted-foreground",
+                      )}
+                    >
+                      {overtime && <AlertTriangle className="size-3" />}
+                      {formatHours(hrs)}
                       {rowCost(s.id) > 0 ? ` · ${formatMoney(rowCost(s.id))}` : ""}
                     </div>
+                    {overtime && (
+                      <div className="text-[10px] text-amber-600">
+                        Over {overtimeLimit}h limit
+                      </div>
+                    )}
                     {s.role ? (
                       <Badge variant="outline" className="mt-1 text-[10px]">
                         {s.role}
@@ -350,7 +423,8 @@ export function RotaBoard({ venueId, weekStart, rotaDays, staff, shifts, onShift
                     <Cell key={day} staffMemberId={s.id} day={day} />
                   ))}
                 </tr>
-              ))}
+                )
+              })}
 
               {/* Totals row */}
               <tr className="bg-muted/40 text-xs">

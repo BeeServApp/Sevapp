@@ -256,6 +256,10 @@ export const staffMember = pgTable("staff_member", {
   phone: text("phone"),
   // The user.id of the staff login account linked to this record (once accepted).
   linkedUserId: text("linkedUserId"),
+  // Commission as a whole-number percent of attributed sales (0 = none).
+  commissionPct: integer("commissionPct").notNull().default(0),
+  // Default hourly pay rate, pre-filled into new shifts and timecards.
+  defaultPayRatePence: integer("defaultPayRatePence").notNull().default(0),
   createdAt: timestamp("createdAt").notNull().defaultNow(),
 })
 
@@ -339,6 +343,87 @@ export const clockEvent = pgTable("clock_event", {
   lat: doublePrecision("lat"),
   lng: doublePrecision("lng"),
   locationLabel: text("locationLabel"),
+  createdAt: timestamp("createdAt").notNull().defaultNow(),
+})
+
+// Per-account scheduling rules: overtime thresholds, clock-in protection, tips.
+export const schedulingSettings = pgTable("scheduling_settings", {
+  id: serial("id").primaryKey(),
+  userId: text("userId").notNull(),
+  overtimeWeeklyHours: integer("overtimeWeeklyHours").notNull().default(40),
+  overtimeDailyHours: integer("overtimeDailyHours").notNull().default(0),
+  clockInGraceMins: integer("clockInGraceMins").notNull().default(5),
+  warnUnscheduled: boolean("warnUnscheduled").notNull().default(true),
+  tipPooling: boolean("tipPooling").notNull().default(false),
+  createdAt: timestamp("createdAt").notNull().defaultNow(),
+  updatedAt: timestamp("updatedAt").notNull().defaultNow(),
+})
+
+// Weekly recurring availability per staff member (status per day, optional window).
+export const availability = pgTable("availability", {
+  id: serial("id").primaryKey(),
+  userId: text("userId").notNull(),
+  venueId: integer("venueId").notNull(),
+  staffMemberId: integer("staffMemberId").notNull(),
+  day: text("day").notNull(),
+  // "available" | "unavailable" | "preferred"
+  status: text("status").notNull().default("available"),
+  startTime: text("startTime"),
+  endTime: text("endTime"),
+  note: text("note"),
+  createdAt: timestamp("createdAt").notNull().defaultNow(),
+})
+
+// Staff-initiated swap / drop / claim requests; owner approves.
+export const shiftSwap = pgTable("shift_swap", {
+  id: serial("id").primaryKey(),
+  userId: text("userId").notNull(),
+  venueId: integer("venueId").notNull(),
+  shiftId: integer("shiftId").notNull(),
+  requesterStaffId: integer("requesterStaffId").notNull(),
+  // null = give-away/drop to the open pool; otherwise the proposed cover.
+  targetStaffId: integer("targetStaffId"),
+  // "drop" | "swap" | "claim"
+  type: text("type").notNull().default("drop"),
+  // "pending" | "approved" | "declined" | "cancelled"
+  status: text("status").notNull().default("pending"),
+  note: text("note"),
+  createdAt: timestamp("createdAt").notNull().defaultNow(),
+})
+
+// Editable timecards generated from clock events (or added manually).
+export const timecard = pgTable("timecard", {
+  id: serial("id").primaryKey(),
+  userId: text("userId").notNull(),
+  venueId: integer("venueId").notNull(),
+  staffMemberId: integer("staffMemberId").notNull(),
+  staffName: text("staffName").notNull(),
+  dateISO: text("dateISO").notNull(),
+  clockIn: text("clockIn"),
+  clockOut: text("clockOut"),
+  breakMins: integer("breakMins").notNull().default(0),
+  payRatePence: integer("payRatePence").notNull().default(0),
+  // "open" | "approved"
+  status: text("status").notNull().default("open"),
+  // "clock" | "manual"
+  source: text("source").notNull().default("clock"),
+  note: text("note"),
+  createdAt: timestamp("createdAt").notNull().defaultNow(),
+})
+
+// Tips: assigned to an individual or pooled across the team for a date.
+export const tipEntry = pgTable("tip_entry", {
+  id: serial("id").primaryKey(),
+  userId: text("userId").notNull(),
+  venueId: integer("venueId").notNull(),
+  dateISO: text("dateISO").notNull(),
+  // null = pooled across staff who worked that day.
+  staffMemberId: integer("staffMemberId"),
+  amountPence: integer("amountPence").notNull().default(0),
+  // "cash" | "card"
+  method: text("method").notNull().default("cash"),
+  pooled: boolean("pooled").notNull().default(false),
+  note: text("note"),
   createdAt: timestamp("createdAt").notNull().defaultNow(),
 })
 
@@ -544,6 +629,11 @@ export type DbStaffInvite = typeof staffInvite.$inferSelect
 export type DbNotification = typeof notification.$inferSelect
 export type DbLeaveRequest = typeof leaveRequest.$inferSelect
 export type DbClockEvent = typeof clockEvent.$inferSelect
+export type DbSchedulingSettings = typeof schedulingSettings.$inferSelect
+export type DbAvailability = typeof availability.$inferSelect
+export type DbShiftSwap = typeof shiftSwap.$inferSelect
+export type DbTimecard = typeof timecard.$inferSelect
+export type DbTipEntry = typeof tipEntry.$inferSelect
 export type DbExpense = typeof expense.$inferSelect
 export type DbTakings = typeof takings.$inferSelect
 export type DbTaskCheck = typeof taskCheck.$inferSelect
