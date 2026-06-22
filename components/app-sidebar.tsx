@@ -14,6 +14,7 @@ import {
   Package,
   Settings,
   LifeBuoy,
+  Building2,
   type LucideIcon,
 } from "lucide-react"
 import { cn } from "@/lib/utils"
@@ -55,7 +56,10 @@ export function AppSidebar({ onNavigate }: { onNavigate?: () => void }) {
     : [
         {
           label: "Workspace",
-          items: [{ href: "/dashboard", label: "Dashboard", icon: LayoutDashboard }],
+          items: [
+            { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
+            { href: "/dashboard/group", label: "Group overview", icon: Building2 },
+          ],
         },
         ...(moduleItems.length > 0 ? [{ label: "Modules", items: moduleItems }] : []),
       ]
