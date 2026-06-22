@@ -3,7 +3,7 @@
 import { useState } from "react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
-import { Search, Bell, Menu, ChevronDown, MapPin, Check, Plus, Settings, LogOut } from "lucide-react"
+import { Search, Menu, ChevronDown, MapPin, Check, Plus, Settings, LogOut } from "lucide-react"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
@@ -17,6 +17,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import { AppSidebar } from "@/components/app-sidebar"
+import { NotificationCenter } from "@/components/notification-center"
 import { useVenue } from "@/components/venue-provider"
 import { authClient } from "@/lib/auth-client"
 
@@ -101,10 +102,7 @@ export function AppTopbar() {
       </div>
 
       <div className="ml-auto flex items-center gap-2 md:ml-0">
-        <Button variant="outline" size="icon" aria-label="Notifications" className="relative">
-          <Bell className="size-4" />
-          <span className="absolute right-1.5 top-1.5 size-2 rounded-full bg-primary ring-2 ring-card" />
-        </Button>
+        <NotificationCenter />
 
         {/* Account menu */}
         <DropdownMenu>

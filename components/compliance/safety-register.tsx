@@ -168,7 +168,7 @@ export function SafetyRegister({
       <CardContent className="px-0">
         {records.length === 0 ? (
           <p className="px-6 py-8 text-center text-sm text-muted-foreground">
-            No {module.toLowerCase()} records yet. Use &ldquo;Add record&rdquo; to create your first one.
+            {`No ${module.toLowerCase()} records yet. Use "Add record" to create your first one.`}
           </p>
         ) : (
           <Table>

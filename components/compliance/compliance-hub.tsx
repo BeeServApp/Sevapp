@@ -11,25 +11,22 @@ import { DailyChecklists } from "@/components/compliance/daily-checklists"
 import { RiskAssessments } from "@/components/compliance/risk-assessments"
 import { StaffPolicies } from "@/components/compliance/staff-policies"
 import { AuditsActions } from "@/components/compliance/audits-actions"
-import { RecordsLibrary } from "@/components/compliance/records-library"
+import { ComplianceView } from "@/components/compliance-view"
 import type {
   ComplianceScore,
   Notification,
   ChecklistWithRun,
   PolicyWithAcks,
+  RiskAssessmentWithHazards,
 } from "@/app/actions/safety"
 import type {
   DbSafetyRecord,
-  DbRiskAssessment,
-  DbRiskHazard,
   DbAudit,
   DbCorrectiveAction,
   DbCertificate,
   DbComplianceCheck,
   DbDocument,
 } from "@/lib/db/schema"
-
-type RiskWithHazards = DbRiskAssessment & { hazards: DbRiskHazard[] }
 
 export function ComplianceHub({
   venueId,
@@ -56,7 +53,7 @@ export function ComplianceHub({
   licensingRecords: DbSafetyRecord[]
   propertyRecords: DbSafetyRecord[]
   checklists: ChecklistWithRun[]
-  assessments: RiskWithHazards[]
+  assessments: RiskAssessmentWithHazards[]
   policies: PolicyWithAcks[]
   audits: DbAudit[]
   actions: DbCorrectiveAction[]
@@ -167,11 +164,12 @@ export function ComplianceHub({
         </TabsContent>
 
         <TabsContent value="records" className="mt-4">
-          <RecordsLibrary
+          <ComplianceView
             venueId={venueId}
             checks={checks}
             certificates={certificates}
             documents={documents}
+            embedded
           />
         </TabsContent>
       </Tabs>
