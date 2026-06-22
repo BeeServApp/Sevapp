@@ -165,8 +165,8 @@ export function VenueDialog({
       }}
     >
       <DialogTrigger render={trigger} />
-      <DialogContent className="max-h-[90vh] gap-0 overflow-hidden p-0 sm:max-w-2xl">
-        <DialogHeader className="border-b border-border px-6 py-4">
+      <DialogContent className="flex max-h-[90vh] flex-col gap-0 overflow-hidden p-0 sm:max-w-2xl">
+        <DialogHeader className="shrink-0 border-b border-border px-6 py-4">
           <DialogTitle>{mode === "add" ? "Add venue" : "Edit venue"}</DialogTitle>
           <DialogDescription>
             {mode === "add"
@@ -175,8 +175,8 @@ export function VenueDialog({
           </DialogDescription>
         </DialogHeader>
 
-        <form onSubmit={handleSubmit} className="flex max-h-[90vh] flex-col">
-          <div className="grid gap-6 overflow-y-auto px-6 py-5">
+        <form onSubmit={handleSubmit} className="flex min-h-0 flex-1 flex-col">
+          <div className="grid min-h-0 flex-1 gap-6 overflow-y-auto px-6 py-5">
             {/* Basics */}
             <section className="grid gap-4">
               <h3 className="text-sm font-semibold text-foreground">Venue details</h3>
@@ -413,7 +413,7 @@ export function VenueDialog({
             {error && <p className="text-sm text-destructive">{error}</p>}
           </div>
 
-          <DialogFooter className="border-t border-border px-6 py-4">
+          <DialogFooter className="shrink-0 border-t border-border px-6 py-4">
             <Button type="button" variant="outline" onClick={() => setOpen(false)} disabled={saving}>
               Cancel
             </Button>
