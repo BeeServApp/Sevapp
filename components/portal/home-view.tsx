@@ -2,8 +2,9 @@
 
 import { useState, useTransition } from "react"
 import { useRouter } from "next/navigation"
-import { Bell, ChevronDown, ChevronRight, CalendarClock } from "lucide-react"
+import { Bell, ChevronRight, CalendarClock } from "lucide-react"
 import { selfClock } from "@/app/actions/staff"
+import { PortalHeader } from "@/components/portal/portal-header"
 import { PortalFilterBar } from "@/components/portal/portal-filter-bar"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { buttonVariants } from "@/components/ui/button"
@@ -62,22 +63,19 @@ export function HomeView({ data }: { data: HomeData }) {
 
   return (
     <div className="flex flex-col gap-4">
-      {/* Top bar: venue + notifications */}
-      <header className="mb-1 flex items-center justify-between gap-3 pt-1">
-        <button type="button" className="flex items-center gap-1.5 text-left">
-          <span className="text-2xl font-semibold tracking-tight text-foreground">
-            {venueName || firstName}
-          </span>
-          <ChevronDown className="size-5 text-muted-foreground" />
-        </button>
-        <button
-          type="button"
-          aria-label="Notifications"
-          className="flex size-9 items-center justify-center rounded-lg border border-border bg-background text-foreground transition-colors hover:bg-muted"
-        >
-          <Bell className="size-4" />
-        </button>
-      </header>
+      <PortalHeader
+        title={`Hi, ${firstName}`}
+        description={venueName || undefined}
+        action={
+          <button
+            type="button"
+            aria-label="Notifications"
+            className="flex size-9 items-center justify-center rounded-lg border border-border bg-background text-foreground transition-colors hover:bg-muted"
+          >
+            <Bell className="size-4" />
+          </button>
+        }
+      />
 
       {/* Next shift */}
       <Card>

@@ -53,7 +53,7 @@ export function MoreView() {
             )
           })}
           <a
-            href="mailto:support@tapsheet.app"
+            href="mailto:support@thebeesgroup.co.uk"
             className="flex items-center gap-3 py-3 transition-colors active:bg-muted"
           >
             <span className="flex size-9 items-center justify-center rounded-md bg-primary/10 text-primary">
