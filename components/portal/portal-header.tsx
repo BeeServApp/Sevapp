@@ -1,16 +1,15 @@
 import type React from "react"
+import { PageHeader } from "@/components/page-header"
 
 interface PortalHeaderProps {
-  title: React.ReactNode
+  title: string
+  description?: string
   /** Optional control rendered on the right (e.g. add or notifications button). */
   action?: React.ReactNode
 }
 
-export function PortalHeader({ title, action }: PortalHeaderProps) {
-  return (
-    <header className="mb-4 flex items-center justify-between gap-3 pt-1">
-      <h1 className="text-pretty text-2xl font-semibold tracking-tight text-foreground">{title}</h1>
-      {action ? <div className="shrink-0">{action}</div> : null}
-    </header>
-  )
+// Use the exact same header as the owner app pages so the portal is visually
+// identical. `action` maps onto PageHeader's `actions` slot.
+export function PortalHeader({ title, description, action }: PortalHeaderProps) {
+  return <PageHeader title={title} description={description} actions={action} />
 }

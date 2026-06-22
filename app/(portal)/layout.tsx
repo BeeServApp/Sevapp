@@ -5,7 +5,7 @@ import { getCurrentUser, getSession } from "@/lib/session"
 import { PortalTabBar } from "@/components/portal/portal-tab-bar"
 
 export const metadata: Metadata = {
-  title: "Tapsheet",
+  title: "Beeserv",
 }
 
 export default async function PortalLayout({ children }: { children: React.ReactNode }) {
@@ -19,7 +19,7 @@ export default async function PortalLayout({ children }: { children: React.React
   return (
     <div className="min-h-[100dvh] bg-background">
       <div className="mx-auto flex min-h-[100dvh] w-full max-w-md flex-col bg-background">
-        <main className="flex-1 px-5 pb-28 pt-3">{children}</main>
+        <main className="flex-1 px-4 pb-28 pt-6">{children}</main>
         <PortalTabBar />
       </div>
     </div>
