@@ -4,6 +4,7 @@ import { redirect } from "next/navigation"
 import { TasksView } from "@/components/tasks-view"
 import { getActiveVenueId, getSession } from "@/lib/session"
 import { getTaskChecks, getCorrectiveActions } from "@/app/actions/tasks"
+import { getStaffMembers } from "@/app/actions/staff"
 
 export const metadata: Metadata = {
   title: "Task Management — Beeserv",
@@ -22,10 +23,18 @@ export default async function TasksPage() {
     )
   }
 
-  const [tasks, actions] = await Promise.all([
+  const [tasks, actions, staff] = await Promise.all([
     getTaskChecks(venueId),
     getCorrectiveActions(venueId),
+    getStaffMembers(venueId),
   ])
 
-  return <TasksView venueId={venueId} initialTasks={tasks} initialActions={actions} />
+  return (
+    <TasksView
+      venueId={venueId}
+      initialTasks={tasks}
+      initialActions={actions}
+      staff={staff}
+    />
+  )
 }

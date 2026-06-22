@@ -435,7 +435,12 @@ export const taskCheck = pgTable("task_check", {
   venueId: integer("venueId").notNull(),
   title: text("title").notNull(),
   category: text("category").notNull().default("Checklist"),
+  // Legacy free-text assignee, kept for display/back-compat.
   assignee: text("assignee"),
+  // Linked staff member this task is assigned to (null = unassigned/role-based).
+  assigneeStaffId: integer("assigneeStaffId"),
+  // Role this task is assigned to, e.g. "Bar" (null = none).
+  assigneeRole: text("assigneeRole"),
   dueDate: text("dueDate"),
   dueTime: text("dueTime"),
   frequency: text("frequency").notNull().default("Daily"),
@@ -446,6 +451,12 @@ export const taskCheck = pgTable("task_check", {
   photoUrl: text("photoUrl"),
   completedBy: text("completedBy"),
   completedAt: timestamp("completedAt"),
+  // Recurrence: a template row (recurring=true) auto-spawns dated instances.
+  recurring: boolean("recurring").notNull().default(false),
+  // Set on generated instances; points at the template's id.
+  recurrenceParentId: integer("recurrenceParentId"),
+  // Last period date a template generated an instance for (YYYY-MM-DD).
+  lastGeneratedDate: text("lastGeneratedDate"),
   createdAt: timestamp("createdAt").notNull().defaultNow(),
 })
 

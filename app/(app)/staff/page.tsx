@@ -9,6 +9,7 @@ import {
   getMyShifts,
   getMyProfile,
 } from "@/app/actions/staff"
+import { getMyTasks } from "@/app/actions/tasks"
 import {
   getSchedulingSettings,
   getAvailability,
@@ -45,12 +46,13 @@ export default async function StaffPage({
 
   // ── Staff portal: focused, personal view of their own schedule ──────────────
   if (me.appRole === "staff") {
-    const [profile, myShifts, myAvailability, mySwaps, myTimecards] = await Promise.all([
+    const [profile, myShifts, myAvailability, mySwaps, myTimecards, myTasks] = await Promise.all([
       getMyProfile(),
       getMyShifts(weekStart),
       getMyAvailability(),
       getMySwaps(),
       getMyTimecards(weekStart, weekEnd),
+      getMyTasks(),
     ])
     return (
       <StaffPortal
@@ -61,6 +63,7 @@ export default async function StaffPage({
         initialAvailability={myAvailability}
         initialSwaps={mySwaps}
         initialTimecards={myTimecards}
+        initialTasks={myTasks}
         staffMemberId={me.staffMemberId}
         venueId={profile?.venueId ?? 0}
       />
