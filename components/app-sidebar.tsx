@@ -6,6 +6,7 @@ import { BrandLogo } from "@/components/brand-logo"
 import {
   LayoutDashboard,
   ClipboardList,
+  ListChecks,
   Wallet,
   Users,
   ShieldCheck,
@@ -24,6 +25,7 @@ const sections = [
     label: "Modules",
     items: [
       { href: "/operations", label: "Operations", icon: ClipboardList },
+      { href: "/tasks", label: "Task Management", icon: ListChecks },
       { href: "/assets", label: "Asset Tracking", icon: Package },
       { href: "/financials", label: "Financials", icon: Wallet },
       { href: "/staff", label: "Staff & Scheduling", icon: Users },
