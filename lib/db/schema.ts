@@ -127,10 +127,14 @@ export const maintenance = pgTable("maintenance", {
   userId: text("userId").notNull(),
   venueId: integer("venueId").notNull(),
   assetName: text("assetName").notNull(),
+  // Optional link to a specific asset in the asset register.
+  assetId: integer("assetId"),
   issue: text("issue"),
   priority: text("priority").notNull().default("Medium"),
   assignee: text("assignee"),
   status: text("status").notNull().default("Open"),
+  costPence: integer("costPence").notNull().default(0),
+  loggedDate: text("loggedDate"),
   createdAt: timestamp("createdAt").notNull().defaultNow(),
 })
 

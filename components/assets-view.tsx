@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react"
 import Image from "next/image"
-import { Package, PoundSterling, Layers, CalendarClock, MoreVertical, Pencil, Trash2, Download, Coins } from "lucide-react"
+import { Package, PoundSterling, Layers, CalendarClock, MoreVertical, Pencil, Trash2, Download, Coins, Wrench } from "lucide-react"
 import * as XLSX from "xlsx"
 import { PageHeader } from "@/components/page-header"
 import { AssetDialog } from "@/components/add-asset-dialog"
@@ -35,7 +35,8 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog"
 import { deleteAsset } from "@/app/actions/assets"
-import type { AssetCondition, ViewAsset } from "@/lib/asset-types"
+import { MaintenanceLogDialog } from "@/components/maintenance-log-dialog"
+import type { AssetCondition, MaintenanceRecord, ViewAsset } from "@/lib/asset-types"
 import { cn } from "@/lib/utils"
 
 const gbp = new Intl.NumberFormat("en-GB", {
@@ -94,7 +95,15 @@ function nextAssetNumber(list: ViewAsset[]) {
   return `AST-${String(max + 1).padStart(3, "0")}`
 }
 
-function AssetActions({ onEdit, onDelete }: { onEdit: () => void; onDelete: () => void }) {
+function AssetActions({
+  onEdit,
+  onDelete,
+  onLog,
+}: {
+  onEdit: () => void
+  onDelete: () => void
+  onLog: () => void
+}) {
   return (
     <DropdownMenu>
       <DropdownMenuTrigger
@@ -106,6 +115,9 @@ function AssetActions({ onEdit, onDelete }: { onEdit: () => void; onDelete: () =
         }
       />
       <DropdownMenuContent align="end">
+        <DropdownMenuItem onClick={onLog}>
+          <Wrench className="size-4" /> Maintenance log
+        </DropdownMenuItem>
         <DropdownMenuItem onClick={onEdit}>
           <Pencil className="size-4" /> Edit
         </DropdownMenuItem>
@@ -117,15 +129,56 @@ function AssetActions({ onEdit, onDelete }: { onEdit: () => void; onDelete: () =
   )
 }
 
+function MaintenancePill({ count, open, onClick }: { count: number; open: number; onClick: () => void }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={cn(
+        "inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-xs font-medium transition-colors",
+        open > 0
+          ? "border-transparent bg-chart-4/20 text-[oklch(0.45_0.11_70)] hover:bg-chart-4/30"
+          : "border-border bg-muted text-muted-foreground hover:bg-muted/70",
+      )}
+    >
+      <Wrench className="size-3" />
+      {count === 0 ? "Log" : open > 0 ? `${open} open` : `${count} logged`}
+    </button>
+  )
+}
+
 export function AssetsView({
   initialAssets,
+  initialMaintenance,
   venueId,
 }: {
   initialAssets: ViewAsset[]
+  initialMaintenance: MaintenanceRecord[]
   venueId: number
 }) {
   const [assets, setAssets] = useState<ViewAsset[]>(initialAssets)
+  const [maintenance, setMaintenance] = useState<MaintenanceRecord[]>(initialMaintenance)
   const [editing, setEditing] = useState<ViewAsset | null>(null)
+  const [logging, setLogging] = useState<ViewAsset | null>(null)
+
+  const maintenanceByAsset = useMemo(() => {
+    const map = new Map<number, MaintenanceRecord[]>()
+    for (const r of maintenance) {
+      const list = map.get(r.assetId) ?? []
+      list.push(r)
+      map.set(r.assetId, list)
+    }
+    return map
+  }, [maintenance])
+
+  function recordsFor(assetDbId: number) {
+    return maintenanceByAsset.get(assetDbId) ?? []
+  }
+
+  // Replace this asset's records with the next set from the dialog.
+  function handleMaintenanceChange(assetDbId: number, next: MaintenanceRecord[]) {
+    setMaintenance((prev) => [...prev.filter((r) => r.assetId !== assetDbId), ...next])
+  }
 
   function handleExportExcel() {
     const rows = assets.map((a) => ({
@@ -332,15 +385,22 @@ export function AssetsView({
                       <p className="font-medium text-foreground">{a.name}</p>
                       <div className="flex items-center gap-1">
                         {a.disposalDate ? <DisposedBadge /> : <ConditionBadge condition={a.condition} />}
-                        <AssetActions onEdit={() => setEditing(a)} onDelete={() => setDeleting(a)} />
+                        <AssetActions
+                          onEdit={() => setEditing(a)}
+                          onDelete={() => setDeleting(a)}
+                          onLog={() => setLogging(a)}
+                        />
                       </div>
                     </div>
                     <p className="mt-1 text-sm text-muted-foreground">{a.description}</p>
-                    {a.gamingLinked && (
-                      <div className="mt-2">
-                        <GamingBadge />
-                      </div>
-                    )}
+                    <div className="mt-2 flex flex-wrap items-center gap-1.5">
+                      {a.gamingLinked && <GamingBadge />}
+                      <MaintenancePill
+                        count={recordsFor(a.dbId).length}
+                        open={recordsFor(a.dbId).filter((r) => r.status !== "Resolved").length}
+                        onClick={() => setLogging(a)}
+                      />
+                    </div>
                     <dl className="mt-4 grid grid-cols-2 gap-y-2 border-t border-border pt-3 text-sm">
                       <dt className="text-muted-foreground">Serial no.</dt>
                       <dd className="text-right font-mono text-xs text-foreground">{a.serial}</dd>
@@ -409,13 +469,22 @@ export function AssetsView({
                         <div className="flex flex-wrap items-center gap-1.5">
                           {a.disposalDate ? <DisposedBadge /> : <ConditionBadge condition={a.condition} />}
                           {a.gamingLinked && <GamingBadge />}
+                          <MaintenancePill
+                            count={recordsFor(a.dbId).length}
+                            open={recordsFor(a.dbId).filter((r) => r.status !== "Resolved").length}
+                            onClick={() => setLogging(a)}
+                          />
                         </div>
                       </TableCell>
                       <TableCell className="text-right font-medium tabular-nums">
                         {gbp.format(a.price)}
                       </TableCell>
                       <TableCell>
-                        <AssetActions onEdit={() => setEditing(a)} onDelete={() => setDeleting(a)} />
+                        <AssetActions
+                          onEdit={() => setEditing(a)}
+                          onDelete={() => setDeleting(a)}
+                          onLog={() => setLogging(a)}
+                        />
                       </TableCell>
                     </TableRow>
                   ))}
@@ -434,6 +503,18 @@ export function AssetsView({
           </Card>
         </TabsContent>
       </Tabs>
+
+      {/* Maintenance log (controlled) */}
+      {logging && (
+        <MaintenanceLogDialog
+          asset={logging}
+          venueId={venueId}
+          records={recordsFor(logging.dbId)}
+          open={!!logging}
+          onOpenChange={(o) => !o && setLogging(null)}
+          onChange={(next) => handleMaintenanceChange(logging.dbId, next)}
+        />
+      )}
 
       {/* Edit dialog (controlled) */}
       {editing && (

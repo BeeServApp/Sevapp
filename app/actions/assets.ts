@@ -1,10 +1,11 @@
 "use server"
 
 import { db } from "@/lib/db"
-import { asset } from "@/lib/db/schema"
+import { asset, maintenance } from "@/lib/db/schema"
 import { getUserId } from "@/lib/session"
-import { and, asc, eq } from "drizzle-orm"
+import { and, asc, desc, eq, isNotNull } from "drizzle-orm"
 import { revalidatePath } from "next/cache"
+import type { MaintenancePriority, MaintenanceStatus } from "@/lib/asset-types"
 
 export async function getAssets(venueId: number) {
   const userId = await getUserId()
@@ -101,4 +102,74 @@ export async function deleteAsset(id: number) {
   const userId = await getUserId()
   await db.delete(asset).where(and(eq(asset.id, id), eq(asset.userId, userId)))
   revalidatePath("/assets")
+}
+
+/* --------------------------- Maintenance log ---------------------------- */
+
+// All maintenance records for the venue that are linked to an asset.
+export async function getAssetMaintenance(venueId: number) {
+  const userId = await getUserId()
+  return db
+    .select()
+    .from(maintenance)
+    .where(
+      and(
+        eq(maintenance.userId, userId),
+        eq(maintenance.venueId, venueId),
+        isNotNull(maintenance.assetId),
+      ),
+    )
+    .orderBy(desc(maintenance.id))
+}
+
+export async function createAssetMaintenance(data: {
+  venueId: number
+  assetId: number
+  assetName: string
+  issue: string
+  priority: MaintenancePriority
+  status: MaintenanceStatus
+  assignee: string
+  costPence: number
+  loggedDate: string
+}) {
+  const userId = await getUserId()
+  if (!data.issue.trim()) throw new Error("Please describe the maintenance issue")
+
+  const [created] = await db
+    .insert(maintenance)
+    .values({
+      userId,
+      venueId: data.venueId,
+      assetId: data.assetId,
+      assetName: data.assetName,
+      issue: data.issue.trim(),
+      priority: data.priority,
+      status: data.status,
+      assignee: data.assignee.trim() || null,
+      costPence: Number.isFinite(data.costPence) ? Math.round(data.costPence) : 0,
+      loggedDate: data.loggedDate || null,
+    })
+    .returning()
+
+  revalidatePath("/assets")
+  revalidatePath("/operations")
+  return created
+}
+
+export async function updateAssetMaintenanceStatus(id: number, status: MaintenanceStatus) {
+  const userId = await getUserId()
+  await db
+    .update(maintenance)
+    .set({ status })
+    .where(and(eq(maintenance.id, id), eq(maintenance.userId, userId)))
+  revalidatePath("/assets")
+  revalidatePath("/operations")
+}
+
+export async function deleteAssetMaintenance(id: number) {
+  const userId = await getUserId()
+  await db.delete(maintenance).where(and(eq(maintenance.id, id), eq(maintenance.userId, userId)))
+  revalidatePath("/assets")
+  revalidatePath("/operations")
 }
