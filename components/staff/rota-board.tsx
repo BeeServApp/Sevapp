@@ -86,6 +86,7 @@ import {
   formatHours,
   formatMoney,
   timeLabel,
+  dateForDay,
 } from "@/lib/rota"
 import { WeekNav } from "@/components/staff/week-nav"
 import { cn } from "@/lib/utils"
@@ -801,11 +802,22 @@ export function RotaBoard({
                 <th className="sticky left-0 z-10 w-48 bg-muted/40 px-4 py-2.5 text-left font-medium text-muted-foreground">
                   Team member
                 </th>
-                {rotaDays.map((d) => (
-                  <th key={d} className="min-w-[8.5rem] border-l border-border px-3 py-2.5 text-left font-medium text-muted-foreground">
-                    {d}
+              {rotaDays.map((d) => {
+                const iso = dateForDay(weekStart, d)
+                const dateLabel = new Date(`${iso}T00:00:00`).toLocaleDateString("en-GB", {
+                  day: "numeric",
+                  month: "short",
+                })
+                return (
+                  <th
+                    key={d}
+                    className="min-w-[8.5rem] border-l border-border px-3 py-2.5 text-left font-medium text-muted-foreground"
+                  >
+                    <span className="text-foreground">{d}</span>{" "}
+                    <span className="text-xs font-normal text-muted-foreground">{dateLabel}</span>
                   </th>
-                ))}
+                )
+              })}
               </tr>
             </thead>
             <tbody>
