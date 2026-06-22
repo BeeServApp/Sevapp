@@ -1,0 +1,83 @@
+"use client"
+
+import { useRouter, usePathname, useSearchParams } from "next/navigation"
+import { ChevronLeft, ChevronRight, MapPin, SlidersHorizontal } from "lucide-react"
+import { addWeeks } from "@/lib/rota"
+import { cn } from "@/lib/utils"
+
+interface PortalFilterBarProps {
+  weekStart: string
+  /** Location label shown in the pill (e.g. venue name or "All"). */
+  locationLabel?: string
+  /** Hide the location + filter controls (used where they're not relevant). */
+  showFilters?: boolean
+}
+
+function ddmmyyyy(iso: string): string {
+  const [y, m, d] = iso.split("-")
+  return `${d}/${m}/${y}`
+}
+
+export function PortalFilterBar({ weekStart, locationLabel = "All", showFilters = true }: PortalFilterBarProps) {
+  const router = useRouter()
+  const pathname = usePathname()
+  const params = useSearchParams()
+
+  // Sunday = Monday + 6 days.
+  const end = new Date(`${weekStart}T00:00:00`)
+  end.setDate(end.getDate() + 6)
+  const endISO = end.toISOString().slice(0, 10)
+
+  function goToWeek(offset: number) {
+    const next = addWeeks(weekStart, offset)
+    const sp = new URLSearchParams(params.toString())
+    sp.set("week", next)
+    router.push(`${pathname}?${sp.toString()}`)
+  }
+
+  return (
+    <div className="flex items-center gap-2 py-2">
+      <div className="flex flex-1 items-center justify-between rounded-full border border-border bg-background px-1.5 py-1.5">
+        <button
+          type="button"
+          aria-label="Previous week"
+          onClick={() => goToWeek(-1)}
+          className="flex size-8 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+        >
+          <ChevronLeft className="size-5" />
+        </button>
+        <span className="px-1 text-sm font-semibold tabular-nums text-foreground">
+          {ddmmyyyy(weekStart)} – {ddmmyyyy(endISO)}
+        </span>
+        <button
+          type="button"
+          aria-label="Next week"
+          onClick={() => goToWeek(1)}
+          className="flex size-8 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+        >
+          <ChevronRight className="size-5" />
+        </button>
+      </div>
+
+      {showFilters ? (
+        <>
+          <div
+            className={cn(
+              "flex items-center gap-1.5 rounded-full border border-border bg-background px-3.5 py-2.5 text-sm font-semibold text-foreground",
+            )}
+          >
+            <MapPin className="size-4" />
+            <span className="max-w-24 truncate">{locationLabel}</span>
+          </div>
+          <button
+            type="button"
+            aria-label="Filters"
+            className="flex size-11 items-center justify-center rounded-full border border-border bg-background text-foreground transition-colors hover:bg-muted"
+          >
+            <SlidersHorizontal className="size-4" />
+          </button>
+        </>
+      ) : null}
+    </div>
+  )
+}
