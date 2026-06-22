@@ -16,4 +16,6 @@ export interface ViewAsset {
   condition: AssetCondition
   location: string
   photo: string
+  /** True when a gaming machine in Financials is linked to this asset. */
+  gamingLinked?: boolean
 }

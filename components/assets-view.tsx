@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react"
 import Image from "next/image"
-import { Package, PoundSterling, Layers, CalendarClock, MoreVertical, Pencil, Trash2, Download } from "lucide-react"
+import { Package, PoundSterling, Layers, CalendarClock, MoreVertical, Pencil, Trash2, Download, Coins } from "lucide-react"
 import * as XLSX from "xlsx"
 import { PageHeader } from "@/components/page-header"
 import { AssetDialog } from "@/components/add-asset-dialog"
@@ -71,6 +71,17 @@ function DisposedBadge() {
   return (
     <Badge variant="outline" className="border-transparent bg-muted font-medium text-muted-foreground">
       Disposed
+    </Badge>
+  )
+}
+
+function GamingBadge() {
+  return (
+    <Badge
+      variant="outline"
+      className="gap-1 border-transparent bg-primary/10 font-medium text-primary"
+    >
+      <Coins className="size-3" /> Gaming machine
     </Badge>
   )
 }
@@ -325,6 +336,11 @@ export function AssetsView({
                       </div>
                     </div>
                     <p className="mt-1 text-sm text-muted-foreground">{a.description}</p>
+                    {a.gamingLinked && (
+                      <div className="mt-2">
+                        <GamingBadge />
+                      </div>
+                    )}
                     <dl className="mt-4 grid grid-cols-2 gap-y-2 border-t border-border pt-3 text-sm">
                       <dt className="text-muted-foreground">Serial no.</dt>
                       <dd className="text-right font-mono text-xs text-foreground">{a.serial}</dd>
@@ -390,7 +406,10 @@ export function AssetsView({
                       <TableCell className="text-muted-foreground">{a.category}</TableCell>
                       <TableCell className="text-muted-foreground">{a.purchaseDate}</TableCell>
                       <TableCell>
-                        {a.disposalDate ? <DisposedBadge /> : <ConditionBadge condition={a.condition} />}
+                        <div className="flex flex-wrap items-center gap-1.5">
+                          {a.disposalDate ? <DisposedBadge /> : <ConditionBadge condition={a.condition} />}
+                          {a.gamingLinked && <GamingBadge />}
+                        </div>
                       </TableCell>
                       <TableCell className="text-right font-medium tabular-nums">
                         {gbp.format(a.price)}

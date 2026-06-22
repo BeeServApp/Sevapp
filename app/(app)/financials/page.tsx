@@ -4,13 +4,17 @@ import { StatCard } from "@/components/stat-card"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Progress } from "@/components/ui/progress"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { ProfitChart, ExpenseChart } from "@/components/charts"
 import { FinancialsExpenses } from "@/components/financials-view"
+import { GamingMachines } from "@/components/gaming/gaming-machines"
 import { TakingsLog } from "@/components/takings-log"
 import type { Kpi } from "@/lib/mock-data"
 import { getUserId, getActiveVenueId } from "@/lib/session"
 import { getExpenses } from "@/app/actions/financials"
 import { getTakings } from "@/app/actions/takings"
+import { getGamingMachines } from "@/app/actions/gaming"
+import { getAssets } from "@/app/actions/assets"
 import {
   gbp0,
   profitSeries,
@@ -32,12 +36,24 @@ interface Insight {
   text: string
 }
 
-export default async function FinancialsPage() {
+export default async function FinancialsPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ tab?: string }>
+}) {
+  const { tab } = await searchParams
   const userId = await getUserId()
   const venueId = await getActiveVenueId(userId)
-  const [expenses, takings] = venueId
-    ? await Promise.all([getExpenses(venueId), getTakings(venueId)])
-    : [[], []]
+  const [expenses, takings, gamingMachines, assets] = venueId
+    ? await Promise.all([
+        getExpenses(venueId),
+        getTakings(venueId),
+        getGamingMachines(venueId),
+        getAssets(venueId),
+      ])
+    : [[], [], [], []]
+
+  const assetOptions = assets.map((a) => ({ id: a.id, name: a.name }))
 
   const mk = thisMonthKey()
   const lmk = lastMonthKey()
@@ -129,6 +145,8 @@ export default async function FinancialsPage() {
     })
   }
 
+  const defaultTab = tab === "gaming" ? "gaming" : "overview"
+
   return (
     <>
       <PageHeader
@@ -141,143 +159,177 @@ export default async function FinancialsPage() {
         }
       />
 
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        {kpis.map((kpi) => (
-          <StatCard key={kpi.label} kpi={kpi} />
-        ))}
-      </div>
+      <Tabs defaultValue={defaultTab} className="mt-2">
+        <TabsList>
+          <TabsTrigger value="overview">Overview</TabsTrigger>
+          <TabsTrigger value="gaming">Gaming machines</TabsTrigger>
+        </TabsList>
 
-      <div className="mt-4 grid grid-cols-1 gap-4 lg:grid-cols-3">
-        <Card className="lg:col-span-2">
-          <CardHeader>
-            <CardTitle>Profit &amp; loss</CardTitle>
-            <p className="mt-1 text-sm text-muted-foreground">Revenue vs costs, last 6 months</p>
-          </CardHeader>
-          <CardContent>
-            {hasAny ? (
-              <ProfitChart data={plData} />
+        <TabsContent value="overview" className="mt-4">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+            {kpis.map((kpi) => (
+              <StatCard key={kpi.label} kpi={kpi} />
+            ))}
+          </div>
+
+          <div className="mt-4 grid grid-cols-1 gap-4 lg:grid-cols-3">
+            <Card className="lg:col-span-2">
+              <CardHeader>
+                <CardTitle>Profit &amp; loss</CardTitle>
+                <p className="mt-1 text-sm text-muted-foreground">Revenue vs costs, last 6 months</p>
+              </CardHeader>
+              <CardContent>
+                {hasAny ? (
+                  <ProfitChart data={plData} />
+                ) : (
+                  <EmptyBlock body="Log takings and expenses to build your P&L." />
+                )}
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader>
+                <CardTitle>Expense breakdown</CardTitle>
+                <p className="mt-1 text-sm text-muted-foreground">Share of total spend</p>
+              </CardHeader>
+              <CardContent>
+                {hasExpenses ? (
+                  <>
+                    <ExpenseChart data={expenseMix} />
+                    <ul className="mt-2 flex flex-col gap-2">
+                      {expenseMix.map((e) => (
+                        <li key={e.category} className="flex items-center gap-2 text-sm">
+                          <span
+                            className="size-2.5 rounded-full"
+                            style={{ backgroundColor: e.fill }}
+                          />
+                          <span className="text-muted-foreground">{e.category}</span>
+                          <span className="ml-auto font-medium text-foreground">{e.value}%</span>
+                        </li>
+                      ))}
+                    </ul>
+                  </>
+                ) : (
+                  <EmptyBlock body="Add expenses to see your spend breakdown." />
+                )}
+              </CardContent>
+            </Card>
+          </div>
+
+          <div className="mt-4 grid grid-cols-1 gap-4 lg:grid-cols-3">
+            {venueId ? (
+              <TakingsLog venueId={venueId} initialTakings={takings} />
             ) : (
-              <EmptyBlock body="Log takings and expenses to build your P&L." />
+              <Card className="lg:col-span-2">
+                <CardHeader>
+                  <CardTitle>Daily takings</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <p className="text-sm text-muted-foreground">Create a venue to record takings.</p>
+                </CardContent>
+              </Card>
             )}
-          </CardContent>
-        </Card>
 
-        <Card>
-          <CardHeader>
-            <CardTitle>Expense breakdown</CardTitle>
-            <p className="mt-1 text-sm text-muted-foreground">Share of total spend</p>
-          </CardHeader>
-          <CardContent>
-            {hasExpenses ? (
-              <>
-                <ExpenseChart data={expenseMix} />
-                <ul className="mt-2 flex flex-col gap-2">
-                  {expenseMix.map((e) => (
-                    <li key={e.category} className="flex items-center gap-2 text-sm">
-                      <span className="size-2.5 rounded-full" style={{ backgroundColor: e.fill }} />
-                      <span className="text-muted-foreground">{e.category}</span>
-                      <span className="ml-auto font-medium text-foreground">{e.value}%</span>
-                    </li>
-                  ))}
-                </ul>
-              </>
-            ) : (
-              <EmptyBlock body="Add expenses to see your spend breakdown." />
-            )}
-          </CardContent>
-        </Card>
-      </div>
-
-      <div className="mt-4 grid grid-cols-1 gap-4 lg:grid-cols-3">
-        {venueId ? (
-          <TakingsLog venueId={venueId} initialTakings={takings} />
-        ) : (
-          <Card className="lg:col-span-2">
-            <CardHeader>
-              <CardTitle>Daily takings</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <p className="text-sm text-muted-foreground">Create a venue to record takings.</p>
-            </CardContent>
-          </Card>
-        )}
-
-        <Card>
-          <CardHeader>
-            <CardTitle>Revenue by category</CardTitle>
-            <p className="mt-1 text-sm text-muted-foreground">Month to date</p>
-          </CardHeader>
-          <CardContent className="flex flex-col gap-5">
-            {hasTakings ? (
-              revByCat.map((c) => (
-                <div key={c.label}>
-                  <div className="mb-1.5 flex items-center justify-between text-sm">
-                    <span className="font-medium text-foreground">{c.label}</span>
-                    <span className="text-muted-foreground">{gbp0.format(c.pounds)}</span>
-                  </div>
-                  <Progress value={Math.round((c.pounds / maxCat) * 100)} />
-                </div>
-              ))
-            ) : (
-              <p className="py-6 text-center text-sm text-muted-foreground">
-                Log takings to see category revenue.
-              </p>
-            )}
-          </CardContent>
-        </Card>
-      </div>
-
-      <div className="mt-4 grid grid-cols-1 gap-4 lg:grid-cols-3">
-        {venueId ? (
-          <FinancialsExpenses venueId={venueId} initialExpenses={expenses} />
-        ) : (
-          <Card>
-            <CardHeader>
-              <CardTitle>Recent expenses</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <p className="text-sm text-muted-foreground">Create a venue to track expenses.</p>
-            </CardContent>
-          </Card>
-        )}
-
-        <Card className="lg:col-span-2">
-          <CardHeader>
-            <CardTitle>Spending insights</CardTitle>
-          </CardHeader>
-          <CardContent className="flex flex-col gap-3">
-            {insights.length === 0 ? (
-              <p className="py-6 text-center text-sm text-muted-foreground">
-                Insights appear once you log takings and expenses.
-              </p>
-            ) : (
-              <>
-                {insights.map((ins, i) => {
-                  const Icon = ins.tone === "up" ? TrendingUp : TrendingDown
-                  return (
-                    <div key={i} className="flex gap-3">
-                      <div
-                        className={
-                          ins.tone === "up"
-                            ? "flex size-7 shrink-0 items-center justify-center rounded-md bg-chart-2/15 text-chart-2"
-                            : "flex size-7 shrink-0 items-center justify-center rounded-md bg-destructive/12 text-destructive"
-                        }
-                      >
-                        <Icon className="size-4" />
+            <Card>
+              <CardHeader>
+                <CardTitle>Revenue by category</CardTitle>
+                <p className="mt-1 text-sm text-muted-foreground">Month to date</p>
+              </CardHeader>
+              <CardContent className="flex flex-col gap-5">
+                {hasTakings ? (
+                  revByCat.map((c) => (
+                    <div key={c.label}>
+                      <div className="mb-1.5 flex items-center justify-between text-sm">
+                        <span className="font-medium text-foreground">{c.label}</span>
+                        <span className="text-muted-foreground">{gbp0.format(c.pounds)}</span>
                       </div>
-                      <p className="text-sm text-foreground">{ins.text}</p>
+                      <Progress value={Math.round((c.pounds / maxCat) * 100)} />
                     </div>
-                  )
-                })}
-                <div className="mt-1 flex items-center gap-2 rounded-md bg-accent/50 p-3 text-sm text-accent-foreground">
-                  <Lightbulb className="size-4 shrink-0 text-primary" />
-                  Figures update automatically as you log takings and expenses.
-                </div>
-              </>
+                  ))
+                ) : (
+                  <p className="py-6 text-center text-sm text-muted-foreground">
+                    Log takings to see category revenue.
+                  </p>
+                )}
+              </CardContent>
+            </Card>
+          </div>
+
+          <div className="mt-4 grid grid-cols-1 gap-4 lg:grid-cols-3">
+            {venueId ? (
+              <FinancialsExpenses venueId={venueId} initialExpenses={expenses} />
+            ) : (
+              <Card>
+                <CardHeader>
+                  <CardTitle>Recent expenses</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <p className="text-sm text-muted-foreground">Create a venue to track expenses.</p>
+                </CardContent>
+              </Card>
             )}
-          </CardContent>
-        </Card>
-      </div>
+
+            <Card className="lg:col-span-2">
+              <CardHeader>
+                <CardTitle>Spending insights</CardTitle>
+              </CardHeader>
+              <CardContent className="flex flex-col gap-3">
+                {insights.length === 0 ? (
+                  <p className="py-6 text-center text-sm text-muted-foreground">
+                    Insights appear once you log takings and expenses.
+                  </p>
+                ) : (
+                  <>
+                    {insights.map((ins, i) => {
+                      const Icon = ins.tone === "up" ? TrendingUp : TrendingDown
+                      return (
+                        <div key={i} className="flex gap-3">
+                          <div
+                            className={
+                              ins.tone === "up"
+                                ? "flex size-7 shrink-0 items-center justify-center rounded-md bg-chart-2/15 text-chart-2"
+                                : "flex size-7 shrink-0 items-center justify-center rounded-md bg-destructive/12 text-destructive"
+                            }
+                          >
+                            <Icon className="size-4" />
+                          </div>
+                          <p className="text-sm text-foreground">{ins.text}</p>
+                        </div>
+                      )
+                    })}
+                    <div className="mt-1 flex items-center gap-2 rounded-md bg-accent/50 p-3 text-sm text-accent-foreground">
+                      <Lightbulb className="size-4 shrink-0 text-primary" />
+                      Figures update automatically as you log takings and expenses.
+                    </div>
+                  </>
+                )}
+              </CardContent>
+            </Card>
+          </div>
+        </TabsContent>
+
+        <TabsContent value="gaming" className="mt-4">
+          {venueId ? (
+            <GamingMachines
+              key={venueId}
+              venueId={venueId}
+              initialMachines={gamingMachines}
+              assets={assetOptions}
+            />
+          ) : (
+            <Card>
+              <CardHeader>
+                <CardTitle>Gaming machines</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <p className="text-sm text-muted-foreground">
+                  Create a venue to track gaming machines and Machine Games Duty.
+                </p>
+              </CardContent>
+            </Card>
+          )}
+        </TabsContent>
+      </Tabs>
     </>
   )
 }
