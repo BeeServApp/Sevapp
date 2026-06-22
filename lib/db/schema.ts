@@ -123,6 +123,19 @@ export const company = pgTable("company", {
   updatedAt: timestamp("updatedAt").notNull().defaultNow(),
 })
 
+// A "business" is a separate data scope owned by a login. One email/login can
+// own several businesses; the active one is selected via cookie. Every app
+// table keys off `userId`, which equals the active business's `scopeId`.
+export const business = pgTable("business", {
+  id: serial("id").primaryKey(),
+  // The data-scope id written into every table's `userId` column for this business.
+  scopeId: text("scopeId").notNull().unique(),
+  // The login (user.id) that owns and can switch into this business.
+  ownerUserId: text("ownerUserId").notNull(),
+  name: text("name").notNull(),
+  createdAt: timestamp("createdAt").notNull().defaultNow(),
+})
+
 // One Square OAuth connection per account owner (scoped by accountId).
 // Access/refresh tokens are stored AES-256-GCM encrypted; never sent to the client.
 export const squareConnection = pgTable("square_connection", {
