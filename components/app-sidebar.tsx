@@ -13,29 +13,38 @@ import {
   Package,
   Settings,
   LifeBuoy,
+  type LucideIcon,
 } from "lucide-react"
 import { cn } from "@/lib/utils"
+import { MODULES } from "@/lib/nav-config"
+import { useVenue } from "@/components/venue-provider"
 
-const sections = [
-  {
-    label: "Workspace",
-    items: [{ href: "/dashboard", label: "Dashboard", icon: LayoutDashboard }],
-  },
-  {
-    label: "Modules",
-    items: [
-      { href: "/operations", label: "Operations", icon: ClipboardList },
-      { href: "/tasks", label: "Task Management", icon: ListChecks },
-      { href: "/assets", label: "Asset Tracking", icon: Package },
-      { href: "/financials", label: "Financials", icon: Wallet },
-      { href: "/staff", label: "Staff & Scheduling", icon: Users },
-      { href: "/compliance", label: "Compliance", icon: ShieldCheck },
-    ],
-  },
-]
+const moduleIcons: Record<string, LucideIcon> = {
+  "/operations": ClipboardList,
+  "/tasks": ListChecks,
+  "/assets": Package,
+  "/financials": Wallet,
+  "/staff": Users,
+  "/compliance": ShieldCheck,
+}
 
 export function AppSidebar({ onNavigate }: { onNavigate?: () => void }) {
   const pathname = usePathname()
+  const { hiddenModules } = useVenue()
+
+  const moduleItems = MODULES.filter((m) => !hiddenModules.includes(m.href)).map((m) => ({
+    href: m.href,
+    label: m.label,
+    icon: moduleIcons[m.href] ?? LayoutDashboard,
+  }))
+
+  const sections = [
+    {
+      label: "Workspace",
+      items: [{ href: "/dashboard", label: "Dashboard", icon: LayoutDashboard }],
+    },
+    ...(moduleItems.length > 0 ? [{ label: "Modules", items: moduleItems }] : []),
+  ]
 
   return (
     <aside className="flex h-full w-64 flex-col bg-sidebar text-sidebar-foreground">

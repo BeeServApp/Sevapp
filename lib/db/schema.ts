@@ -63,7 +63,48 @@ export const venue = pgTable("venue", {
   type: text("type").notNull().default("Pub"),
   address: text("address"),
   city: text("city"),
+  postcode: text("postcode"),
+  phone: text("phone"),
+  email: text("email"),
+  managerName: text("managerName"),
+  capacity: integer("capacity"),
+  floors: integer("floors"),
+  licenseNumber: text("licenseNumber"),
+  licenseType: text("licenseType"),
+  // JSON-encoded array of { day, open, close, closed } objects.
+  openingHours: text("openingHours"),
+  status: text("status").notNull().default("Active"),
+  openingDate: text("openingDate"),
+  notes: text("notes"),
   createdAt: timestamp("createdAt").notNull().defaultNow(),
+})
+
+// Company-level settings, one row per account owner (scoped by userId).
+export const company = pgTable("company", {
+  id: serial("id").primaryKey(),
+  userId: text("userId").notNull(),
+  name: text("name").notNull().default(""),
+  tradingName: text("tradingName"),
+  logo: text("logo"),
+  registrationNumber: text("registrationNumber"),
+  vatNumber: text("vatNumber"),
+  email: text("email"),
+  phone: text("phone"),
+  website: text("website"),
+  address: text("address"),
+  city: text("city"),
+  postcode: text("postcode"),
+  country: text("country").default("United Kingdom"),
+  brandColor: text("brandColor").default("#16a34a"),
+  currency: text("currency").notNull().default("GBP"),
+  timezone: text("timezone").notNull().default("Europe/London"),
+  financialYearStart: text("financialYearStart").notNull().default("April"),
+  dateFormat: text("dateFormat").notNull().default("DD/MM/YYYY"),
+  // JSON-encoded arrays of hidden sidebar module hrefs / settings tab ids.
+  hiddenModules: text("hiddenModules").notNull().default("[]"),
+  hiddenSettingsTabs: text("hiddenSettingsTabs").notNull().default("[]"),
+  createdAt: timestamp("createdAt").notNull().defaultNow(),
+  updatedAt: timestamp("updatedAt").notNull().defaultNow(),
 })
 
 export const member = pgTable("member", {
@@ -431,6 +472,7 @@ export const takings = pgTable("takings", {
 })
 
 export type Venue = typeof venue.$inferSelect
+export type Company = typeof company.$inferSelect
 export type Member = typeof member.$inferSelect
 export type DbAsset = typeof asset.$inferSelect
 export type DbOrder = typeof order.$inferSelect

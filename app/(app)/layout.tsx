@@ -6,6 +6,7 @@ import { VenueProvider } from "@/components/venue-provider"
 import { getActiveVenueId, getSession } from "@/lib/session"
 import { ensureSeeded } from "@/lib/seed"
 import { getVenues } from "@/app/actions/venues"
+import { getCompany } from "@/app/actions/company"
 
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
   const session = await getSession()
@@ -15,6 +16,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   await ensureSeeded(session.user.id, session.user.name, session.user.email)
 
   const venues = await getVenues()
+  const company = await getCompany()
   const activeVenueId = await getActiveVenueId(session.user.id)
 
   return (
@@ -25,9 +27,22 @@ export default async function AppLayout({ children }: { children: React.ReactNod
         type: v.type,
         address: v.address,
         city: v.city,
+        postcode: v.postcode,
+        phone: v.phone,
+        email: v.email,
+        managerName: v.managerName,
+        capacity: v.capacity,
+        floors: v.floors,
+        licenseNumber: v.licenseNumber,
+        licenseType: v.licenseType,
+        openingHours: v.openingHours,
+        status: v.status,
+        openingDate: v.openingDate,
+        notes: v.notes,
       }))}
       activeVenueId={activeVenueId}
       user={{ name: session.user.name, email: session.user.email }}
+      hiddenModules={company.hiddenModules}
     >
       <div className="flex h-screen overflow-hidden bg-background">
         <div className="hidden shrink-0 md:block">
