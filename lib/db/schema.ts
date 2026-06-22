@@ -404,6 +404,52 @@ export const audit = pgTable("audit", {
   createdAt: timestamp("createdAt").notNull().defaultNow(),
 })
 
+// --- Food Safety (HACCP) ---------------------------------------------------
+
+export const foodCheck = pgTable("food_check", {
+  id: serial("id").primaryKey(),
+  userId: text("userId").notNull(),
+  venueId: integer("venueId").notNull(),
+  name: text("name").notNull(),
+  area: text("area").notNull().default("Fridge"),
+  type: text("type").notNull().default("Temperature"),
+  minTemp: integer("minTemp"),
+  maxTemp: integer("maxTemp"),
+  frequency: text("frequency").notNull().default("Daily"),
+  timeOfDay: text("timeOfDay"),
+  active: boolean("active").notNull().default(true),
+  sortOrder: integer("sortOrder").notNull().default(0),
+  createdAt: timestamp("createdAt").notNull().defaultNow(),
+})
+
+export const foodCheckLog = pgTable("food_check_log", {
+  id: serial("id").primaryKey(),
+  userId: text("userId").notNull(),
+  venueId: integer("venueId").notNull(),
+  checkId: integer("checkId").notNull(),
+  dateISO: text("dateISO").notNull(),
+  tempReading: integer("tempReading"),
+  passed: boolean("passed").notNull().default(true),
+  correctiveAction: text("correctiveAction"),
+  loggedBy: text("loggedBy"),
+  notes: text("notes"),
+  createdAt: timestamp("createdAt").notNull().defaultNow(),
+})
+
+export const foodPolicy = pgTable("food_policy", {
+  id: serial("id").primaryKey(),
+  userId: text("userId").notNull(),
+  venueId: integer("venueId").notNull(),
+  title: text("title").notNull(),
+  category: text("category").notNull().default("HACCP"),
+  version: text("version").notNull().default("1.0"),
+  reviewDate: text("reviewDate"),
+  fileUrl: text("fileUrl"),
+  content: text("content"),
+  status: text("status").notNull().default("Published"),
+  createdAt: timestamp("createdAt").notNull().defaultNow(),
+})
+
 // --- Financials -----------------------------------------------------------
 
 export const expense = pgTable("expense", {
@@ -458,3 +504,6 @@ export type DbPolicyAck = typeof policyAck.$inferSelect
 export type DbDailyChecklist = typeof dailyChecklist.$inferSelect
 export type DbDailyChecklistRun = typeof dailyChecklistRun.$inferSelect
 export type DbAudit = typeof audit.$inferSelect
+export type DbFoodCheck = typeof foodCheck.$inferSelect
+export type DbFoodCheckLog = typeof foodCheckLog.$inferSelect
+export type DbFoodPolicy = typeof foodPolicy.$inferSelect

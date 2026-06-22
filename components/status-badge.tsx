@@ -15,6 +15,7 @@ const toneMap: Record<string, Tone> = {
   "On shift": "success",
   Published: "success",
   Active: "success",
+  Pass: "success",
   // in-progress / info
   "In progress": "info",
   Submitted: "info",
@@ -35,6 +36,7 @@ const toneMap: Record<string, Tone> = {
   Overdue: "danger",
   Declined: "danger",
   Expired: "danger",
+  Fail: "danger",
 }
 
 const toneClasses: Record<Tone, string> = {

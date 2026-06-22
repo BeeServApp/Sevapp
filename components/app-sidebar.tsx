@@ -10,6 +10,7 @@ import {
   Wallet,
   Users,
   ShieldCheck,
+  UtensilsCrossed,
   Package,
   Settings,
   LifeBuoy,
@@ -30,6 +31,7 @@ const sections = [
       { href: "/financials", label: "Financials", icon: Wallet },
       { href: "/staff", label: "Staff & Scheduling", icon: Users },
       { href: "/compliance", label: "Compliance", icon: ShieldCheck },
+      { href: "/food", label: "Food Safety", icon: UtensilsCrossed },
     ],
   },
 ]
