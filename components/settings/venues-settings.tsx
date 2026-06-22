@@ -76,17 +76,28 @@ export function VenuesSettings({
                   <MapPin className="size-5" />
                 </div>
                 <div className="min-w-0 flex-1">
-                  <div className="flex items-center gap-2">
+                  <div className="flex flex-wrap items-center gap-2">
                     <p className="truncate font-medium text-foreground">{v.name}</p>
                     {isActive && (
                       <Badge variant="outline" className="border-transparent bg-brand/15 text-xs text-brand">
                         Active
                       </Badge>
                     )}
+                    {v.status && v.status !== "Active" && (
+                      <Badge variant="outline" className="text-xs text-muted-foreground">
+                        {v.status}
+                      </Badge>
+                    )}
                   </div>
                   <p className="truncate text-sm text-muted-foreground">
-                    {v.type}
-                    {v.city ? ` · ${v.city}` : ""}
+                    {[
+                      v.type,
+                      v.city,
+                      v.capacity != null ? `Cap. ${v.capacity}` : null,
+                      v.managerName,
+                    ]
+                      .filter(Boolean)
+                      .join(" · ")}
                   </p>
                 </div>
                 <div className="flex shrink-0 items-center gap-1.5">

@@ -14,12 +14,15 @@ import {
 } from "lucide-react"
 import { buttonVariants } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
-import { getSession } from "@/lib/session"
+import { getCurrentUser, getSession } from "@/lib/session"
 import { redirect } from "next/navigation"
 
 export default async function LandingPage() {
   const session = await getSession()
-  if (session?.user) redirect("/dashboard")
+  if (session?.user) {
+    const me = await getCurrentUser()
+    redirect(me.appRole === "staff" ? "/staff" : "/dashboard")
+  }
 
   return (
     <div className="flex min-h-screen flex-col bg-background text-foreground">

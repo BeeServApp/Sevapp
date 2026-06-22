@@ -9,6 +9,11 @@ export const user = pgTable("user", {
   email: text("email").notNull().unique(),
   emailVerified: boolean("emailVerified").notNull().default(false),
   image: text("image"),
+  // App-level role: "owner" (full access) or "staff" (scheduling + tasks only).
+  appRole: text("appRole").notNull().default("owner"),
+  // For staff accounts: the owner whose data this user reads, and the linked staff record.
+  ownerId: text("ownerId"),
+  staffMemberId: integer("staffMemberId"),
   createdAt: timestamp("createdAt").notNull().defaultNow(),
   updatedAt: timestamp("updatedAt").notNull().defaultNow(),
 })
@@ -63,7 +68,48 @@ export const venue = pgTable("venue", {
   type: text("type").notNull().default("Pub"),
   address: text("address"),
   city: text("city"),
+  postcode: text("postcode"),
+  phone: text("phone"),
+  email: text("email"),
+  managerName: text("managerName"),
+  capacity: integer("capacity"),
+  floors: integer("floors"),
+  licenseNumber: text("licenseNumber"),
+  licenseType: text("licenseType"),
+  // JSON-encoded array of { day, open, close, closed } objects.
+  openingHours: text("openingHours"),
+  status: text("status").notNull().default("Active"),
+  openingDate: text("openingDate"),
+  notes: text("notes"),
   createdAt: timestamp("createdAt").notNull().defaultNow(),
+})
+
+// Company-level settings, one row per account owner (scoped by userId).
+export const company = pgTable("company", {
+  id: serial("id").primaryKey(),
+  userId: text("userId").notNull(),
+  name: text("name").notNull().default(""),
+  tradingName: text("tradingName"),
+  logo: text("logo"),
+  registrationNumber: text("registrationNumber"),
+  vatNumber: text("vatNumber"),
+  email: text("email"),
+  phone: text("phone"),
+  website: text("website"),
+  address: text("address"),
+  city: text("city"),
+  postcode: text("postcode"),
+  country: text("country").default("United Kingdom"),
+  brandColor: text("brandColor").default("#16a34a"),
+  currency: text("currency").notNull().default("GBP"),
+  timezone: text("timezone").notNull().default("Europe/London"),
+  financialYearStart: text("financialYearStart").notNull().default("April"),
+  dateFormat: text("dateFormat").notNull().default("DD/MM/YYYY"),
+  // JSON-encoded arrays of hidden sidebar module hrefs / settings tab ids.
+  hiddenModules: text("hiddenModules").notNull().default("[]"),
+  hiddenSettingsTabs: text("hiddenSettingsTabs").notNull().default("[]"),
+  createdAt: timestamp("createdAt").notNull().defaultNow(),
+  updatedAt: timestamp("updatedAt").notNull().defaultNow(),
 })
 
 export const member = pgTable("member", {
@@ -206,6 +252,14 @@ export const staffMember = pgTable("staff_member", {
   contract: text("contract").notNull().default("Full-time"),
   hoursWk: integer("hoursWk").notNull().default(0),
   status: text("status").notNull().default("Off"),
+  email: text("email"),
+  phone: text("phone"),
+  // The user.id of the staff login account linked to this record (once accepted).
+  linkedUserId: text("linkedUserId"),
+  // Commission as a whole-number percent of attributed sales (0 = none).
+  commissionPct: integer("commissionPct").notNull().default(0),
+  // Default hourly pay rate, pre-filled into new shifts and timecards.
+  defaultPayRatePence: integer("defaultPayRatePence").notNull().default(0),
   createdAt: timestamp("createdAt").notNull().defaultNow(),
 })
 
@@ -213,10 +267,56 @@ export const rotaShift = pgTable("rota_shift", {
   id: serial("id").primaryKey(),
   userId: text("userId").notNull(),
   venueId: integer("venueId").notNull(),
+  // 0 = unassigned "open shift"; otherwise the staff member it's assigned to.
   staffMemberId: integer("staffMemberId").notNull(),
   weekStart: text("weekStart").notNull(),
   day: text("day").notNull(),
+  // Legacy free-text time; new shifts use startTime/endTime.
   shiftTime: text("shiftTime"),
+  role: text("role"),
+  startTime: text("startTime"),
+  endTime: text("endTime"),
+  color: text("color").default("green"),
+  breakMins: integer("breakMins").notNull().default(0),
+  notes: text("notes"),
+  payRatePence: integer("payRatePence").notNull().default(0),
+  // "draft" until the rota is published, then "published".
+  status: text("status").notNull().default("draft"),
+  createdAt: timestamp("createdAt").notNull().defaultNow(),
+})
+
+// Invite links that let a staff member create a login bound to their rota record.
+export const staffInvite = pgTable("staff_invite", {
+  id: serial("id").primaryKey(),
+  userId: text("userId").notNull(),
+  venueId: integer("venueId").notNull(),
+  staffMemberId: integer("staffMemberId").notNull(),
+  token: text("token").notNull().unique(),
+  email: text("email"),
+  status: text("status").notNull().default("pending"),
+  expiresAt: timestamp("expiresAt"),
+  createdAt: timestamp("createdAt").notNull().defaultNow(),
+})
+
+// In-app notifications. `userId` = owner/account, `recipientUserId` = who sees it.
+export const notification = pgTable("notification", {
+  id: serial("id").primaryKey(),
+  userId: text("userId").notNull(),
+  recipientUserId: text("recipientUserId").notNull(),
+  staffMemberId: integer("staffMemberId"),
+  kind: text("kind").notNull().default("shift"),
+  title: text("title").notNull(),
+  body: text("body"),
+  href: text("href"),
+  read: boolean("read").notNull().default(false),
+  createdAt: timestamp("createdAt").notNull().defaultNow(),
+})
+
+// Change feed used to drive real-time SSE updates per account.
+export const accountEvent = pgTable("account_event", {
+  id: serial("id").primaryKey(),
+  accountId: text("accountId").notNull(),
+  channel: text("channel").notNull().default("all"),
   createdAt: timestamp("createdAt").notNull().defaultNow(),
 })
 
@@ -243,6 +343,87 @@ export const clockEvent = pgTable("clock_event", {
   lat: doublePrecision("lat"),
   lng: doublePrecision("lng"),
   locationLabel: text("locationLabel"),
+  createdAt: timestamp("createdAt").notNull().defaultNow(),
+})
+
+// Per-account scheduling rules: overtime thresholds, clock-in protection, tips.
+export const schedulingSettings = pgTable("scheduling_settings", {
+  id: serial("id").primaryKey(),
+  userId: text("userId").notNull(),
+  overtimeWeeklyHours: integer("overtimeWeeklyHours").notNull().default(40),
+  overtimeDailyHours: integer("overtimeDailyHours").notNull().default(0),
+  clockInGraceMins: integer("clockInGraceMins").notNull().default(5),
+  warnUnscheduled: boolean("warnUnscheduled").notNull().default(true),
+  tipPooling: boolean("tipPooling").notNull().default(false),
+  createdAt: timestamp("createdAt").notNull().defaultNow(),
+  updatedAt: timestamp("updatedAt").notNull().defaultNow(),
+})
+
+// Weekly recurring availability per staff member (status per day, optional window).
+export const availability = pgTable("availability", {
+  id: serial("id").primaryKey(),
+  userId: text("userId").notNull(),
+  venueId: integer("venueId").notNull(),
+  staffMemberId: integer("staffMemberId").notNull(),
+  day: text("day").notNull(),
+  // "available" | "unavailable" | "preferred"
+  status: text("status").notNull().default("available"),
+  startTime: text("startTime"),
+  endTime: text("endTime"),
+  note: text("note"),
+  createdAt: timestamp("createdAt").notNull().defaultNow(),
+})
+
+// Staff-initiated swap / drop / claim requests; owner approves.
+export const shiftSwap = pgTable("shift_swap", {
+  id: serial("id").primaryKey(),
+  userId: text("userId").notNull(),
+  venueId: integer("venueId").notNull(),
+  shiftId: integer("shiftId").notNull(),
+  requesterStaffId: integer("requesterStaffId").notNull(),
+  // null = give-away/drop to the open pool; otherwise the proposed cover.
+  targetStaffId: integer("targetStaffId"),
+  // "drop" | "swap" | "claim"
+  type: text("type").notNull().default("drop"),
+  // "pending" | "approved" | "declined" | "cancelled"
+  status: text("status").notNull().default("pending"),
+  note: text("note"),
+  createdAt: timestamp("createdAt").notNull().defaultNow(),
+})
+
+// Editable timecards generated from clock events (or added manually).
+export const timecard = pgTable("timecard", {
+  id: serial("id").primaryKey(),
+  userId: text("userId").notNull(),
+  venueId: integer("venueId").notNull(),
+  staffMemberId: integer("staffMemberId").notNull(),
+  staffName: text("staffName").notNull(),
+  dateISO: text("dateISO").notNull(),
+  clockIn: text("clockIn"),
+  clockOut: text("clockOut"),
+  breakMins: integer("breakMins").notNull().default(0),
+  payRatePence: integer("payRatePence").notNull().default(0),
+  // "open" | "approved"
+  status: text("status").notNull().default("open"),
+  // "clock" | "manual"
+  source: text("source").notNull().default("clock"),
+  note: text("note"),
+  createdAt: timestamp("createdAt").notNull().defaultNow(),
+})
+
+// Tips: assigned to an individual or pooled across the team for a date.
+export const tipEntry = pgTable("tip_entry", {
+  id: serial("id").primaryKey(),
+  userId: text("userId").notNull(),
+  venueId: integer("venueId").notNull(),
+  dateISO: text("dateISO").notNull(),
+  // null = pooled across staff who worked that day.
+  staffMemberId: integer("staffMemberId"),
+  amountPence: integer("amountPence").notNull().default(0),
+  // "cash" | "card"
+  method: text("method").notNull().default("cash"),
+  pooled: boolean("pooled").notNull().default(false),
+  note: text("note"),
   createdAt: timestamp("createdAt").notNull().defaultNow(),
 })
 
@@ -512,6 +693,7 @@ export const gamingEntry = pgTable("gaming_entry", {
 })
 
 export type Venue = typeof venue.$inferSelect
+export type Company = typeof company.$inferSelect
 export type Member = typeof member.$inferSelect
 export type DbAsset = typeof asset.$inferSelect
 export type DbOrder = typeof order.$inferSelect
@@ -524,8 +706,15 @@ export type DbCertificate = typeof certificate.$inferSelect
 export type DbDocument = typeof document.$inferSelect
 export type DbStaffMember = typeof staffMember.$inferSelect
 export type DbRotaShift = typeof rotaShift.$inferSelect
+export type DbStaffInvite = typeof staffInvite.$inferSelect
+export type DbNotification = typeof notification.$inferSelect
 export type DbLeaveRequest = typeof leaveRequest.$inferSelect
 export type DbClockEvent = typeof clockEvent.$inferSelect
+export type DbSchedulingSettings = typeof schedulingSettings.$inferSelect
+export type DbAvailability = typeof availability.$inferSelect
+export type DbShiftSwap = typeof shiftSwap.$inferSelect
+export type DbTimecard = typeof timecard.$inferSelect
+export type DbTipEntry = typeof tipEntry.$inferSelect
 export type DbExpense = typeof expense.$inferSelect
 export type DbTakings = typeof takings.$inferSelect
 export type DbTaskCheck = typeof taskCheck.$inferSelect

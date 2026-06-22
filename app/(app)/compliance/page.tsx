@@ -2,7 +2,7 @@ import type { Metadata } from "next"
 import { redirect } from "next/navigation"
 
 import { ComplianceHub } from "@/components/compliance/compliance-hub"
-import { getActiveVenueId, getSession } from "@/lib/session"
+import { getActiveVenueId, getSession, guardOwnerPage } from "@/lib/session"
 import { getCertificates, getChecks, getDocuments } from "@/app/actions/compliance"
 import {
   getAudits,
@@ -22,6 +22,7 @@ export const metadata: Metadata = {
 export default async function CompliancePage() {
   const session = await getSession()
   if (!session?.user) redirect("/sign-in")
+  await guardOwnerPage()
 
   const venueId = await getActiveVenueId(session.user.id)
   if (!venueId) {

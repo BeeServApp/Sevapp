@@ -1,31 +1,74 @@
 import type { Metadata } from "next"
-import { getUserId, getActiveVenueId } from "@/lib/session"
+import { getActiveVenueId, getCurrentUser } from "@/lib/session"
 import {
   getStaffMembers,
   getLeaveRequests,
   getRotaShifts,
   getClockEvents,
+  getStaffInviteStatuses,
+  getMyShifts,
+  getMyProfile,
 } from "@/app/actions/staff"
+import {
+  getSchedulingSettings,
+  getAvailability,
+  getMyAvailability,
+  getSwaps,
+  getMySwaps,
+  getTimecards,
+  getMyTimecards,
+  getTips,
+  getWeekSales,
+} from "@/app/actions/scheduling"
+import { ROTA_DAYS, weekStartOf, addWeeks } from "@/lib/rota"
 import { StaffView } from "@/components/staff-view"
+import { StaffPortal } from "@/components/staff/staff-portal"
 
 export const metadata: Metadata = {
   title: "Staff & Scheduling — Tapsheet",
 }
 
-const ROTA_DAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
-
-function currentWeekStart() {
-  const now = new Date()
-  const day = now.getDay() // 0 = Sun
-  const diff = day === 0 ? -6 : 1 - day
-  const mon = new Date(now)
-  mon.setDate(now.getDate() + diff)
-  return mon.toISOString().slice(0, 10)
+function normalizeWeek(raw: string | undefined): string {
+  if (raw && /^\d{4}-\d{2}-\d{2}$/.test(raw)) return weekStartOf(new Date(`${raw}T00:00:00`))
+  return weekStartOf()
 }
 
-export default async function StaffPage() {
-  const userId = await getUserId()
-  const venueId = await getActiveVenueId(userId)
+export default async function StaffPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ week?: string }>
+}) {
+  const me = await getCurrentUser()
+  const sp = await searchParams
+  const weekStart = normalizeWeek(sp.week)
+  const weekEnd = addWeeks(weekStart, 1)
+
+  // ── Staff portal: focused, personal view of their own schedule ──────────────
+  if (me.appRole === "staff") {
+    const [profile, myShifts, myAvailability, mySwaps, myTimecards] = await Promise.all([
+      getMyProfile(),
+      getMyShifts(weekStart),
+      getMyAvailability(),
+      getMySwaps(),
+      getMyTimecards(weekStart, weekEnd),
+    ])
+    return (
+      <StaffPortal
+        name={me.name}
+        weekStart={weekStart}
+        rotaDays={[...ROTA_DAYS]}
+        initialShifts={myShifts}
+        initialAvailability={myAvailability}
+        initialSwaps={mySwaps}
+        initialTimecards={myTimecards}
+        staffMemberId={me.staffMemberId}
+        venueId={profile?.venueId ?? 0}
+      />
+    )
+  }
+
+  // ── Owner: full scheduling management ───────────────────────────────────────
+  const venueId = await getActiveVenueId(me.accountId)
 
   if (!venueId) {
     return (
@@ -35,13 +78,30 @@ export default async function StaffPage() {
     )
   }
 
-  const weekStart = currentWeekStart()
-
-  const [staffMembers, leaveRequests, rotaShifts, clockEvents] = await Promise.all([
+  const [
+    staffMembers,
+    leaveRequests,
+    rotaShifts,
+    clockEvents,
+    inviteStatuses,
+    settings,
+    availabilityRows,
+    swaps,
+    timecards,
+    tips,
+    weekSales,
+  ] = await Promise.all([
     getStaffMembers(venueId),
     getLeaveRequests(venueId),
     getRotaShifts(venueId, weekStart),
     getClockEvents(venueId),
+    getStaffInviteStatuses(venueId),
+    getSchedulingSettings(),
+    getAvailability(venueId),
+    getSwaps(venueId),
+    getTimecards(venueId, weekStart, weekEnd),
+    getTips(venueId, weekStart, weekEnd),
+    getWeekSales(venueId, weekStart),
   ])
 
   return (
@@ -51,8 +111,15 @@ export default async function StaffPage() {
       initialLeave={leaveRequests}
       initialShifts={rotaShifts}
       initialClockEvents={clockEvents}
+      initialInviteStatuses={inviteStatuses}
+      initialAvailability={availabilityRows}
+      initialSwaps={swaps}
+      initialTimecards={timecards}
+      initialTips={tips}
+      settings={settings}
+      weekSales={weekSales}
       weekStart={weekStart}
-      rotaDays={ROTA_DAYS}
+      rotaDays={[...ROTA_DAYS]}
     />
   )
 }
