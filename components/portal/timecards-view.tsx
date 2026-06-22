@@ -42,8 +42,8 @@ export function TimecardsView({ weekStart, timecards }: { weekStart: string; tim
 
       {timecards.length === 0 ? (
         <div className="flex flex-col items-center gap-3 px-6 py-24 text-center">
-          <span className="mb-2 flex size-24 items-center justify-center rounded-full bg-gradient-to-br from-emerald-300 to-sky-500 ring-4 ring-foreground">
-            <Clock className="size-12 text-background" strokeWidth={2.5} />
+          <span className="mb-2 flex size-24 items-center justify-center rounded-full bg-primary ring-4 ring-border">
+            <Clock className="size-12 text-primary-foreground" strokeWidth={2.5} />
           </span>
           <h2 className="text-2xl font-bold text-foreground text-balance">No timecards in this time range</h2>
           <p className="max-w-xs text-base text-muted-foreground text-pretty">
@@ -53,7 +53,7 @@ export function TimecardsView({ weekStart, timecards }: { weekStart: string; tim
             type="button"
             onClick={reload}
             disabled={pending}
-            className="mt-6 rounded-full bg-foreground px-10 py-3.5 text-base font-bold text-background transition-colors hover:bg-foreground/90 disabled:opacity-60"
+            className="mt-6 rounded-full bg-primary px-10 py-3.5 text-base font-bold text-primary-foreground transition-colors hover:bg-primary/90 disabled:opacity-60"
           >
             {pending ? "Reloading…" : "Reload"}
           </button>
@@ -77,7 +77,7 @@ export function TimecardsView({ weekStart, timecards }: { weekStart: string; tim
                   <span
                     className={cn(
                       "inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-medium",
-                      approved ? "bg-emerald-100 text-emerald-700" : "bg-muted text-muted-foreground",
+                      approved ? "bg-chart-2/15 text-chart-2" : "bg-muted text-muted-foreground",
                     )}
                   >
                     {approved ? <Check className="size-3" /> : null}
