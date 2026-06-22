@@ -7,9 +7,11 @@ import { CompanySettings } from "@/components/settings/company-settings"
 import { VenuesSettings } from "@/components/settings/venues-settings"
 import { TeamSettings, type TeamMember } from "@/components/settings/team-settings"
 import { PreferencesSettings } from "@/components/settings/preferences-settings"
+import { BillingSettings } from "@/components/settings/billing-settings"
 import { SETTINGS_TABS } from "@/lib/nav-config"
 import type { VenueSummary } from "@/components/venue-provider"
 import type { CompanyData } from "@/app/actions/company"
+import type { BillingState } from "@/app/actions/billing"
 
 export function SettingsView({
   user,
@@ -19,6 +21,7 @@ export function SettingsView({
   members,
   activeVenueName,
   defaultTab,
+  billing,
 }: {
   user: { name: string; email: string }
   company: CompanyData
@@ -27,6 +30,7 @@ export function SettingsView({
   members: TeamMember[]
   activeVenueName: string
   defaultTab: string
+  billing: BillingState
 }) {
   // A tab is shown if it is not lockable (core) or not in the hidden list.
   const hidden = new Set(company.hiddenSettingsTabs)
@@ -63,6 +67,9 @@ export function SettingsView({
           ) : (
             <p className="text-sm text-muted-foreground">Add a venue first to manage its team.</p>
           )}
+        </TabsContent>
+        <TabsContent value="billing">
+          <BillingSettings billing={billing} />
         </TabsContent>
         <TabsContent value="preferences">
           <PreferencesSettings
