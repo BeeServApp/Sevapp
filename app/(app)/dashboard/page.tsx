@@ -5,6 +5,7 @@ import {
   ShieldCheck,
   ArrowRight,
   CalendarDays,
+  Coins,
 } from "lucide-react"
 import Link from "next/link"
 import { PageHeader } from "@/components/page-header"
@@ -20,6 +21,8 @@ import { getVenues } from "@/app/actions/venues"
 import { getTasks, getEvents } from "@/app/actions/operations"
 import { getTakings } from "@/app/actions/takings"
 import { getExpenses } from "@/app/actions/financials"
+import { getGamingMachines } from "@/app/actions/gaming"
+import { sumEntries, entriesForMonth } from "@/lib/gaming"
 import {
   gbp0,
   revenueThisWeek,
@@ -51,14 +54,15 @@ export default async function DashboardPage() {
   const activeVenue = venues.find((v) => v.id === venueId)
   const firstName = (session?.user?.name || "there").split(" ")[0]
 
-  const [tasks, events, takings, expenses] = venueId
+  const [tasks, events, takings, expenses, gamingMachines] = venueId
     ? await Promise.all([
         getTasks(venueId),
         getEvents(venueId),
         getTakings(venueId),
         getExpenses(venueId),
+        getGamingMachines(venueId),
       ])
-    : [[], [], [], []]
+    : [[], [], [], [], []]
 
   // --- KPIs ----------------------------------------------------------------
   const weekRevenue = revenuePenceForWeek(takings, 0)
@@ -116,6 +120,11 @@ export default async function DashboardPage() {
   const mix = computeSalesMix(takings)
   const todaysTasks = openTasks.slice(0, 6)
   const upcoming = events.slice(0, 3)
+
+  // --- Gaming machines (MTD) ----------------------------------------------
+  const gamingEntriesMTD = gamingMachines.flatMap((m) => entriesForMonth(m.entries, mk))
+  const gamingMTD = sumEntries(gamingEntriesMTD)
+  const hasGaming = gamingMachines.length > 0
 
   return (
     <>
@@ -282,7 +291,78 @@ export default async function DashboardPage() {
           </CardContent>
         </Card>
       </div>
+
+      {hasGaming && (
+        <div className="mt-4">
+          <Card>
+            <CardHeader className="flex-row items-center justify-between">
+              <div className="flex items-center gap-2">
+                <div className="flex size-8 items-center justify-center rounded-md bg-primary/10 text-primary">
+                  <Coins className="size-4" />
+                </div>
+                <div>
+                  <CardTitle>Gaming machines</CardTitle>
+                  <p className="mt-0.5 text-sm text-muted-foreground">
+                    Machine Games Duty &amp; revenue split, month to date
+                  </p>
+                </div>
+              </div>
+              <Link
+                href="/financials?tab=gaming"
+                className={cn(
+                  buttonVariants({ variant: "ghost", size: "sm" }),
+                  "gap-1 text-muted-foreground",
+                )}
+              >
+                Manage <ArrowRight className="size-4" />
+              </Link>
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
+                <GamingStat label="Gaming income" value={gbp0.format(gamingMTD.totalIncomePence / 100)} />
+                <GamingStat
+                  label="MGD due"
+                  value={gbp0.format(gamingMTD.mgdPence / 100)}
+                  tone="down"
+                />
+                <GamingStat
+                  label="Location share"
+                  value={gbp0.format(gamingMTD.locationSharePence / 100)}
+                  tone="up"
+                />
+                <GamingStat label="Machines" value={String(gamingMachines.filter((m) => m.active).length)} />
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      )}
     </>
+  )
+}
+
+function GamingStat({
+  label,
+  value,
+  tone,
+}: {
+  label: string
+  value: string
+  tone?: "up" | "down"
+}) {
+  return (
+    <div className="rounded-lg border border-border p-3">
+      <p className="text-xs text-muted-foreground">{label}</p>
+      <p
+        className={cn(
+          "mt-1 text-lg font-semibold tabular-nums",
+          tone === "down" && "text-destructive",
+          tone === "up" && "text-chart-2",
+          !tone && "text-foreground",
+        )}
+      >
+        {value}
+      </p>
+    </div>
   )
 }
 

@@ -2,6 +2,7 @@ import { redirect } from "next/navigation"
 import { AssetsView } from "@/components/assets-view"
 import { getActiveVenueId, getSession, guardOwnerPage } from "@/lib/session"
 import { getAssets } from "@/app/actions/assets"
+import { getGamingMachines } from "@/app/actions/gaming"
 import type { AssetCategory, AssetCondition, ViewAsset } from "@/lib/asset-types"
 
 export default async function AssetsPage() {
@@ -18,7 +19,10 @@ export default async function AssetsPage() {
     )
   }
 
-  const rows = await getAssets(venueId)
+  const [rows, machines] = await Promise.all([getAssets(venueId), getGamingMachines(venueId)])
+  const linkedAssetIds = new Set(
+    machines.map((m) => m.assetId).filter((id): id is number => id != null),
+  )
   const assets: ViewAsset[] = rows.map((a) => ({
     dbId: a.id,
     id: a.assetNumber,
@@ -32,6 +36,7 @@ export default async function AssetsPage() {
     condition: a.condition as AssetCondition,
     location: a.location ?? "Unassigned",
     photo: a.photo ?? "/placeholder.svg",
+    gamingLinked: linkedAssetIds.has(a.id),
   }))
 
   return <AssetsView key={venueId} initialAssets={assets} venueId={venueId} />

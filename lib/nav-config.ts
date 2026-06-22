@@ -17,6 +17,7 @@ export const MODULES: ModuleDef[] = [
   { href: "/financials", label: "Financials", description: "Takings, expenses and reporting." },
   { href: "/staff", label: "Staff & Scheduling", description: "Rotas, leave and time tracking." },
   { href: "/compliance", label: "Compliance", description: "Certificates, checks and documents." },
+  { href: "/food", label: "Food Safety", description: "HACCP checks, policies and food hygiene." },
 ]
 
 // Modules a staff (non-owner) account is allowed to see. Staff get a focused
