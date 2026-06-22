@@ -1,12 +1,13 @@
 import { redirect } from "next/navigation"
 import { AssetsView } from "@/components/assets-view"
-import { getActiveVenueId, getSession } from "@/lib/session"
+import { getActiveVenueId, getSession, guardOwnerPage } from "@/lib/session"
 import { getAssets } from "@/app/actions/assets"
 import type { AssetCategory, AssetCondition, ViewAsset } from "@/lib/asset-types"
 
 export default async function AssetsPage() {
   const session = await getSession()
   if (!session?.user) redirect("/sign-in")
+  await guardOwnerPage()
 
   const venueId = await getActiveVenueId(session.user.id)
   if (!venueId) {

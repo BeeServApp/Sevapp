@@ -9,6 +9,11 @@ export const user = pgTable("user", {
   email: text("email").notNull().unique(),
   emailVerified: boolean("emailVerified").notNull().default(false),
   image: text("image"),
+  // App-level role: "owner" (full access) or "staff" (scheduling + tasks only).
+  appRole: text("appRole").notNull().default("owner"),
+  // For staff accounts: the owner whose data this user reads, and the linked staff record.
+  ownerId: text("ownerId"),
+  staffMemberId: integer("staffMemberId"),
   createdAt: timestamp("createdAt").notNull().defaultNow(),
   updatedAt: timestamp("updatedAt").notNull().defaultNow(),
 })
@@ -247,6 +252,10 @@ export const staffMember = pgTable("staff_member", {
   contract: text("contract").notNull().default("Full-time"),
   hoursWk: integer("hoursWk").notNull().default(0),
   status: text("status").notNull().default("Off"),
+  email: text("email"),
+  phone: text("phone"),
+  // The user.id of the staff login account linked to this record (once accepted).
+  linkedUserId: text("linkedUserId"),
   createdAt: timestamp("createdAt").notNull().defaultNow(),
 })
 
@@ -254,10 +263,56 @@ export const rotaShift = pgTable("rota_shift", {
   id: serial("id").primaryKey(),
   userId: text("userId").notNull(),
   venueId: integer("venueId").notNull(),
+  // 0 = unassigned "open shift"; otherwise the staff member it's assigned to.
   staffMemberId: integer("staffMemberId").notNull(),
   weekStart: text("weekStart").notNull(),
   day: text("day").notNull(),
+  // Legacy free-text time; new shifts use startTime/endTime.
   shiftTime: text("shiftTime"),
+  role: text("role"),
+  startTime: text("startTime"),
+  endTime: text("endTime"),
+  color: text("color").default("green"),
+  breakMins: integer("breakMins").notNull().default(0),
+  notes: text("notes"),
+  payRatePence: integer("payRatePence").notNull().default(0),
+  // "draft" until the rota is published, then "published".
+  status: text("status").notNull().default("draft"),
+  createdAt: timestamp("createdAt").notNull().defaultNow(),
+})
+
+// Invite links that let a staff member create a login bound to their rota record.
+export const staffInvite = pgTable("staff_invite", {
+  id: serial("id").primaryKey(),
+  userId: text("userId").notNull(),
+  venueId: integer("venueId").notNull(),
+  staffMemberId: integer("staffMemberId").notNull(),
+  token: text("token").notNull().unique(),
+  email: text("email"),
+  status: text("status").notNull().default("pending"),
+  expiresAt: timestamp("expiresAt"),
+  createdAt: timestamp("createdAt").notNull().defaultNow(),
+})
+
+// In-app notifications. `userId` = owner/account, `recipientUserId` = who sees it.
+export const notification = pgTable("notification", {
+  id: serial("id").primaryKey(),
+  userId: text("userId").notNull(),
+  recipientUserId: text("recipientUserId").notNull(),
+  staffMemberId: integer("staffMemberId"),
+  kind: text("kind").notNull().default("shift"),
+  title: text("title").notNull(),
+  body: text("body"),
+  href: text("href"),
+  read: boolean("read").notNull().default(false),
+  createdAt: timestamp("createdAt").notNull().defaultNow(),
+})
+
+// Change feed used to drive real-time SSE updates per account.
+export const accountEvent = pgTable("account_event", {
+  id: serial("id").primaryKey(),
+  accountId: text("accountId").notNull(),
+  channel: text("channel").notNull().default("all"),
   createdAt: timestamp("createdAt").notNull().defaultNow(),
 })
 
@@ -485,6 +540,8 @@ export type DbCertificate = typeof certificate.$inferSelect
 export type DbDocument = typeof document.$inferSelect
 export type DbStaffMember = typeof staffMember.$inferSelect
 export type DbRotaShift = typeof rotaShift.$inferSelect
+export type DbStaffInvite = typeof staffInvite.$inferSelect
+export type DbNotification = typeof notification.$inferSelect
 export type DbLeaveRequest = typeof leaveRequest.$inferSelect
 export type DbClockEvent = typeof clockEvent.$inferSelect
 export type DbExpense = typeof expense.$inferSelect

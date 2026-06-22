@@ -30,7 +30,8 @@ const moduleIcons: Record<string, LucideIcon> = {
 
 export function AppSidebar({ onNavigate }: { onNavigate?: () => void }) {
   const pathname = usePathname()
-  const { hiddenModules } = useVenue()
+  const { hiddenModules, appRole } = useVenue()
+  const isStaff = appRole === "staff"
 
   const moduleItems = MODULES.filter((m) => !hiddenModules.includes(m.href)).map((m) => ({
     href: m.href,
@@ -38,13 +39,24 @@ export function AppSidebar({ onNavigate }: { onNavigate?: () => void }) {
     icon: moduleIcons[m.href] ?? LayoutDashboard,
   }))
 
-  const sections = [
-    {
-      label: "Workspace",
-      items: [{ href: "/dashboard", label: "Dashboard", icon: LayoutDashboard }],
-    },
-    ...(moduleItems.length > 0 ? [{ label: "Modules", items: moduleItems }] : []),
-  ]
+  // Staff get a focused workspace: their schedule and assigned tasks only.
+  const sections = isStaff
+    ? [
+        {
+          label: "My workspace",
+          items: [
+            { href: "/staff", label: "My Schedule", icon: Users },
+            { href: "/tasks", label: "Task Management", icon: ListChecks },
+          ],
+        },
+      ]
+    : [
+        {
+          label: "Workspace",
+          items: [{ href: "/dashboard", label: "Dashboard", icon: LayoutDashboard }],
+        },
+        ...(moduleItems.length > 0 ? [{ label: "Modules", items: moduleItems }] : []),
+      ]
 
   return (
     <aside className="flex h-full w-64 flex-col bg-sidebar text-sidebar-foreground">
@@ -90,21 +102,23 @@ export function AppSidebar({ onNavigate }: { onNavigate?: () => void }) {
 
       <div className="border-t border-sidebar-border p-3">
         <ul className="flex flex-col gap-1">
-          <li>
-            <Link
-              href="/settings"
-              onClick={onNavigate}
-              className={cn(
-                "flex w-full items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition-colors",
-                pathname.startsWith("/settings")
-                  ? "bg-sidebar-primary text-sidebar-primary-foreground"
-                  : "text-sidebar-foreground/80 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground",
-              )}
-            >
-              <Settings className="size-4" />
-              Settings
-            </Link>
-          </li>
+          {!isStaff && (
+            <li>
+              <Link
+                href="/settings"
+                onClick={onNavigate}
+                className={cn(
+                  "flex w-full items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition-colors",
+                  pathname.startsWith("/settings")
+                    ? "bg-sidebar-primary text-sidebar-primary-foreground"
+                    : "text-sidebar-foreground/80 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground",
+                )}
+              >
+                <Settings className="size-4" />
+                Settings
+              </Link>
+            </li>
+          )}
           <li>
             <button className="flex w-full items-center gap-3 rounded-md px-3 py-2 text-sm font-medium text-sidebar-foreground/80 transition-colors hover:bg-sidebar-accent hover:text-sidebar-accent-foreground">
               <LifeBuoy className="size-4" />

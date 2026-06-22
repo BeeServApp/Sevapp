@@ -29,11 +29,14 @@ export interface SessionUser {
   email: string
 }
 
+type AppRole = "owner" | "staff"
+
 interface VenueContextValue {
   venues: VenueSummary[]
   activeVenue: VenueSummary | null
   user: SessionUser
   hiddenModules: string[]
+  appRole: AppRole
   switching: boolean
   switchVenue: (id: number) => void
 }
@@ -45,12 +48,14 @@ export function VenueProvider({
   activeVenueId,
   user,
   hiddenModules = [],
+  appRole = "owner",
   children,
 }: {
   venues: VenueSummary[]
   activeVenueId: number | null
   user: SessionUser
   hiddenModules?: string[]
+  appRole?: AppRole
   children: ReactNode
 }) {
   const router = useRouter()
@@ -67,7 +72,7 @@ export function VenueProvider({
   }
 
   return (
-    <VenueContext.Provider value={{ venues, activeVenue, user, hiddenModules, switching, switchVenue }}>
+    <VenueContext.Provider value={{ venues, activeVenue, user, hiddenModules, appRole, switching, switchVenue }}>
       {children}
     </VenueContext.Provider>
   )

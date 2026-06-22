@@ -15,7 +15,7 @@ import { buttonVariants } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
 import { RevenueChart, SalesMixChart } from "@/components/charts"
 import type { Kpi } from "@/lib/mock-data"
-import { getSession, getUserId, getActiveVenueId } from "@/lib/session"
+import { getSession, getUserId, getActiveVenueId, guardOwnerPage } from "@/lib/session"
 import { getVenues } from "@/app/actions/venues"
 import { getTasks, getEvents } from "@/app/actions/operations"
 import { getTakings } from "@/app/actions/takings"
@@ -44,6 +44,7 @@ function pctDelta(curr: number, prev: number) {
 
 export default async function DashboardPage() {
   const session = await getSession()
+  await guardOwnerPage()
   const userId = await getUserId()
   const venueId = await getActiveVenueId(userId)
   const venues = await getVenues()

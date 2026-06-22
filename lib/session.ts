@@ -2,16 +2,31 @@ import "server-only"
 
 import { auth } from "@/lib/auth"
 import { db } from "@/lib/db"
-import { venue } from "@/lib/db/schema"
+import { staffMember, user, venue } from "@/lib/db/schema"
 import { asc, eq } from "drizzle-orm"
 import { cookies, headers } from "next/headers"
+import { redirect } from "next/navigation"
 
 export const ACTIVE_VENUE_COOKIE = "tapsheet_active_venue"
+
+export type AppRole = "owner" | "staff"
+
+export interface CurrentUser {
+  id: string
+  name: string
+  email: string
+  appRole: AppRole
+  /** The user id whose data this account reads/writes (self for owners, owner for staff). */
+  accountId: string
+  /** Linked staff_member.id for staff accounts, else null. */
+  staffMemberId: number | null
+}
 
 export async function getSession() {
   return auth.api.getSession({ headers: await headers() })
 }
 
+/** Raw authenticated user id (the logged-in account's own id). */
 export async function getUserId() {
   const session = await getSession()
   if (!session?.user) throw new Error("Unauthorized")
@@ -19,14 +34,75 @@ export async function getUserId() {
 }
 
 /**
- * Resolves the active venue id for a user from the cookie, falling back to the
- * first venue they own. Returns null when the user has no venues yet.
+ * Resolves the logged-in user along with their app role and the `accountId`
+ * (the owner whose data they operate on). Staff accounts read the owner's data.
  */
-export async function getActiveVenueId(userId: string): Promise<number | null> {
+export async function getCurrentUser(): Promise<CurrentUser> {
+  const session = await getSession()
+  if (!session?.user) throw new Error("Unauthorized")
+
+  const [row] = await db.select().from(user).where(eq(user.id, session.user.id)).limit(1)
+  const appRole: AppRole = row?.appRole === "staff" ? "staff" : "owner"
+  const ownerId = appRole === "staff" && row?.ownerId ? row.ownerId : session.user.id
+
+  return {
+    id: session.user.id,
+    name: row?.name ?? session.user.name,
+    email: row?.email ?? session.user.email,
+    appRole,
+    accountId: ownerId,
+    staffMemberId: row?.staffMemberId ?? null,
+  }
+}
+
+/**
+ * The data-scope id for queries. Owners use their own id; staff use their
+ * owner's id so they transparently read the business's data.
+ */
+export async function getAccountId(): Promise<string> {
+  const me = await getCurrentUser()
+  return me.accountId
+}
+
+/** Throws when the current user is not an owner. Use to guard owner-only actions. */
+export async function requireOwner(): Promise<CurrentUser> {
+  const me = await getCurrentUser()
+  if (me.appRole !== "owner") throw new Error("Forbidden")
+  return me
+}
+
+/**
+ * Guard for owner-only pages. Staff are redirected to their schedule rather
+ * than seeing an error. Returns the current user for owners.
+ */
+export async function guardOwnerPage(): Promise<CurrentUser> {
+  const me = await getCurrentUser()
+  if (me.appRole !== "owner") redirect("/staff")
+  return me
+}
+
+/**
+ * Resolves the active venue id. For staff this is the venue of their linked
+ * staff record. For owners it comes from the cookie, falling back to their
+ * first venue. Returns null when there are no venues.
+ */
+export async function getActiveVenueId(accountId: string): Promise<number | null> {
+  const me = await getCurrentUser().catch(() => null)
+
+  // Staff are pinned to the venue of their staff record.
+  if (me?.appRole === "staff" && me.staffMemberId != null) {
+    const [sm] = await db
+      .select({ venueId: staffMember.venueId })
+      .from(staffMember)
+      .where(eq(staffMember.id, me.staffMemberId))
+      .limit(1)
+    if (sm) return sm.venueId
+  }
+
   const venues = await db
     .select({ id: venue.id })
     .from(venue)
-    .where(eq(venue.userId, userId))
+    .where(eq(venue.userId, accountId))
     .orderBy(asc(venue.id))
 
   if (venues.length === 0) return null

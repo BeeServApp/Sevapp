@@ -19,6 +19,16 @@ export const MODULES: ModuleDef[] = [
   { href: "/compliance", label: "Compliance", description: "Certificates, checks and documents." },
 ]
 
+// Modules a staff (non-owner) account is allowed to see. Staff get a focused
+// experience: their schedule and the tasks assigned to them. Everything else is
+// hidden from the sidebar and blocked at the route level.
+export const STAFF_ALLOWED_PATHS = ["/staff", "/tasks"]
+
+export function isPathAllowedForRole(pathname: string, appRole: "owner" | "staff") {
+  if (appRole === "owner") return true
+  return STAFF_ALLOWED_PATHS.some((p) => pathname === p || pathname.startsWith(`${p}/`))
+}
+
 export interface SettingsTabDef {
   id: string
   label: string

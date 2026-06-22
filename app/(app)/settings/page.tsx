@@ -1,6 +1,6 @@
 import { redirect } from "next/navigation"
 import { SettingsView } from "@/components/settings-view"
-import { getActiveVenueId, getSession } from "@/lib/session"
+import { getActiveVenueId, getSession, guardOwnerPage } from "@/lib/session"
 import { getVenues } from "@/app/actions/venues"
 import { getCompany } from "@/app/actions/company"
 import { getMembers } from "@/app/actions/members"
@@ -13,6 +13,7 @@ export default async function SettingsPage({
 }) {
   const session = await getSession()
   if (!session?.user) redirect("/sign-in")
+  await guardOwnerPage()
 
   const { tab } = await searchParams
   const validTabs = SETTINGS_TABS.map((t) => t.id)

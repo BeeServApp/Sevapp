@@ -8,7 +8,7 @@ import { ProfitChart, ExpenseChart } from "@/components/charts"
 import { FinancialsExpenses } from "@/components/financials-view"
 import { TakingsLog } from "@/components/takings-log"
 import type { Kpi } from "@/lib/mock-data"
-import { getUserId, getActiveVenueId } from "@/lib/session"
+import { getUserId, getActiveVenueId, guardOwnerPage } from "@/lib/session"
 import { getExpenses } from "@/app/actions/financials"
 import { getTakings } from "@/app/actions/takings"
 import {
@@ -33,6 +33,7 @@ interface Insight {
 }
 
 export default async function FinancialsPage() {
+  await guardOwnerPage()
   const userId = await getUserId()
   const venueId = await getActiveVenueId(userId)
   const [expenses, takings] = venueId
