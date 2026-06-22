@@ -1,7 +1,9 @@
 import { ChevronRight, Plus } from "lucide-react"
 import { PortalHeader } from "@/components/portal/portal-header"
 import { PortalFilterBar } from "@/components/portal/portal-filter-bar"
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { shiftHours, formatHours, timeLabel } from "@/lib/rota"
+import { cn } from "@/lib/utils"
 import type { TeamShift } from "@/app/actions/portal"
 
 const DAY_ORDER = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"] as const
@@ -41,52 +43,62 @@ export function RotaView({
         action={
           <span
             aria-hidden="true"
-            className="flex size-11 items-center justify-center rounded-full bg-muted text-foreground"
+            className="flex size-9 items-center justify-center rounded-lg border border-border bg-background text-foreground"
           >
-            <Plus className="size-5" />
+            <Plus className="size-4" />
           </span>
         }
       />
       <PortalFilterBar weekStart={weekStart} locationLabel={venueName || "All"} />
 
       {daysWithShifts.length === 0 ? (
-        <div className="flex flex-col items-center gap-2 py-24 text-center">
-          <p className="text-lg font-semibold text-foreground">No shifts this week</p>
-          <p className="text-sm text-muted-foreground">There are no published shifts for the selected week.</p>
-        </div>
+        <Card className="mt-2">
+          <CardContent className="flex flex-col items-center gap-2 py-16 text-center">
+            <p className="text-base font-medium text-foreground">No shifts this week</p>
+            <p className="text-sm text-muted-foreground">
+              There are no published shifts for the selected week.
+            </p>
+          </CardContent>
+        </Card>
       ) : (
-        <div className="mt-2">
+        <div className="mt-2 flex flex-col gap-4">
           {daysWithShifts.map((day) => {
             const dayShifts = byDay.get(day)!
             return (
-              <section key={day} className="py-2">
-                <h2 className="py-3 text-xl font-bold text-foreground">
-                  {dayHeading(dayShifts[0].dateISO, day)}
-                </h2>
-                <ul className="flex flex-col">
-                  {dayShifts.map((s) => {
+              <Card key={day}>
+                <CardHeader>
+                  <CardTitle>{dayHeading(dayShifts[0].dateISO, day)}</CardTitle>
+                </CardHeader>
+                <CardContent className="flex flex-col">
+                  {dayShifts.map((s, i) => {
                     const hours = shiftHours(s.startTime, s.endTime, s.breakMins)
                     return (
-                      <li key={s.id} className="flex items-center gap-3 border-b border-border py-3">
-                        <span className="flex size-12 shrink-0 items-center justify-center rounded-lg bg-muted text-sm font-semibold text-foreground">
+                      <div
+                        key={s.id}
+                        className={cn(
+                          "flex items-center gap-3 py-3",
+                          i < dayShifts.length - 1 && "border-b border-border",
+                        )}
+                      >
+                        <span className="flex size-10 shrink-0 items-center justify-center rounded-md bg-primary/10 text-sm font-semibold text-primary">
                           {initialsOf(s.staffName)}
                         </span>
                         <div className="min-w-0 flex-1">
-                          <div className="text-base font-bold text-foreground">
+                          <div className="text-sm font-medium text-foreground">
                             {timeLabel(s.startTime, s.endTime, s.shiftTime)}{" "}
-                            <span className="font-bold">({formatHours(hours)})</span>
+                            <span className="text-muted-foreground">({formatHours(hours)})</span>
                           </div>
                           <div className="truncate text-sm text-muted-foreground">
                             {s.isMe ? "You" : s.staffName}
                             {s.role ? ` · ${s.role}` : ""}
                           </div>
                         </div>
-                        <ChevronRight className="size-5 shrink-0 text-muted-foreground" />
-                      </li>
+                        <ChevronRight className="size-4 shrink-0 text-muted-foreground" />
+                      </div>
                     )
                   })}
-                </ul>
-              </section>
+                </CardContent>
+              </Card>
             )
           })}
         </div>

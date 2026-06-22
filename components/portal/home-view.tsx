@@ -2,9 +2,11 @@
 
 import { useState, useTransition } from "react"
 import { useRouter } from "next/navigation"
-import { Bell, ChevronDown, ChevronRight } from "lucide-react"
+import { Bell, ChevronDown, ChevronRight, CalendarClock } from "lucide-react"
 import { selfClock } from "@/app/actions/staff"
 import { PortalFilterBar } from "@/components/portal/portal-filter-bar"
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { buttonVariants } from "@/components/ui/button"
 import { formatMoney } from "@/lib/rota"
 import { cn } from "@/lib/utils"
 import type { HomeData } from "@/app/actions/portal"
@@ -59,82 +61,88 @@ export function HomeView({ data }: { data: HomeData }) {
   ]
 
   return (
-    <div>
+    <div className="flex flex-col gap-4">
       {/* Top bar: venue + notifications */}
-      <header className="flex items-center justify-between gap-3 py-3">
+      <header className="mb-1 flex items-center justify-between gap-3 pt-1">
         <button type="button" className="flex items-center gap-1.5 text-left">
-          <span className="text-2xl font-bold tracking-tight text-foreground">{venueName || firstName}</span>
-          <ChevronDown className="size-5 text-foreground" />
+          <span className="text-2xl font-semibold tracking-tight text-foreground">
+            {venueName || firstName}
+          </span>
+          <ChevronDown className="size-5 text-muted-foreground" />
         </button>
         <button
           type="button"
           aria-label="Notifications"
-          className="flex size-11 items-center justify-center rounded-full bg-muted text-foreground transition-colors hover:bg-muted/70"
+          className="flex size-9 items-center justify-center rounded-lg border border-border bg-background text-foreground transition-colors hover:bg-muted"
         >
-          <Bell className="size-5" />
+          <Bell className="size-4" />
         </button>
       </header>
 
-      <hr className="-mx-5 border-border" />
-
       {/* Next shift */}
-      <section className="py-6">
-        <h2 className="text-lg font-bold text-foreground">Next shift</h2>
-        {nextShift ? (
-          <div className="mt-2">
-            <p className="text-4xl font-bold leading-tight tracking-tight text-foreground">
-              {nextShift.relLabel}
-              <br />
-              {nextShift.startTime} – {nextShift.endTime}
-            </p>
-            <p className="mt-2 text-base text-muted-foreground">
-              {nextShift.role || "Shift"} · {nextShift.venueName}
-            </p>
-          </div>
-        ) : (
-          <p className="mt-2 text-base text-muted-foreground">No upcoming shifts scheduled.</p>
-        )}
-
-        <button
-          type="button"
-          onClick={handleClock}
-          disabled={working}
-          className={cn(
-            "mt-6 w-full rounded-full py-4 text-center text-lg font-bold transition-colors disabled:opacity-60",
-            clockState === "in"
-              ? "bg-primary text-primary-foreground hover:bg-primary/90"
-              : "bg-muted text-foreground hover:bg-muted/70",
+      <Card>
+        <CardHeader>
+          <CardTitle>Next shift</CardTitle>
+        </CardHeader>
+        <CardContent className="flex flex-col gap-4">
+          {nextShift ? (
+            <div className="flex items-start gap-3">
+              <div className="flex size-10 items-center justify-center rounded-md bg-primary/10 text-primary">
+                <CalendarClock className="size-5" />
+              </div>
+              <div className="min-w-0">
+                <p className="text-xl font-semibold leading-tight tracking-tight text-foreground">
+                  {nextShift.relLabel}, {nextShift.startTime} – {nextShift.endTime}
+                </p>
+                <p className="mt-1 text-sm text-muted-foreground">
+                  {nextShift.role || "Shift"} · {nextShift.venueName}
+                </p>
+              </div>
+            </div>
+          ) : (
+            <p className="text-sm text-muted-foreground">No upcoming shifts scheduled.</p>
           )}
-        >
-          {working ? "Please wait…" : clockState === "in" ? "Clock out" : "Clock in"}
-        </button>
-      </section>
 
-      <hr className="-mx-5 border-[6px] border-muted" />
+          <button
+            type="button"
+            onClick={handleClock}
+            disabled={working}
+            className={cn(
+              buttonVariants({ variant: clockState === "in" ? "default" : "secondary", size: "lg" }),
+              "w-full",
+            )}
+          >
+            {working ? "Please wait…" : clockState === "in" ? "Clock out" : "Clock in"}
+          </button>
+        </CardContent>
+      </Card>
 
       {/* My week */}
-      <section className="pt-6">
-        <h2 className="text-lg font-bold text-foreground">My week</h2>
-        <PortalFilterBar weekStart={weekStart} showFilters={false} />
-
-        <ul className="mt-2">
-          {rows.map((row, i) => (
-            <li
-              key={row.label}
-              className={cn(
-                "flex items-center justify-between py-4",
-                i < rows.length - 1 && "border-b border-border",
-              )}
-            >
-              <span className="text-base font-semibold text-foreground">{row.label}</span>
-              <span className="flex items-center gap-1.5">
-                <span className="text-base font-semibold tabular-nums text-foreground">{row.value}</span>
-                {row.chevron ? <ChevronRight className="size-5 text-muted-foreground" /> : null}
-              </span>
-            </li>
-          ))}
-        </ul>
-      </section>
+      <Card>
+        <CardHeader>
+          <CardTitle>My week</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <PortalFilterBar weekStart={weekStart} showFilters={false} />
+          <ul className="mt-1">
+            {rows.map((row, i) => (
+              <li
+                key={row.label}
+                className={cn(
+                  "flex items-center justify-between py-3",
+                  i < rows.length - 1 && "border-b border-border",
+                )}
+              >
+                <span className="text-sm font-medium text-foreground">{row.label}</span>
+                <span className="flex items-center gap-1.5">
+                  <span className="text-sm font-semibold tabular-nums text-foreground">{row.value}</span>
+                  {row.chevron ? <ChevronRight className="size-4 text-muted-foreground" /> : null}
+                </span>
+              </li>
+            ))}
+          </ul>
+        </CardContent>
+      </Card>
     </div>
   )
 }

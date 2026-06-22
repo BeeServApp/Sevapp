@@ -37,23 +37,23 @@ export function PortalFilterBar({ weekStart, locationLabel = "All", showFilters 
 
   return (
     <div className="flex items-center gap-2 py-2">
-      <div className="flex flex-1 items-center justify-between rounded-full border border-border bg-background px-1.5 py-1.5">
+      <div className="flex flex-1 items-center justify-between rounded-lg border border-border bg-background px-1.5 py-1">
         <button
           type="button"
           aria-label="Previous week"
           onClick={() => goToWeek(-1)}
-          className="flex size-8 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+          className="flex size-8 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
         >
           <ChevronLeft className="size-5" />
         </button>
-        <span className="px-1 text-sm font-semibold tabular-nums text-foreground">
+        <span className="px-1 text-sm font-medium tabular-nums text-foreground">
           {ddmmyyyy(weekStart)} – {ddmmyyyy(endISO)}
         </span>
         <button
           type="button"
           aria-label="Next week"
           onClick={() => goToWeek(1)}
-          className="flex size-8 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+          className="flex size-8 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
         >
           <ChevronRight className="size-5" />
         </button>
@@ -63,16 +63,16 @@ export function PortalFilterBar({ weekStart, locationLabel = "All", showFilters 
         <>
           <div
             className={cn(
-              "flex items-center gap-1.5 rounded-full border border-border bg-background px-3.5 py-2.5 text-sm font-semibold text-foreground",
+              "flex items-center gap-1.5 rounded-lg border border-border bg-background px-3 py-2 text-sm font-medium text-foreground",
             )}
           >
-            <MapPin className="size-4" />
+            <MapPin className="size-4 text-muted-foreground" />
             <span className="max-w-24 truncate">{locationLabel}</span>
           </div>
           <button
             type="button"
             aria-label="Filters"
-            className="flex size-11 items-center justify-center rounded-full border border-border bg-background text-foreground transition-colors hover:bg-muted"
+            className="flex size-9 items-center justify-center rounded-lg border border-border bg-background text-foreground transition-colors hover:bg-muted"
           >
             <SlidersHorizontal className="size-4" />
           </button>
