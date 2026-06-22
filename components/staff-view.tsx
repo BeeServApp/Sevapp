@@ -57,15 +57,25 @@ import {
   deleteStaffMember,
 } from "@/app/actions/staff"
 import { createStaffInvite, revokeStaffInvite } from "@/app/actions/invites"
+import { resolveSwap } from "@/app/actions/scheduling"
 import { RotaBoard } from "@/components/staff/rota-board"
+import { AvailabilityTab } from "@/components/staff/availability-tab"
+import { TimecardsTab } from "@/components/staff/timecards-tab"
+import { ReportsTab } from "@/components/staff/reports-tab"
+import { TipsTab } from "@/components/staff/tips-tab"
 import type {
   DbStaffMember,
   DbLeaveRequest,
   DbRotaShift,
   DbClockEvent,
+  DbAvailability,
+  DbShiftSwap,
+  DbTimecard,
+  DbTipEntry,
+  DbSchedulingSettings,
 } from "@/lib/db/schema"
 import { cn } from "@/lib/utils"
-import { Copy, Check, Link2 } from "lucide-react"
+import { Copy, Check, Link2, ArrowLeftRight } from "lucide-react"
 
 function initials(name: string) {
   return name
@@ -94,6 +104,12 @@ interface Props {
   initialShifts: DbRotaShift[]
   initialClockEvents: DbClockEvent[]
   initialInviteStatuses: Record<number, { status: string; token: string }>
+  initialAvailability: DbAvailability[]
+  initialSwaps: DbShiftSwap[]
+  initialTimecards: DbTimecard[]
+  initialTips: DbTipEntry[]
+  settings: DbSchedulingSettings
+  weekSales: Record<string, number>
   weekStart: string
   rotaDays: string[]
 }
@@ -107,6 +123,12 @@ export function StaffView({
   initialShifts,
   initialClockEvents,
   initialInviteStatuses,
+  initialAvailability,
+  initialSwaps,
+  initialTimecards,
+  initialTips,
+  settings,
+  weekSales,
   weekStart,
   rotaDays,
 }: Props) {
@@ -114,11 +136,25 @@ export function StaffView({
   const [leaveReqs, setLeaveReqs] = useState<DbLeaveRequest[]>(initialLeave)
   const [shifts, setShifts] = useState<DbRotaShift[]>(initialShifts)
   const [clockEvents, setClockEvents] = useState<DbClockEvent[]>(initialClockEvents)
+  const [swaps, setSwaps] = useState<DbShiftSwap[]>(initialSwaps)
   const [inviteStatuses, setInviteStatuses] =
     useState<Record<number, { status: string; token: string }>>(initialInviteStatuses)
   const [copiedId, setCopiedId] = useState<number | null>(null)
   const [invitingId, setInvitingId] = useState<number | null>(null)
   const [isPending, startTransition] = useTransition()
+
+  const staffNameById = useMemo(() => {
+    const m = new Map<number, string>()
+    for (const s of staff) m.set(s.id, s.name)
+    return m
+  }, [staff])
+
+  const pendingSwaps = swaps.filter((s) => s.status === "pending")
+
+  async function handleResolveSwap(swapId: number, decision: "approved" | "declined") {
+    setSwaps((prev) => prev.map((s) => (s.id === swapId ? { ...s, status: decision } : s)))
+    await resolveSwap(swapId, decision)
+  }
 
   function inviteUrl(token: string) {
     if (typeof window === "undefined") return `/join/${token}`
@@ -393,8 +429,20 @@ export function StaffView({
 
       {/* Tabs */}
       <Tabs defaultValue="rota">
-        <TabsList>
+        <TabsList className="flex-wrap">
           <TabsTrigger value="rota">Rota</TabsTrigger>
+          <TabsTrigger value="availability">Availability</TabsTrigger>
+          <TabsTrigger value="swaps">
+            Swaps
+            {pendingSwaps.length > 0 && (
+              <Badge variant="outline" className="ml-1 border-transparent bg-chart-4/20 text-chart-4">
+                {pendingSwaps.length}
+              </Badge>
+            )}
+          </TabsTrigger>
+          <TabsTrigger value="timecards">Timecards</TabsTrigger>
+          <TabsTrigger value="reports">Reports</TabsTrigger>
+          <TabsTrigger value="tips">Tips</TabsTrigger>
           <TabsTrigger value="team">Team</TabsTrigger>
           <TabsTrigger value="leave">Leave</TabsTrigger>
           <TabsTrigger value="clockin">Clock-in log</TabsTrigger>
@@ -408,7 +456,142 @@ export function StaffView({
             rotaDays={rotaDays}
             staff={staff}
             shifts={shifts}
+            availability={initialAvailability}
+            settings={settings}
             onShiftsChange={setShifts}
+          />
+        </TabsContent>
+
+        {/* ── Availability ── */}
+        <TabsContent value="availability" className="mt-4">
+          <AvailabilityTab
+            venueId={venueId}
+            rotaDays={rotaDays}
+            staff={staff}
+            initialAvailability={initialAvailability}
+          />
+        </TabsContent>
+
+        {/* ── Swaps & drops ── */}
+        <TabsContent value="swaps" className="mt-4">
+          <Card>
+            <CardHeader>
+              <CardTitle>Shift swaps &amp; drops</CardTitle>
+            </CardHeader>
+            <CardContent className="px-0">
+              {swaps.length === 0 ? (
+                <p className="px-6 py-8 text-center text-sm text-muted-foreground">
+                  No swap or drop requests. Staff can request these from their app.
+                </p>
+              ) : (
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Requested by</TableHead>
+                      <TableHead>Type</TableHead>
+                      <TableHead>Cover</TableHead>
+                      <TableHead>Note</TableHead>
+                      <TableHead>Status</TableHead>
+                      <TableHead className="text-right">Action</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {swaps.map((sw) => (
+                      <TableRow key={sw.id}>
+                        <TableCell className="font-medium">
+                          {staffNameById.get(sw.requesterStaffId) ?? "—"}
+                        </TableCell>
+                        <TableCell>
+                          <Badge variant="outline" className="gap-1 capitalize">
+                            <ArrowLeftRight className="size-3" />
+                            {sw.type}
+                          </Badge>
+                        </TableCell>
+                        <TableCell className="text-muted-foreground">
+                          {sw.targetStaffId ? staffNameById.get(sw.targetStaffId) ?? "—" : "Open pool"}
+                        </TableCell>
+                        <TableCell className="max-w-[200px] truncate text-muted-foreground">
+                          {sw.note || "—"}
+                        </TableCell>
+                        <TableCell>
+                          <Badge
+                            variant="outline"
+                            className={cn(
+                              "font-medium capitalize",
+                              sw.status === "approved"
+                                ? "border-transparent bg-chart-2/15 text-chart-2"
+                                : sw.status === "declined"
+                                  ? "border-transparent bg-destructive/12 text-destructive"
+                                  : sw.status === "pending"
+                                    ? "border-transparent bg-chart-4/20 text-[oklch(0.45_0.11_70)]"
+                                    : "border-transparent bg-muted text-muted-foreground",
+                            )}
+                          >
+                            {sw.status}
+                          </Badge>
+                        </TableCell>
+                        <TableCell className="text-right">
+                          {sw.status === "pending" ? (
+                            <div className="flex justify-end gap-1">
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                className="h-7"
+                                onClick={() => handleResolveSwap(sw.id, "approved")}
+                              >
+                                <CheckCircle2 className="size-3.5" /> Approve
+                              </Button>
+                              <Button
+                                size="sm"
+                                variant="ghost"
+                                className="h-7 text-muted-foreground hover:text-destructive"
+                                onClick={() => handleResolveSwap(sw.id, "declined")}
+                              >
+                                <XCircle className="size-3.5" /> Decline
+                              </Button>
+                            </div>
+                          ) : (
+                            <span className="text-xs text-muted-foreground capitalize">{sw.status}</span>
+                          )}
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        {/* ── Timecards ── */}
+        <TabsContent value="timecards" className="mt-4">
+          <TimecardsTab
+            venueId={venueId}
+            weekStart={weekStart}
+            staff={staff}
+            initialTimecards={initialTimecards}
+          />
+        </TabsContent>
+
+        {/* ── Reports ── */}
+        <TabsContent value="reports" className="mt-4">
+          <ReportsTab
+            weekStart={weekStart}
+            rotaDays={rotaDays}
+            staff={staff}
+            shifts={shifts}
+            weekSales={weekSales}
+          />
+        </TabsContent>
+
+        {/* ── Tips & commission ── */}
+        <TabsContent value="tips" className="mt-4">
+          <TipsTab
+            venueId={venueId}
+            weekStart={weekStart}
+            staff={staff}
+            shifts={shifts}
+            initialTips={initialTips}
           />
         </TabsContent>
 

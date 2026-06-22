@@ -257,7 +257,7 @@ export function TipsTab({ venueId, weekStart, staff, shifts, initialTips }: Prop
                 <Label>Team member</Label>
                 <Select
                   value={form.staffMemberId}
-                  onValueChange={(v) => setForm((f) => ({ ...f, staffMemberId: v }))}
+                  onValueChange={(v) => setForm((f) => ({ ...f, staffMemberId: v ?? f.staffMemberId }))}
                 >
                   <SelectTrigger>
                     <SelectValue placeholder="Select" />

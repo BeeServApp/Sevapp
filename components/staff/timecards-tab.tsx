@@ -305,7 +305,7 @@ export function TimecardsTab({ venueId, weekStart, staff, initialTimecards }: Pr
                   <Label>Staff</Label>
                   <Select
                     value={edit.staffMemberId}
-                    onValueChange={(v) => setEdit((e) => (e ? { ...e, staffMemberId: v } : e))}
+                    onValueChange={(v) => setEdit((e) => (e ? { ...e, staffMemberId: v ?? e.staffMemberId } : e))}
                   >
                     <SelectTrigger>
                       <SelectValue />

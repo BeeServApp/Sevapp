@@ -7,6 +7,7 @@ import {
   getClockEvents,
   getStaffInviteStatuses,
   getMyShifts,
+  getMyProfile,
 } from "@/app/actions/staff"
 import {
   getSchedulingSettings,
@@ -44,7 +45,8 @@ export default async function StaffPage({
 
   // ── Staff portal: focused, personal view of their own schedule ──────────────
   if (me.appRole === "staff") {
-    const [myShifts, myAvailability, mySwaps, myTimecards] = await Promise.all([
+    const [profile, myShifts, myAvailability, mySwaps, myTimecards] = await Promise.all([
+      getMyProfile(),
       getMyShifts(weekStart),
       getMyAvailability(),
       getMySwaps(),
@@ -60,6 +62,7 @@ export default async function StaffPage({
         initialSwaps={mySwaps}
         initialTimecards={myTimecards}
         staffMemberId={me.staffMemberId}
+        venueId={profile?.venueId ?? 0}
       />
     )
   }
