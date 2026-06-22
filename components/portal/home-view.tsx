@@ -102,7 +102,7 @@ export function HomeView({ data }: { data: HomeData }) {
           className={cn(
             "mt-6 w-full rounded-full py-4 text-center text-lg font-bold transition-colors disabled:opacity-60",
             clockState === "in"
-              ? "bg-foreground text-background hover:bg-foreground/90"
+              ? "bg-primary text-primary-foreground hover:bg-primary/90"
               : "bg-muted text-foreground hover:bg-muted/70",
           )}
         >

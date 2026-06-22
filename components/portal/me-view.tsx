@@ -14,8 +14,8 @@ type AvailStatus = (typeof AVAIL_CYCLE)[number]
 
 const availStyles: Record<AvailStatus, { label: string; cls: string }> = {
   available: { label: "Available", cls: "bg-muted text-muted-foreground" },
-  preferred: { label: "Prefer", cls: "bg-emerald-100 text-emerald-700" },
-  unavailable: { label: "Can't work", cls: "bg-rose-100 text-rose-700" },
+  preferred: { label: "Prefer", cls: "bg-chart-2/15 text-chart-2" },
+  unavailable: { label: "Can't work", cls: "bg-destructive/12 text-destructive" },
 }
 
 function initialsOf(name: string): string {
@@ -98,7 +98,7 @@ export function MeView({
 
       {/* Profile */}
       <section className="flex items-center gap-4 py-4">
-        <span className="flex size-16 shrink-0 items-center justify-center rounded-full bg-foreground text-xl font-bold text-background">
+        <span className="flex size-16 shrink-0 items-center justify-center rounded-full bg-primary text-xl font-bold text-primary-foreground">
           {initialsOf(name)}
         </span>
         <div className="min-w-0">
