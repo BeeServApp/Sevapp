@@ -2,9 +2,12 @@
 
 import { useTransition } from "react"
 import { useRouter } from "next/navigation"
-import { Clock, Plus, Check } from "lucide-react"
+import { Clock, Plus } from "lucide-react"
 import { PortalHeader } from "@/components/portal/portal-header"
 import { PortalFilterBar } from "@/components/portal/portal-filter-bar"
+import { Card, CardContent } from "@/components/ui/card"
+import { buttonVariants } from "@/components/ui/button"
+import { StatusBadge } from "@/components/status-badge"
 import { shiftHours, formatHours } from "@/lib/rota"
 import { cn } from "@/lib/utils"
 import type { DbTimecard } from "@/lib/db/schema"
@@ -41,53 +44,59 @@ export function TimecardsView({ weekStart, timecards }: { weekStart: string; tim
       <PortalFilterBar weekStart={weekStart} />
 
       {timecards.length === 0 ? (
-        <div className="flex flex-col items-center gap-3 px-6 py-24 text-center">
-          <span className="mb-2 flex size-24 items-center justify-center rounded-full bg-primary ring-4 ring-border">
-            <Clock className="size-12 text-primary-foreground" strokeWidth={2.5} />
-          </span>
-          <h2 className="text-2xl font-bold text-foreground text-balance">No timecards in this time range</h2>
-          <p className="max-w-xs text-base text-muted-foreground text-pretty">
-            There are no timecards in the timeframe you have selected.
-          </p>
-          <button
-            type="button"
-            onClick={reload}
-            disabled={pending}
-            className="mt-6 rounded-full bg-primary px-10 py-3.5 text-base font-bold text-primary-foreground transition-colors hover:bg-primary/90 disabled:opacity-60"
-          >
-            {pending ? "Reloading…" : "Reload"}
-          </button>
-        </div>
+        <Card className="mt-2">
+          <CardContent className="flex flex-col items-center gap-3 px-6 py-16 text-center">
+            <span className="mb-1 flex size-16 items-center justify-center rounded-full bg-primary/10 text-primary">
+              <Clock className="size-8" />
+            </span>
+            <h2 className="text-pretty text-lg font-semibold text-foreground">
+              No timecards in this time range
+            </h2>
+            <p className="max-w-xs text-pretty text-sm text-muted-foreground">
+              There are no timecards in the timeframe you have selected.
+            </p>
+            <button
+              type="button"
+              onClick={reload}
+              disabled={pending}
+              className={cn(buttonVariants({ size: "lg" }), "mt-4")}
+            >
+              {pending ? "Reloading…" : "Reload"}
+            </button>
+          </CardContent>
+        </Card>
       ) : (
-        <ul className="mt-2 flex flex-col">
-          {timecards.map((tc) => {
-            const worked = tc.clockIn && tc.clockOut ? shiftHours(tc.clockIn, tc.clockOut, tc.breakMins) : 0
-            const approved = tc.status === "approved"
-            return (
-              <li key={tc.id} className="flex items-center justify-between gap-3 border-b border-border py-4">
-                <div className="min-w-0">
-                  <div className="text-base font-bold text-foreground">{prettyDate(tc.dateISO)}</div>
-                  <div className="text-sm text-muted-foreground">
-                    {tc.clockIn ?? "--"} – {tc.clockOut ?? "--"}
-                    {tc.breakMins ? ` · ${tc.breakMins}m break` : ""}
+        <Card className="mt-2">
+          <CardContent className="flex flex-col">
+            {timecards.map((tc, i) => {
+              const worked = tc.clockIn && tc.clockOut ? shiftHours(tc.clockIn, tc.clockOut, tc.breakMins) : 0
+              const approved = tc.status === "approved"
+              return (
+                <div
+                  key={tc.id}
+                  className={cn(
+                    "flex items-center justify-between gap-3 py-3",
+                    i < timecards.length - 1 && "border-b border-border",
+                  )}
+                >
+                  <div className="min-w-0">
+                    <div className="text-sm font-medium text-foreground">{prettyDate(tc.dateISO)}</div>
+                    <div className="text-sm text-muted-foreground">
+                      {tc.clockIn ?? "--"} – {tc.clockOut ?? "--"}
+                      {tc.breakMins ? ` · ${tc.breakMins}m break` : ""}
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2.5">
+                    <span className="text-sm font-semibold tabular-nums text-foreground">
+                      {formatHours(worked)}
+                    </span>
+                    <StatusBadge status={approved ? "Approved" : "Open"} />
                   </div>
                 </div>
-                <div className="flex items-center gap-2">
-                  <span className="text-base font-semibold tabular-nums text-foreground">{formatHours(worked)}</span>
-                  <span
-                    className={cn(
-                      "inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-medium",
-                      approved ? "bg-chart-2/15 text-chart-2" : "bg-muted text-muted-foreground",
-                    )}
-                  >
-                    {approved ? <Check className="size-3" /> : null}
-                    {approved ? "Approved" : "Open"}
-                  </span>
-                </div>
-              </li>
-            )
-          })}
-        </ul>
+              )
+            })}
+          </CardContent>
+        </Card>
       )}
     </div>
   )

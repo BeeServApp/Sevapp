@@ -8,8 +8,8 @@ interface PortalHeaderProps {
 
 export function PortalHeader({ title, action }: PortalHeaderProps) {
   return (
-    <header className="flex items-center justify-between gap-3 py-3">
-      <h1 className="text-3xl font-bold tracking-tight text-foreground text-balance">{title}</h1>
+    <header className="mb-4 flex items-center justify-between gap-3 pt-1">
+      <h1 className="text-pretty text-2xl font-semibold tracking-tight text-foreground">{title}</h1>
       {action ? <div className="shrink-0">{action}</div> : null}
     </header>
   )

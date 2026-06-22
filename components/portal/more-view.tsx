@@ -6,6 +6,9 @@ import { useRouter } from "next/navigation"
 import { CalendarCheck, History, LifeBuoy, User, ChevronRight, LogOut } from "lucide-react"
 import { authClient } from "@/lib/auth-client"
 import { PortalHeader } from "@/components/portal/portal-header"
+import { Card, CardContent } from "@/components/ui/card"
+import { buttonVariants } from "@/components/ui/button"
+import { cn } from "@/lib/utils"
 
 const LINKS = [
   { href: "/portal/me", label: "My availability", icon: CalendarCheck },
@@ -28,48 +31,49 @@ export function MoreView() {
   }
 
   return (
-    <div>
+    <div className="flex flex-col gap-4">
       <PortalHeader title="More" />
 
-      <ul className="mt-2 flex flex-col">
-        {LINKS.map((item, i) => {
-          const Icon = item.icon
-          return (
-            <li key={`${item.href}-${i}`}>
+      <Card>
+        <CardContent className="flex flex-col">
+          {LINKS.map((item, i) => {
+            const Icon = item.icon
+            return (
               <Link
+                key={`${item.href}-${i}`}
                 href={item.href}
-                className="flex items-center gap-3 border-b border-border py-4 transition-colors active:bg-muted"
+                className="flex items-center gap-3 border-b border-border py-3 transition-colors active:bg-muted"
               >
-                <Icon className="size-5 text-muted-foreground" />
-                <span className="flex-1 text-base font-semibold text-foreground">{item.label}</span>
-                <ChevronRight className="size-5 text-muted-foreground" />
+                <span className="flex size-9 items-center justify-center rounded-md bg-primary/10 text-primary">
+                  <Icon className="size-4" />
+                </span>
+                <span className="flex-1 text-sm font-medium text-foreground">{item.label}</span>
+                <ChevronRight className="size-4 text-muted-foreground" />
               </Link>
-            </li>
-          )
-        })}
-        <li>
+            )
+          })}
           <a
             href="mailto:support@tapsheet.app"
-            className="flex items-center gap-3 border-b border-border py-4 transition-colors active:bg-muted"
+            className="flex items-center gap-3 py-3 transition-colors active:bg-muted"
           >
-            <LifeBuoy className="size-5 text-muted-foreground" />
-            <span className="flex-1 text-base font-semibold text-foreground">Help &amp; support</span>
-            <ChevronRight className="size-5 text-muted-foreground" />
+            <span className="flex size-9 items-center justify-center rounded-md bg-primary/10 text-primary">
+              <LifeBuoy className="size-4" />
+            </span>
+            <span className="flex-1 text-sm font-medium text-foreground">Help &amp; support</span>
+            <ChevronRight className="size-4 text-muted-foreground" />
           </a>
-        </li>
-      </ul>
+        </CardContent>
+      </Card>
 
-      <div className="py-8">
-        <button
-          type="button"
-          onClick={handleSignOut}
-          disabled={signingOut}
-          className="flex w-full items-center justify-center gap-2 rounded-full border border-border py-3.5 text-base font-bold text-foreground transition-colors hover:bg-muted disabled:opacity-60"
-        >
-          <LogOut className="size-5" />
-          {signingOut ? "Signing out…" : "Sign out"}
-        </button>
-      </div>
+      <button
+        type="button"
+        onClick={handleSignOut}
+        disabled={signingOut}
+        className={cn(buttonVariants({ variant: "outline", size: "lg" }), "w-full")}
+      >
+        <LogOut className="size-4" />
+        {signingOut ? "Signing out…" : "Sign out"}
+      </button>
     </div>
   )
 }

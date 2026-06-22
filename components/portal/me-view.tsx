@@ -6,6 +6,8 @@ import { LogOut } from "lucide-react"
 import { authClient } from "@/lib/auth-client"
 import { setAvailability } from "@/app/actions/scheduling"
 import { PortalHeader } from "@/components/portal/portal-header"
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { buttonVariants } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
 import type { DbAvailability } from "@/lib/db/schema"
 
@@ -93,31 +95,33 @@ export function MeView({
   }
 
   return (
-    <div>
+    <div className="flex flex-col gap-4">
       <PortalHeader title="Me" />
 
       {/* Profile */}
-      <section className="flex items-center gap-4 py-4">
-        <span className="flex size-16 shrink-0 items-center justify-center rounded-full bg-primary text-xl font-bold text-primary-foreground">
-          {initialsOf(name)}
-        </span>
-        <div className="min-w-0">
-          <div className="truncate text-xl font-bold text-foreground">{name}</div>
-          <div className="truncate text-sm text-muted-foreground">{role || "Team member"}</div>
-          <div className="truncate text-sm text-muted-foreground">{email}</div>
-        </div>
-      </section>
-
-      <hr className="-mx-5 border-[6px] border-muted" />
+      <Card>
+        <CardContent className="flex items-center gap-4">
+          <span className="flex size-14 shrink-0 items-center justify-center rounded-full bg-primary text-lg font-semibold text-primary-foreground">
+            {initialsOf(name)}
+          </span>
+          <div className="min-w-0">
+            <div className="truncate text-base font-semibold text-foreground">{name}</div>
+            <div className="truncate text-sm text-muted-foreground">{role || "Team member"}</div>
+            <div className="truncate text-sm text-muted-foreground">{email}</div>
+          </div>
+        </CardContent>
+      </Card>
 
       {/* Availability */}
-      <section className="pt-6">
-        <h2 className="text-lg font-bold text-foreground">My availability</h2>
-        <p className="mt-1 text-sm text-muted-foreground">
-          Tap a day to cycle: Available, Prefer, Can&apos;t work. Your manager sees this on the rota.
-        </p>
-        <div className="mt-3 flex flex-col">
-          {rotaDays.map((day) => {
+      <Card>
+        <CardHeader>
+          <CardTitle>My availability</CardTitle>
+          <p className="text-sm text-muted-foreground">
+            Tap a day to cycle: Available, Prefer, Can&apos;t work. Your manager sees this on the rota.
+          </p>
+        </CardHeader>
+        <CardContent className="flex flex-col">
+          {rotaDays.map((day, i) => {
             const status = (availByDay.get(day)?.status as AvailStatus) ?? "available"
             const style = availStyles[status]
             return (
@@ -125,28 +129,29 @@ export function MeView({
                 key={day}
                 type="button"
                 onClick={() => cycleAvailability(day)}
-                className="flex items-center justify-between border-b border-border py-3.5 text-left transition-colors active:bg-muted"
+                className={cn(
+                  "flex items-center justify-between py-3 text-left transition-colors active:bg-muted",
+                  i < rotaDays.length - 1 && "border-b border-border",
+                )}
               >
-                <span className="text-base font-semibold text-foreground">{day}</span>
-                <span className={cn("rounded-full px-3 py-1 text-xs font-semibold", style.cls)}>{style.label}</span>
+                <span className="text-sm font-medium text-foreground">{day}</span>
+                <span className={cn("rounded-md px-2.5 py-1 text-xs font-medium", style.cls)}>{style.label}</span>
               </button>
             )
           })}
-        </div>
-      </section>
+        </CardContent>
+      </Card>
 
       {/* Sign out */}
-      <section className="py-8">
-        <button
-          type="button"
-          onClick={handleSignOut}
-          disabled={signingOut}
-          className="flex w-full items-center justify-center gap-2 rounded-full border border-border py-3.5 text-base font-bold text-foreground transition-colors hover:bg-muted disabled:opacity-60"
-        >
-          <LogOut className="size-5" />
-          {signingOut ? "Signing out…" : "Sign out"}
-        </button>
-      </section>
+      <button
+        type="button"
+        onClick={handleSignOut}
+        disabled={signingOut}
+        className={cn(buttonVariants({ variant: "outline", size: "lg" }), "w-full")}
+      >
+        <LogOut className="size-4" />
+        {signingOut ? "Signing out…" : "Sign out"}
+      </button>
     </div>
   )
 }
