@@ -21,16 +21,6 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from "@/components/ui/alert-dialog"
 import { StatusBadge } from "@/components/status-badge"
 import { RowActions } from "@/components/compliance/row-actions"
 import { createSafetyRecord, deleteSafetyRecord, logSafetyRecord } from "@/app/actions/safety"
@@ -155,8 +145,6 @@ export function SafetyRegister({
 }) {
   const router = useRouter()
   const [busyId, setBusyId] = useState<number | null>(null)
-  const [deleting, setDeleting] = useState<DbSafetyRecord | null>(null)
-  const [removing, setRemoving] = useState(false)
 
   async function handleLog(id: number) {
     setBusyId(id)
@@ -165,18 +153,6 @@ export function SafetyRegister({
       router.refresh()
     } finally {
       setBusyId(null)
-    }
-  }
-
-  async function confirmDelete() {
-    if (!deleting) return
-    setRemoving(true)
-    try {
-      await deleteSafetyRecord(deleting.id)
-      setDeleting(null)
-      router.refresh()
-    } finally {
-      setRemoving(false)
     }
   }
 
@@ -230,7 +206,13 @@ export function SafetyRegister({
                         <CheckCircle2 className="size-4" />
                         {r.status === "Complete" ? "Done" : "Log done"}
                       </Button>
-                      <RowActions label={`Actions for ${r.name}`} onDelete={() => setDeleting(r)} />
+                      <RowActions
+                        deleteLabel={`Delete ${r.name}`}
+                        deleteAction={async () => {
+                          await deleteSafetyRecord(r.id)
+                          router.refresh()
+                        }}
+                      />
                     </div>
                   </TableCell>
                 </TableRow>
@@ -239,23 +221,6 @@ export function SafetyRegister({
           </Table>
         )}
       </CardContent>
-
-      <AlertDialog open={!!deleting} onOpenChange={(o) => !o && setDeleting(null)}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Delete this record?</AlertDialogTitle>
-            <AlertDialogDescription>
-              This permanently removes &ldquo;{deleting?.name}&rdquo;. This cannot be undone.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel disabled={removing}>Cancel</AlertDialogCancel>
-            <AlertDialogAction variant="destructive" onClick={confirmDelete} disabled={removing}>
-              {removing ? "Deleting..." : "Delete"}
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
     </Card>
   )
 }

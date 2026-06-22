@@ -827,7 +827,10 @@ function moduleToTab(module: string): string {
       return "licensing"
     case "Property":
       return "property"
+    case "H&S":
+    case "Health & Safety":
+      return "hs"
     default:
-      return "overview"
+      return "hs"
   }
 }
