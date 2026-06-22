@@ -5,18 +5,25 @@ import { getVenues } from "@/app/actions/venues"
 import { getCompany } from "@/app/actions/company"
 import { getMembers } from "@/app/actions/members"
 import { getBillingState, syncSubscriptionFromCheckout } from "@/app/actions/billing"
+import { getSquareConnection, listSquareLocations } from "@/app/actions/square"
 import { SETTINGS_TABS } from "@/lib/nav-config"
 
 export default async function SettingsPage({
   searchParams,
 }: {
-  searchParams: Promise<{ tab?: string; session_id?: string; checkout?: string }>
+  searchParams: Promise<{
+    tab?: string
+    session_id?: string
+    checkout?: string
+    square_connected?: string
+    square_error?: string
+  }>
 }) {
   const session = await getSession()
   if (!session?.user) redirect("/sign-in")
   await guardOwnerPage()
 
-  const { tab, session_id } = await searchParams
+  const { tab, session_id, square_connected, square_error } = await searchParams
   const validTabs = SETTINGS_TABS.map((t) => t.id)
   const defaultTab = tab && validTabs.includes(tab) ? tab : "account"
 
@@ -28,6 +35,10 @@ export default async function SettingsPage({
   const billing = await getBillingState()
   const company = await getCompany()
   const venues = await getVenues()
+
+  // Square integration: status + locations (locations only when connected).
+  const squareConnection = await getSquareConnection()
+  const squareLocations = squareConnection.connected ? await listSquareLocations() : []
   const activeVenueId = await getActiveVenueId(session.user.id)
   const activeVenue = venues.find((v) => v.id === activeVenueId) ?? venues[0] ?? null
   const members = activeVenueId ? await getMembers(activeVenueId) : []
@@ -66,6 +77,16 @@ export default async function SettingsPage({
       activeVenueName={activeVenue?.name ?? "this venue"}
       defaultTab={defaultTab}
       billing={billing}
+      square={{
+        connection: squareConnection,
+        venues: venues.map((v) => ({
+          id: v.id,
+          name: v.name,
+          squareLocationId: v.squareLocationId ?? null,
+        })),
+        locations: squareLocations,
+        flash: { connected: square_connected === "1", error: square_error ?? null },
+      }}
     />
   )
 }
