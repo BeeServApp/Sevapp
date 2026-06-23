@@ -19,3 +19,20 @@ export interface ViewAsset {
   /** True when a gaming machine in Financials is linked to this asset. */
   gamingLinked?: boolean
 }
+
+export type MaintenancePriority = "Low" | "Medium" | "High"
+export type MaintenanceStatus = "Open" | "In progress" | "Resolved"
+
+/** A single maintenance record linked to an asset. */
+export interface MaintenanceRecord {
+  id: number
+  assetId: number
+  issue: string
+  priority: MaintenancePriority
+  status: MaintenanceStatus
+  assignee: string
+  /** Cost in pounds (may include pence). */
+  cost: number
+  /** Display date the work was logged (e.g. "14 Mar 2024"). */
+  loggedDate: string
+}
