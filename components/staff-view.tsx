@@ -59,6 +59,7 @@ import {
 import { createStaffInvite, revokeStaffInvite } from "@/app/actions/invites"
 import { resolveSwap } from "@/app/actions/scheduling"
 import { RotaBoard } from "@/components/staff/rota-board"
+import type { ScheduledPublishInfo } from "@/app/actions/scheduled-publish"
 import { AvailabilityTab } from "@/components/staff/availability-tab"
 import { TimecardsTab } from "@/components/staff/timecards-tab"
 import { ReportsTab } from "@/components/staff/reports-tab"
@@ -117,6 +118,7 @@ interface Props {
   initialTemplates: (DbRotaTemplate & { shiftCount: number })[]
   initialShiftTasks: DbShiftTask[]
   initialConflicts: Record<number, string>
+  initialScheduledPublish: ScheduledPublishInfo | null
   weekStart: string
   rotaDays: string[]
 }
@@ -140,6 +142,7 @@ export function StaffView({
   initialTemplates,
   initialShiftTasks,
   initialConflicts,
+  initialScheduledPublish,
   weekStart,
   rotaDays,
 }: Props) {
@@ -478,6 +481,7 @@ export function StaffView({
               templates={initialTemplates}
               shiftTasks={initialShiftTasks}
               conflicts={initialConflicts}
+              scheduledPublish={initialScheduledPublish}
               onShiftsChange={setShifts}
             />
         </TabsContent>
@@ -797,7 +801,7 @@ export function StaffView({
           </Card>
         </TabsContent>
 
-        {/* ── Clock-in log ── */}
+        {/* ─��� Clock-in log ── */}
         <TabsContent value="clockin" className="mt-4">
           <Card>
             <CardHeader>
