@@ -2,7 +2,7 @@
 
 import { db } from "@/lib/db"
 import { asset, member, venue } from "@/lib/db/schema"
-import { ACTIVE_VENUE_COOKIE, getUserId } from "@/lib/session"
+import { ACTIVE_VENUE_COOKIE, getAccountId as getUserId } from "@/lib/session"
 import { and, asc, eq } from "drizzle-orm"
 import { cookies } from "next/headers"
 import { revalidatePath } from "next/cache"

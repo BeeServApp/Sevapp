@@ -3,6 +3,7 @@
 import { createContext, useContext, useState, type ReactNode } from "react"
 import { useRouter } from "next/navigation"
 import { setActiveVenue } from "@/app/actions/venues"
+import type { BusinessSummary } from "@/app/actions/business"
 
 export interface VenueSummary {
   id: number
@@ -37,6 +38,8 @@ interface VenueContextValue {
   user: SessionUser
   hiddenModules: string[]
   appRole: AppRole
+  businesses: BusinessSummary[]
+  isSuperAdmin: boolean
   switching: boolean
   switchVenue: (id: number) => void
 }
@@ -49,6 +52,8 @@ export function VenueProvider({
   user,
   hiddenModules = [],
   appRole = "owner",
+  businesses = [],
+  isSuperAdmin = false,
   children,
 }: {
   venues: VenueSummary[]
@@ -56,6 +61,8 @@ export function VenueProvider({
   user: SessionUser
   hiddenModules?: string[]
   appRole?: AppRole
+  businesses?: BusinessSummary[]
+  isSuperAdmin?: boolean
   children: ReactNode
 }) {
   const router = useRouter()
@@ -72,7 +79,19 @@ export function VenueProvider({
   }
 
   return (
-    <VenueContext.Provider value={{ venues, activeVenue, user, hiddenModules, appRole, switching, switchVenue }}>
+    <VenueContext.Provider
+      value={{
+        venues,
+        activeVenue,
+        user,
+        hiddenModules,
+        appRole,
+        businesses,
+        isSuperAdmin,
+        switching,
+        switchVenue,
+      }}
+    >
       {children}
     </VenueContext.Provider>
   )

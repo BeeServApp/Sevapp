@@ -9,6 +9,9 @@ import { venue as venueTable } from "@/lib/db/schema"
 import { getActiveVenueId, getCurrentUser, getSession } from "@/lib/session"
 import { ensureSeeded } from "@/lib/seed"
 import { getCompany } from "@/app/actions/company"
+import { getMyBusinesses } from "@/app/actions/business"
+import { computeAccess, ensureCompanyRow } from "@/lib/trial"
+import { isSuperAdminEmail } from "@/lib/admin"
 import { asc, eq } from "drizzle-orm"
 
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
@@ -30,6 +33,15 @@ export default async function AppLayout({ children }: { children: React.ReactNod
     .orderBy(asc(venueTable.id))
   const company = await getCompany()
   const activeVenueId = await getActiveVenueId(me.accountId)
+
+  // Enforce the trial/subscription gate for owners. Staff are never gated.
+  // The billing settings page is always reachable so they can subscribe.
+  if (me.appRole === "owner") {
+    const access = computeAccess(await ensureCompanyRow(me.accountId))
+    if (access.locked) redirect("/settings?tab=billing&locked=1")
+  }
+
+  const businesses = me.appRole === "owner" ? await getMyBusinesses() : []
 
   // Staff are locked to scheduling + tasks; hide every other module.
   const hiddenModules =
@@ -63,6 +75,8 @@ export default async function AppLayout({ children }: { children: React.ReactNod
         user={{ name: me.name, email: me.email }}
         hiddenModules={hiddenModules}
         appRole={me.appRole}
+        businesses={businesses}
+        isSuperAdmin={isSuperAdminEmail(me.email)}
       >
         <div className="flex h-screen overflow-hidden bg-background">
           <div className="hidden shrink-0 md:block">
