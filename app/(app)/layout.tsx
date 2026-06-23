@@ -10,6 +10,7 @@ import { getActiveVenueId, getCurrentUser, getSession } from "@/lib/session"
 import { ensureSeeded } from "@/lib/seed"
 import { getCompany } from "@/app/actions/company"
 import { getMyBusinesses } from "@/app/actions/business"
+import { getMyPreferences } from "@/app/actions/preferences"
 import { computeAccess, ensureCompanyRow } from "@/lib/trial"
 import { isSuperAdminEmail } from "@/lib/admin"
 import { asc, eq } from "drizzle-orm"
@@ -44,8 +45,10 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   const businesses = me.appRole === "owner" ? await getMyBusinesses() : []
 
   // Staff module restriction (scheduling + tasks only) is handled in AppSidebar
-  // via STAFF_ALLOWED_PATHS, so the layout only applies the owner's hidden modules.
-  const hiddenModules = company.hiddenModules
+  // via STAFF_ALLOWED_PATHS. Owners apply their company-wide hidden modules;
+  // staff apply their own personal preferences instead of the owner's config.
+  const hiddenModules =
+    me.appRole === "staff" ? (await getMyPreferences()).hiddenModules : company.hiddenModules
 
   return (
     <RealtimeProvider>

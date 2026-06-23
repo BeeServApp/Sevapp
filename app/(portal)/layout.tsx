@@ -1,27 +1,17 @@
 import type React from "react"
-import type { Metadata } from "next"
 import { redirect } from "next/navigation"
 import { getCurrentUser, getSession } from "@/lib/session"
-import { PortalTabBar } from "@/components/portal/portal-tab-bar"
 
-export const metadata: Metadata = {
-  title: "Beeserv",
-}
-
+// The mobile bottom-bar portal has been retired. Both staff and owners now use
+// the sidebar-based app shell, so any /portal/* request is redirected there:
+// staff land on Staff & Scheduling, owners on their dashboard.
 export default async function PortalLayout({ children }: { children: React.ReactNode }) {
   const session = await getSession()
   if (!session?.user) redirect("/sign-in")
 
   const me = await getCurrentUser()
-  // The mobile portal is the staff experience. Owners use the desktop app.
-  if (me.appRole !== "staff") redirect("/dashboard")
+  redirect(me.appRole === "staff" ? "/staff" : "/dashboard")
 
-  return (
-    <div className="min-h-[100dvh] bg-background">
-      <div className="mx-auto flex min-h-[100dvh] w-full max-w-md flex-col bg-background">
-        <main className="flex-1 px-4 pb-28 pt-6">{children}</main>
-        <PortalTabBar />
-      </div>
-    </div>
-  )
+  // Unreachable — kept so the layout still satisfies the segment's type contract.
+  return <>{children}</>
 }

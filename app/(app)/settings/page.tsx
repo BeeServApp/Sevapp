@@ -1,12 +1,13 @@
 import { redirect } from "next/navigation"
 import { SettingsView } from "@/components/settings-view"
-import { getActiveVenueId, getSession, guardOwnerPage } from "@/lib/session"
+import { getActiveVenueId, getCurrentUser, getSession } from "@/lib/session"
 import { getVenues } from "@/app/actions/venues"
 import { getCompany } from "@/app/actions/company"
 import { getMembers } from "@/app/actions/members"
 import { getBillingState, syncSubscriptionFromCheckout } from "@/app/actions/billing"
 import { getSquareConnection, listSquareLocations } from "@/app/actions/square"
-import { SETTINGS_TABS } from "@/lib/nav-config"
+import { getMyPreferences } from "@/app/actions/preferences"
+import { SETTINGS_TABS, STAFF_ALLOWED_SETTINGS_TABS } from "@/lib/nav-config"
 
 export default async function SettingsPage({
   searchParams,
@@ -21,9 +22,27 @@ export default async function SettingsPage({
 }) {
   const session = await getSession()
   if (!session?.user) redirect("/sign-in")
-  await guardOwnerPage()
 
+  const me = await getCurrentUser()
   const { tab, session_id, square_connected, square_error } = await searchParams
+
+  // ── Staff: profile + personal preferences only ─────────────────────────────
+  if (me.appRole === "staff") {
+    const staffDefault =
+      tab && STAFF_ALLOWED_SETTINGS_TABS.includes(tab) ? tab : "account"
+    const [company, prefs] = await Promise.all([getCompany(), getMyPreferences()])
+    return (
+      <SettingsView
+        user={{ name: me.name, email: me.email }}
+        company={company}
+        defaultTab={staffDefault}
+        allowedTabIds={STAFF_ALLOWED_SETTINGS_TABS}
+        personalPreferences={{ hiddenModules: prefs.hiddenModules }}
+      />
+    )
+  }
+
+  // ── Owner: full settings ────────────────────────────────────────────────────
   const validTabs = SETTINGS_TABS.map((t) => t.id)
   const defaultTab = tab && validTabs.includes(tab) ? tab : "account"
 
