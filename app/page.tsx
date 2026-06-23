@@ -6,14 +6,18 @@ import {
   Users,
   ShieldCheck,
   Package,
-  MapPin,
-  Clock,
   FileSpreadsheet,
   ArrowRight,
   CheckCircle2,
+  CalendarClock,
+  Smartphone,
+  CreditCard,
+  Sparkles,
 } from "lucide-react"
 import { buttonVariants } from "@/components/ui/button"
 import { PricingSection } from "@/components/pricing-section"
+import { ScreenshotFrame } from "@/components/landing/screenshot-frame"
+import { IntegrationsSection } from "@/components/landing/integrations-section"
 import { cn } from "@/lib/utils"
 import { getCurrentUser, getSession } from "@/lib/session"
 import { redirect } from "next/navigation"
@@ -38,11 +42,11 @@ export default async function LandingPage() {
             <a href="#features" className="text-sm text-muted-foreground transition-colors hover:text-foreground">
               Features
             </a>
-            <a href="#how-it-works" className="text-sm text-muted-foreground transition-colors hover:text-foreground">
-              How it works
-            </a>
             <a href="#modules" className="text-sm text-muted-foreground transition-colors hover:text-foreground">
-              Modules
+              Product
+            </a>
+            <a href="#integrations" className="text-sm text-muted-foreground transition-colors hover:text-foreground">
+              Integrations
             </a>
             <a href="#pricing" className="text-sm text-muted-foreground transition-colors hover:text-foreground">
               Pricing
@@ -61,8 +65,8 @@ export default async function LandingPage() {
       </header>
 
       {/* ── Hero ─────────────────────────────────────────────────── */}
-      <section className="mx-auto w-full max-w-7xl px-4 pb-20 pt-20 text-center md:px-8 md:pt-28">
-        <div className="mx-auto max-w-2xl">
+      <section className="mx-auto w-full max-w-7xl px-4 pb-16 pt-20 text-center md:px-8 md:pt-24">
+        <div className="mx-auto max-w-3xl">
           <div className="mb-6 inline-flex items-center gap-2 rounded-full border border-border bg-accent/60 px-3 py-1 text-xs font-medium text-accent-foreground">
             <span className="size-1.5 rounded-full bg-brand" />
             Built for pubs, bars &amp; restaurants
@@ -71,93 +75,40 @@ export default async function LandingPage() {
             Run your whole venue from one dashboard
           </h1>
           <p className="mt-5 text-balance text-base leading-relaxed text-muted-foreground md:text-lg">
-            Beeserv brings operations, financials, staff scheduling, asset tracking, and compliance
+            Beeserv brings live sales, financials, staff scheduling, asset tracking and compliance
             into a single platform — so you spend less time on admin and more time serving your guests.
           </p>
           <div className="mt-8 flex flex-wrap items-center justify-center gap-3">
             <Link href="/sign-up" className={cn(buttonVariants({ size: "lg" }), "gap-2")}>
-              Start for free <ArrowRight className="size-4" />
+              Start your free trial <ArrowRight className="size-4" />
             </Link>
-            <Link href="/sign-in" className={cn(buttonVariants({ size: "lg", variant: "outline" }))}>
-              Sign in to your account
+            <Link href="#modules" className={cn(buttonVariants({ size: "lg", variant: "outline" }))}>
+              See it in action
             </Link>
           </div>
-          <p className="mt-4 text-xs text-muted-foreground">No credit card required</p>
+          <p className="mt-4 text-xs text-muted-foreground">14-day free trial · no charge until it ends</p>
         </div>
 
-        {/* Mock dashboard card */}
-        <div className="mx-auto mt-16 max-w-4xl overflow-hidden rounded-2xl border border-border bg-card shadow-xl">
-          <div className="flex h-10 items-center gap-2 border-b border-border bg-muted/40 px-4">
-            <span className="size-2.5 rounded-full bg-destructive/60" />
-            <span className="size-2.5 rounded-full bg-[oklch(0.8_0.12_75)]/80" />
-            <span className="size-2.5 rounded-full bg-brand/60" />
-            <span className="ml-3 text-xs text-muted-foreground">beeserv.app/dashboard</span>
-          </div>
-          <div className="grid grid-cols-2 divide-x divide-border md:grid-cols-4">
-            {[
-              { label: "Revenue today", value: "£4,820", up: true },
-              { label: "Staff on shift", value: "7 / 9", up: null },
-              { label: "Open orders", value: "12", up: false },
-              { label: "Compliance score", value: "94%", up: true },
-            ].map((stat) => (
-              <div key={stat.label} className="flex flex-col gap-1 p-5">
-                <p className="text-xs text-muted-foreground">{stat.label}</p>
-                <p className="font-heading text-2xl font-bold text-foreground">{stat.value}</p>
-                {stat.up !== null && (
-                  <p className={`text-xs font-medium ${stat.up ? "text-brand" : "text-destructive"}`}>
-                    {stat.up ? "▲ 8% vs yesterday" : "▼ 3 pending"}
-                  </p>
-                )}
-              </div>
-            ))}
-          </div>
-          <div className="grid grid-cols-3 divide-x divide-border border-t border-border">
-            <div className="col-span-2 p-5">
-              <p className="mb-3 text-sm font-medium text-foreground">Revenue this week</p>
-              <div className="flex h-24 items-end gap-1.5">
-                {[55, 70, 48, 82, 66, 90, 76].map((h, i) => (
-                  <div
-                    key={i}
-                    className="flex-1 rounded-sm bg-brand/20"
-                    style={{ height: `${h}%` }}
-                  >
-                    <div
-                      className="w-full rounded-sm bg-brand"
-                      style={{ height: `${Math.round(h * 0.65)}%`, marginTop: `${h - Math.round(h * 0.65)}%` }}
-                    />
-                  </div>
-                ))}
-              </div>
-              <div className="mt-1.5 flex justify-between text-[10px] text-muted-foreground">
-                {["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"].map((d) => (
-                  <span key={d} className="flex-1 text-center">{d}</span>
-                ))}
-              </div>
-            </div>
-            <div className="p-5">
-              <p className="mb-3 text-sm font-medium text-foreground">Quick links</p>
-              <ul className="flex flex-col gap-1.5">
-                {["Operations", "Financials", "Staff", "Compliance"].map((item) => (
-                  <li key={item} className="flex items-center gap-2 text-xs text-muted-foreground">
-                    <span className="size-1.5 rounded-full bg-brand/60" />
-                    {item}
-                  </li>
-                ))}
-              </ul>
-            </div>
-          </div>
+        {/* Real product screenshot */}
+        <div className="mx-auto mt-16 max-w-5xl">
+          <ScreenshotFrame
+            src="/screenshots/dashboard.png"
+            alt="Beeserv dashboard showing weekly revenue, sales mix and key venue metrics"
+            url="app.beeserv.com/dashboard"
+            priority
+          />
         </div>
       </section>
 
       {/* ── Social proof strip ───────────────────────────────────── */}
       <section className="border-y border-border bg-muted/30 py-6">
-        <div className="mx-auto flex max-w-4xl flex-wrap items-center justify-center gap-x-10 gap-y-3 px-4 text-sm text-muted-foreground">
+        <div className="mx-auto flex max-w-5xl flex-wrap items-center justify-center gap-x-10 gap-y-3 px-4 text-sm text-muted-foreground">
           {[
             "Multi-venue support",
             "GPS clock-in",
-            "Excel export",
+            "Live Square sales",
             "Compliance tracking",
-            "Real-time financials",
+            "Excel export",
           ].map((item) => (
             <span key={item} className="flex items-center gap-2">
               <CheckCircle2 className="size-4 text-brand" />
@@ -167,95 +118,101 @@ export default async function LandingPage() {
         </div>
       </section>
 
-      {/* ── Features ─────────────────────────────────────────────── */}
-      <section id="features" className="mx-auto w-full max-w-7xl px-4 py-24 md:px-8">
+      {/* ── What's new ───────────────────────────────────────────── */}
+      <section className="mx-auto w-full max-w-7xl px-4 py-24 md:px-8">
         <div className="mb-14 text-center">
-          <p className="mb-2 text-sm font-medium uppercase tracking-widest text-brand">Features</p>
-          <h2 className="text-balance font-heading text-3xl font-bold tracking-tight text-foreground md:text-4xl">
-            Everything your venue needs
-          </h2>
-          <p className="mx-auto mt-3 max-w-xl text-base text-muted-foreground">
-            Purpose-built tools for hospitality operators — from daily ops to annual compliance.
+          <p className="mb-2 inline-flex items-center gap-1.5 text-sm font-medium uppercase tracking-widest text-brand">
+            <Sparkles className="size-4" /> Recently shipped
           </p>
+          <h2 className="text-balance font-heading text-3xl font-bold tracking-tight text-foreground md:text-4xl">
+            New ways to run a tighter ship
+          </h2>
         </div>
-
-        <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
-          {features.map((f) => {
-            const Icon = f.icon
+        <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
+          {whatsNew.map((item) => {
+            const Icon = item.icon
             return (
-              <div
-                key={f.title}
-                className="group flex flex-col gap-4 rounded-xl border border-border bg-card p-6 transition-colors hover:border-brand/40 hover:bg-accent/20"
-              >
+              <div key={item.title} className="flex flex-col gap-3 rounded-xl border border-border bg-card p-6">
                 <div className="flex size-11 items-center justify-center rounded-lg bg-primary/8 text-primary ring-1 ring-border">
                   <Icon className="size-5" />
                 </div>
-                <div>
-                  <h3 className="font-heading text-base font-semibold text-foreground">{f.title}</h3>
-                  <p className="mt-1.5 text-sm leading-relaxed text-muted-foreground">{f.description}</p>
-                </div>
-                <ul className="mt-auto flex flex-col gap-1.5">
-                  {f.bullets.map((b) => (
-                    <li key={b} className="flex items-center gap-2 text-xs text-muted-foreground">
-                      <span className="size-1.5 shrink-0 rounded-full bg-brand" />
-                      {b}
-                    </li>
-                  ))}
-                </ul>
+                <h3 className="font-heading text-base font-semibold text-foreground">{item.title}</h3>
+                <p className="text-sm leading-relaxed text-muted-foreground">{item.description}</p>
               </div>
             )
           })}
         </div>
       </section>
 
-      {/* ── How it works ─────────────────────────────────────────── */}
-      <section id="how-it-works" className="border-t border-border bg-muted/20 py-24">
-        <div className="mx-auto max-w-7xl px-4 md:px-8">
+      {/* ── Features ─────────────────────────────────────────────── */}
+      <section id="features" className="border-t border-border bg-muted/20 py-24">
+        <div className="mx-auto w-full max-w-7xl px-4 md:px-8">
           <div className="mb-14 text-center">
-            <p className="mb-2 text-sm font-medium uppercase tracking-widest text-brand">How it works</p>
+            <p className="mb-2 text-sm font-medium uppercase tracking-widest text-brand">Features</p>
             <h2 className="text-balance font-heading text-3xl font-bold tracking-tight text-foreground md:text-4xl">
-              Up and running in minutes
+              Everything your venue needs
             </h2>
+            <p className="mx-auto mt-3 max-w-xl text-base text-muted-foreground">
+              Purpose-built tools for hospitality operators — from daily ops to annual compliance.
+            </p>
           </div>
-          <div className="grid gap-8 md:grid-cols-3">
-            {steps.map((step, i) => (
-              <div key={step.title} className="flex flex-col items-start gap-4">
-                <div className="flex size-10 items-center justify-center rounded-full border-2 border-brand bg-background font-heading text-sm font-bold text-brand">
-                  {i + 1}
+
+          <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
+            {features.map((f) => {
+              const Icon = f.icon
+              return (
+                <div
+                  key={f.title}
+                  className="group flex flex-col gap-4 rounded-xl border border-border bg-card p-6 transition-colors hover:border-brand/40 hover:bg-accent/20"
+                >
+                  <div className="flex size-11 items-center justify-center rounded-lg bg-primary/8 text-primary ring-1 ring-border">
+                    <Icon className="size-5" />
+                  </div>
+                  <div>
+                    <h3 className="font-heading text-base font-semibold text-foreground">{f.title}</h3>
+                    <p className="mt-1.5 text-sm leading-relaxed text-muted-foreground">{f.description}</p>
+                  </div>
+                  <ul className="mt-auto flex flex-col gap-1.5">
+                    {f.bullets.map((b) => (
+                      <li key={b} className="flex items-center gap-2 text-xs text-muted-foreground">
+                        <span className="size-1.5 shrink-0 rounded-full bg-brand" />
+                        {b}
+                      </li>
+                    ))}
+                  </ul>
                 </div>
-                <div>
-                  <h3 className="font-heading text-base font-semibold text-foreground">{step.title}</h3>
-                  <p className="mt-1.5 text-sm leading-relaxed text-muted-foreground">{step.description}</p>
-                </div>
-              </div>
-            ))}
+              )
+            })}
           </div>
         </div>
       </section>
 
-      {/* ── Modules detail ───────────────────────────────────────── */}
+      {/* ── Modules detail (real screenshots) ────────────────────── */}
       <section id="modules" className="mx-auto w-full max-w-7xl px-4 py-24 md:px-8">
         <div className="mb-14 text-center">
-          <p className="mb-2 text-sm font-medium uppercase tracking-widest text-brand">Modules</p>
+          <p className="mb-2 text-sm font-medium uppercase tracking-widest text-brand">Product tour</p>
           <h2 className="text-balance font-heading text-3xl font-bold tracking-tight text-foreground md:text-4xl">
             Built for every part of your day
           </h2>
+          <p className="mx-auto mt-3 max-w-xl text-base text-muted-foreground">
+            Real screens from Beeserv — this is exactly what you and your team will use.
+          </p>
         </div>
-        <div className="flex flex-col gap-10">
+        <div className="flex flex-col gap-16">
           {modules.map((mod, i) => {
             const Icon = mod.icon
             const isEven = i % 2 === 0
             return (
               <div
                 key={mod.title}
-                className={`flex flex-col items-center gap-8 rounded-2xl border border-border bg-card p-8 md:flex-row ${!isEven ? "md:flex-row-reverse" : ""}`}
+                className="grid items-center gap-8 md:grid-cols-2 md:gap-12"
               >
-                <div className="flex w-full flex-col gap-4 md:flex-1">
+                <div className={cn("flex flex-col gap-4", !isEven && "md:order-2")}>
                   <div className="flex size-12 items-center justify-center rounded-xl bg-primary/8 text-primary ring-1 ring-border">
                     <Icon className="size-6" />
                   </div>
-                  <h3 className="font-heading text-xl font-bold text-foreground">{mod.title}</h3>
-                  <p className="text-sm leading-relaxed text-muted-foreground">{mod.description}</p>
+                  <h3 className="font-heading text-2xl font-bold text-foreground">{mod.title}</h3>
+                  <p className="text-base leading-relaxed text-muted-foreground">{mod.description}</p>
                   <ul className="grid grid-cols-1 gap-2 sm:grid-cols-2">
                     {mod.points.map((p) => (
                       <li key={p} className="flex items-center gap-2 text-sm text-foreground">
@@ -265,24 +222,17 @@ export default async function LandingPage() {
                     ))}
                   </ul>
                 </div>
-                <div className="w-full md:flex-1">
-                  <div className="overflow-hidden rounded-xl border border-border bg-muted/40">
-                    <div className="flex h-8 items-center gap-1.5 border-b border-border px-3">
-                      <span className="size-2 rounded-full bg-border" />
-                      <span className="size-2 rounded-full bg-border" />
-                      <span className="size-2 rounded-full bg-border" />
-                      <span className="ml-2 text-[10px] text-muted-foreground">{mod.title}</span>
-                    </div>
-                    <div className="p-4">
-                      {mod.preview}
-                    </div>
-                  </div>
+                <div className={cn(!isEven && "md:order-1")}>
+                  <ScreenshotFrame src={mod.image} alt={mod.alt} url={mod.url} />
                 </div>
               </div>
             )
           })}
         </div>
       </section>
+
+      {/* ── Integrations ─────────────────────────────────────────── */}
+      <IntegrationsSection />
 
       {/* ── Pricing ──────────────────────────────────────────────── */}
       <PricingSection />
@@ -333,57 +283,65 @@ export default async function LandingPage() {
 
 // ── Data ─────────────────────────────────────────────────────────────────────
 
+const whatsNew = [
+  {
+    icon: CalendarClock,
+    title: "Scheduled rota publishing",
+    description: "Build next week's rota in advance and set it to publish — and notify staff — automatically at a time you choose.",
+  },
+  {
+    icon: Smartphone,
+    title: "Staff self-service portal",
+    description: "Your team get their own login to view shifts, book leave, swap shifts and check timecards from any phone.",
+  },
+  {
+    icon: CreditCard,
+    title: "Live Square sales",
+    description: "Connect Square to stream daily takings straight into your dashboard and financials — no manual entry.",
+  },
+  {
+    icon: Wallet,
+    title: "Real-time financials",
+    description: "P&L, gross profit, labour cost and expense breakdowns update live as takings and costs come in.",
+  },
+]
+
 const features = [
   {
     icon: ClipboardList,
     title: "Operations",
-    description: "Manage orders, suppliers, maintenance and venue tasks from a single live view.",
-    bullets: ["Live order tracking", "Supplier management", "Task assignments", "Maintenance logs"],
+    description: "Manage orders, suppliers, maintenance and events from a single live view.",
+    bullets: ["Order tracking", "Supplier management", "Maintenance jobs", "Events diary"],
   },
   {
     icon: Wallet,
     title: "Financials",
-    description: "Track revenue, monitor expenses, and see your P&L updated in real time.",
-    bullets: ["P&L overview", "Expense tracking", "Revenue charts", "Category breakdown"],
+    description: "Track revenue and expenses with a P&L that updates in real time — and live Square takings.",
+    bullets: ["P&L overview", "Expense breakdown", "Square sales sync", "Gaming machine duty"],
   },
   {
     icon: Users,
     title: "Staff & Scheduling",
-    description: "Build rotas, manage leave requests, and let staff clock in with GPS verification.",
-    bullets: ["GPS clock-in / out", "Weekly rota builder", "Leave approvals", "Live shift status"],
+    description: "Build rotas, schedule publishing, manage leave and let staff clock in with GPS.",
+    bullets: ["GPS clock-in / out", "Scheduled publishing", "Leave & swaps", "Staff portal"],
   },
   {
     icon: Package,
     title: "Asset Tracking",
-    description: "Maintain a full register of fixtures, fittings, and equipment with photo evidence.",
-    bullets: ["Photo uploads", "Condition tracking", "Excel export", "Disposal records"],
+    description: "A full register of fixtures, fittings and equipment with photo evidence and valuations.",
+    bullets: ["Photo uploads", "Condition tracking", "Replacement value", "Excel export"],
   },
   {
     icon: ShieldCheck,
-    title: "Compliance",
-    description: "Stay on top of health & safety checks, certificates, and documentation deadlines.",
-    bullets: ["Compliance checks", "Certificate expiry alerts", "Document storage", "Audit history"],
+    title: "Safety & Compliance",
+    description: "Stay audit-ready with checklists, certificates, risk assessments and a live compliance score.",
+    bullets: ["Daily checklists", "Certificate alerts", "Risk assessments", "Audit history"],
   },
   {
     icon: FileSpreadsheet,
     title: "Reporting & Export",
     description: "Export any dataset to Excel with one click — assets, expenses, staff, and more.",
-    bullets: ["One-click Excel export", "Multi-venue reporting", "Date-range filters", "Print-ready views"],
-  },
-]
-
-const steps = [
-  {
-    title: "Create your account",
-    description: "Sign up in seconds. Add your venue details and invite your team — no technical setup required.",
-  },
-  {
-    title: "Configure your venue",
-    description: "Add your staff, set up your rota, import your assets, and connect your financial data.",
-  },
-  {
-    title: "Run your operation",
-    description: "Track orders, approve leave, clock staff in with GPS, and stay compliant — all from one place.",
+    bullets: ["One-click Excel export", "Multi-venue reporting", "Group overview", "Print-ready views"],
   },
 ]
 
@@ -392,110 +350,85 @@ const modules = [
     icon: Users,
     title: "Staff & Scheduling",
     description:
-      "Build weekly rotas with a drag-and-drop grid, handle leave requests with one-click approvals, and let staff clock in using their phone's GPS so you always know who is on site.",
+      "Build weekly rotas on a drag-and-drop grid, schedule them to publish automatically, and let staff clock in with GPS so you always know who is on site. Your team get their own portal for shifts, leave and swaps.",
     points: [
-      "GPS-verified clock-in / out",
-      "Weekly rota builder",
-      "Leave request approvals",
-      "Live on-shift status",
-      "Clock history log",
-      "Staff member profiles",
+      "Drag-and-drop rota builder",
+      "Scheduled auto-publishing",
+      "GPS-verified clock-in",
+      "Staff self-service portal",
+      "Leave requests & swaps",
+      "Live labour cost tracking",
     ],
-    preview: (
-      <div className="flex flex-col gap-2">
-        {[
-          { name: "J. Smith", role: "Bar Manager", status: "On shift", color: "bg-brand/20 text-brand" },
-          { name: "A. Patel", role: "Chef", status: "On shift", color: "bg-brand/20 text-brand" },
-          { name: "C. Brown", role: "Front of House", status: "On leave", color: "bg-[oklch(0.8_0.12_75)]/20 text-[oklch(0.55_0.12_75)]" },
-          { name: "M. Lee", role: "Bartender", status: "Off", color: "bg-muted text-muted-foreground" },
-        ].map((s) => (
-          <div key={s.name} className="flex items-center justify-between rounded-lg border border-border bg-background px-3 py-2.5">
-            <div>
-              <p className="text-sm font-medium text-foreground">{s.name}</p>
-              <p className="text-xs text-muted-foreground">{s.role}</p>
-            </div>
-            <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${s.color}`}>{s.status}</span>
-          </div>
-        ))}
-        <div className="mt-1 flex items-center gap-2 rounded-lg border border-brand/30 bg-brand/5 px-3 py-2.5">
-          <MapPin className="size-4 text-brand" />
-          <p className="text-xs text-foreground">GPS clock-in recorded · 51.5074°N, 0.1278°W</p>
-        </div>
-      </div>
-    ),
+    image: "/screenshots/staff.png",
+    alt: "Beeserv staff scheduling board with a weekly rota, live shift status and labour cost",
+    url: "app.beeserv.com/staff",
+  },
+  {
+    icon: Wallet,
+    title: "Financials",
+    description:
+      "See exactly how your venue is performing. Track revenue, net profit and expenses with a live P&L, connect Square for automatic takings, and drill into your spend by category — then export it all to Excel.",
+    points: [
+      "Live P&L & gross margin",
+      "Square takings sync",
+      "Expense breakdown",
+      "Avg daily takings",
+      "6-month profit trend",
+      "One-click export",
+    ],
+    image: "/screenshots/financials.png",
+    alt: "Beeserv financials page with profit and loss chart and expense breakdown",
+    url: "app.beeserv.com/financials",
   },
   {
     icon: Package,
     title: "Asset Tracking",
     description:
-      "Keep a complete register of all your venue assets — from cellar equipment to furniture. Upload photos, track condition, record purchase prices, and export everything to Excel in one click.",
+      "Keep a complete register of every venue asset — from cellar equipment to furniture. Upload photos, track condition and location, record replacement values, and export the whole register to Excel in one click.",
     points: [
-      "Asset number register",
-      "Photo uploads via Vercel Blob",
+      "Photo gallery via Vercel Blob",
       "Condition & location tracking",
+      "Replacement valuations",
+      "Category breakdown",
       "Purchase & disposal dates",
       "Export to Excel",
-      "Category filtering",
     ],
-    preview: (
-      <div className="flex flex-col gap-2">
-        <div className="flex items-center justify-between rounded-t-lg border border-border bg-muted/40 px-3 py-2">
-          <span className="text-xs font-medium text-muted-foreground">Asset register</span>
-          <span className="rounded-md border border-border bg-background px-2 py-0.5 text-xs text-foreground">Export to Excel</span>
-        </div>
-        {[
-          { no: "A-001", name: "Keg Cooler", cat: "Equipment", cond: "Good", price: "£1,200" },
-          { no: "A-002", name: "Bar Counter", cat: "Fixtures", cond: "Excellent", price: "£3,500" },
-          { no: "A-003", name: "Glasswasher", cat: "Equipment", cond: "Fair", price: "£850" },
-        ].map((a) => (
-          <div key={a.no} className="flex items-center gap-3 rounded-lg border border-border bg-background px-3 py-2">
-            <span className="font-mono text-xs text-muted-foreground">{a.no}</span>
-            <div className="flex-1 min-w-0">
-              <p className="truncate text-sm font-medium text-foreground">{a.name}</p>
-              <p className="text-xs text-muted-foreground">{a.cat}</p>
-            </div>
-            <span className="text-xs font-medium text-foreground">{a.price}</span>
-          </div>
-        ))}
-      </div>
-    ),
+    image: "/screenshots/assets.png",
+    alt: "Beeserv asset tracking gallery showing venue equipment with photos and values",
+    url: "app.beeserv.com/assets",
   },
   {
     icon: ShieldCheck,
-    title: "Compliance",
+    title: "Safety & Compliance",
     description:
-      "Never miss a compliance deadline. Log health & safety checks, track certificate expiry dates, and store all your venue documents in one place — with a clear audit trail.",
+      "Never miss a deadline. Log daily safety checks, track certificate expiry, run risk assessments and store documents — all rolled into a live compliance score so you can see at a glance what needs attention.",
     points: [
-      "H&S check logging",
-      "Certificate expiry tracking",
+      "Live compliance score",
+      "Daily checklists",
+      "Certificate expiry alerts",
+      "Risk assessments",
+      "Audits & actions",
       "Document storage",
-      "Compliance score",
-      "Audit history",
-      "Pass / fail recording",
     ],
-    preview: (
-      <div className="flex flex-col gap-2">
-        <div className="flex items-center gap-3 rounded-lg border border-border bg-background px-3 py-2.5">
-          <div className="flex size-9 items-center justify-center rounded-full border-2 border-brand bg-brand/10 font-heading text-sm font-bold text-brand">94</div>
-          <div>
-            <p className="text-sm font-semibold text-foreground">Compliance score</p>
-            <p className="text-xs text-muted-foreground">3 checks due this week</p>
-          </div>
-        </div>
-        {[
-          { item: "Fire safety check", due: "Today", status: "Due", color: "text-destructive" },
-          { item: "Food hygiene cert", due: "14 Jul", status: "Valid", color: "text-brand" },
-          { item: "PAT testing", due: "30 Jul", status: "Valid", color: "text-brand" },
-        ].map((c) => (
-          <div key={c.item} className="flex items-center justify-between rounded-lg border border-border bg-background px-3 py-2">
-            <p className="text-sm font-medium text-foreground">{c.item}</p>
-            <div className="flex items-center gap-2">
-              <span className="text-xs text-muted-foreground">{c.due}</span>
-              <span className={`text-xs font-medium ${c.color}`}>{c.status}</span>
-            </div>
-          </div>
-        ))}
-      </div>
-    ),
+    image: "/screenshots/compliance.png",
+    alt: "Beeserv safety management overview with a live compliance score and module breakdown",
+    url: "app.beeserv.com/compliance",
+  },
+  {
+    icon: ClipboardList,
+    title: "Operations",
+    description:
+      "Run the day-to-day from one place. Track purchase orders and deliveries, manage suppliers, log maintenance jobs, plan events and keep on top of the team's tasks — with everything updating live.",
+    points: [
+      "Purchase orders & deliveries",
+      "Supplier directory",
+      "Maintenance jobs",
+      "Events planning",
+      "Team task board",
+      "Status at a glance",
+    ],
+    image: "/screenshots/operations.png",
+    alt: "Beeserv operations page listing purchase orders with suppliers, totals and status",
+    url: "app.beeserv.com/operations",
   },
 ]

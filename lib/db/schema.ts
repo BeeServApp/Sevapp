@@ -335,6 +335,20 @@ export const rotaShift = pgTable("rota_shift", {
   createdAt: timestamp("createdAt").notNull().defaultNow(),
 })
 
+// A future-dated request to auto-publish a venue's rota for a given week. A cron
+// job (and a page-load fallback) flips due jobs to "done", publishing the week's
+// draft shifts and notifying staff. Status: "pending" | "done" | "cancelled".
+export const scheduledPublish = pgTable("scheduled_publish", {
+  id: serial("id").primaryKey(),
+  userId: text("userId").notNull(),
+  venueId: integer("venueId").notNull(),
+  weekStart: text("weekStart").notNull(),
+  publishAt: timestamp("publishAt").notNull(),
+  status: text("status").notNull().default("pending"),
+  createdAt: timestamp("createdAt").notNull().defaultNow(),
+  processedAt: timestamp("processedAt"),
+})
+
 // Invite links that let a staff member create a login bound to their rota record.
 export const staffInvite = pgTable("staff_invite", {
   id: serial("id").primaryKey(),

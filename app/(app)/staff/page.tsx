@@ -25,6 +25,7 @@ import {
 import { getHomeData, getRotaData } from "@/app/actions/portal"
 import { getMyProfile, getMyLeaveRequests } from "@/app/actions/staff"
 import { getMyAvailability, getMyTimecards } from "@/app/actions/scheduling"
+import { getScheduledPublish, runDueScheduledPublishes } from "@/app/actions/scheduled-publish"
 import { ROTA_DAYS, weekStartOf, addWeeks, dateForDay } from "@/lib/rota"
 import { StaffView } from "@/components/staff-view"
 import { StaffPortalView } from "@/components/staff-portal-view"
@@ -79,6 +80,10 @@ export default async function StaffPage({
   }
 
   // ── Owner: full scheduling management console ───────────────────────────────
+  // Fallback for environments where Vercel Cron may not run (preview/local):
+  // publish any rota whose scheduled time has passed whenever an owner loads.
+  await runDueScheduledPublishes()
+
   const venueId = await getActiveVenueId(me.accountId)
 
   if (!venueId) {
@@ -124,6 +129,7 @@ export default async function StaffPage({
     getCrossLocationConflicts(venueId, weekStart),
   ])
 
+  const scheduledPublish = await getScheduledPublish(venueId, weekStart)
   const shiftTasks = await getShiftTasks(rotaShifts.map((s) => s.id))
 
   return (
@@ -144,6 +150,7 @@ export default async function StaffPage({
       initialTemplates={templates}
       initialShiftTasks={shiftTasks}
       initialConflicts={conflicts}
+      initialScheduledPublish={scheduledPublish}
       weekStart={weekStart}
       rotaDays={[...ROTA_DAYS]}
     />

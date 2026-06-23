@@ -192,13 +192,22 @@ export async function deleteShift(shiftId: number) {
  */
 export async function publishRota(venueId: number, weekStart: string) {
   const me = await requireOwner()
+  return publishRotaCore(me.accountId, venueId, weekStart)
+}
 
+/**
+ * Session-less publish used by both the owner action above and the scheduled /
+ * cron publisher. Flips a week's draft shifts to published and notifies every
+ * assigned staff member with a linked login. Idempotent: a no-op if there are
+ * no drafts. Callers are responsible for authorizing `accountId`.
+ */
+export async function publishRotaCore(accountId: string, venueId: number, weekStart: string) {
   const drafts = await db
     .select()
     .from(rotaShift)
     .where(
       and(
-        eq(rotaShift.userId, me.accountId),
+        eq(rotaShift.userId, accountId),
         eq(rotaShift.venueId, venueId),
         eq(rotaShift.weekStart, weekStart),
         eq(rotaShift.status, "draft"),
@@ -212,7 +221,7 @@ export async function publishRota(venueId: number, weekStart: string) {
     .set({ status: "published" })
     .where(
       and(
-        eq(rotaShift.userId, me.accountId),
+        eq(rotaShift.userId, accountId),
         eq(rotaShift.venueId, venueId),
         eq(rotaShift.weekStart, weekStart),
         eq(rotaShift.status, "draft"),
@@ -235,7 +244,7 @@ export async function publishRota(venueId: number, weekStart: string) {
     const members = await db
       .select()
       .from(staffMember)
-      .where(and(eq(staffMember.userId, me.accountId), inArray(staffMember.id, ids)))
+      .where(and(eq(staffMember.userId, accountId), inArray(staffMember.id, ids)))
 
     for (const m of members) {
       if (!m.linkedUserId) continue
@@ -244,7 +253,7 @@ export async function publishRota(venueId: number, weekStart: string) {
         .map((s) => `${s.day} ${s.startTime ?? ""}-${s.endTime ?? ""}`.trim())
         .join(", ")
       await notify({
-        accountId: me.accountId,
+        accountId,
         recipientUserId: m.linkedUserId,
         staffMemberId: m.id,
         kind: "shift",
@@ -257,7 +266,7 @@ export async function publishRota(venueId: number, weekStart: string) {
     }
   }
 
-  await emitChange(me.accountId, "all")
+  await emitChange(accountId, "all")
   revalidatePath("/staff")
   return { published: drafts.length, notified }
 }

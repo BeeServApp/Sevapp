@@ -20,6 +20,8 @@ import {
   Undo2,
   ListChecks,
   CalendarPlus,
+  CalendarClock,
+  X,
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
@@ -55,6 +57,11 @@ import {
 } from "@/components/ui/select"
 import { saveShift, moveShift, deleteShift, publishRota, type ShiftInput } from "@/app/actions/staff"
 import { copyRota } from "@/app/actions/scheduling"
+import {
+  scheduleRotaPublish,
+  cancelScheduledPublish,
+  type ScheduledPublishInfo,
+} from "@/app/actions/scheduled-publish"
 import {
   createShiftPattern,
   deleteShiftPattern,
@@ -103,10 +110,30 @@ interface Props {
   templates: (DbRotaTemplate & { shiftCount: number })[]
   shiftTasks: DbShiftTask[]
   conflicts: Record<number, string>
+  scheduledPublish: ScheduledPublishInfo | null
   onShiftsChange: (updater: (prev: DbRotaShift[]) => DbRotaShift[]) => void
 }
 
 const OPEN_ROW_ID = 0
+
+// Smallest selectable datetime-local value (now + 5 min), in the input's
+// expected "YYYY-MM-DDTHH:mm" local format.
+function minDateTimeLocal() {
+  const d = new Date(Date.now() + 5 * 60 * 1000)
+  const pad = (n: number) => String(n).padStart(2, "0")
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`
+}
+
+// Human-friendly label for the scheduled publish banner, e.g. "on 5 Jul, 09:00".
+function formatPublishAt(iso: string) {
+  const d = new Date(iso)
+  return `on ${d.toLocaleString("en-GB", {
+    day: "numeric",
+    month: "short",
+    hour: "2-digit",
+    minute: "2-digit",
+  })}`
+}
 
 const REPEAT_OPTIONS = [
   { value: "1", label: "Every week" },
@@ -133,10 +160,14 @@ export function RotaBoard({
   templates,
   shiftTasks,
   conflicts,
+  scheduledPublish,
   onShiftsChange,
 }: Props) {
   const router = useRouter()
   const [isPublishing, startPublish] = useTransition()
+  const [isScheduling, startSchedule] = useTransition()
+  const [scheduleOpen, setScheduleOpen] = useState(false)
+  const [scheduleAt, setScheduleAt] = useState("")
   const [isCopying, startCopy] = useTransition()
   const [isActing, startAct] = useTransition()
   const [dragId, setDragId] = useState<number | null>(null)
@@ -375,12 +406,37 @@ export function RotaBoard({
     startPublish(async () => {
       const res = await publishRota(venueId, weekStart)
       onShiftsChange((prev) => prev.map((s) => (s.status === "draft" ? { ...s, status: "published" } : s)))
-      setStatusMsg(
-        res.published === 0
-          ? "Everything is already published."
-          : `Published ${res.published} shift${res.published > 1 ? "s" : ""}` +
-              (res.notified > 0 ? ` · notified ${res.notified} staff` : ""),
-      )
+  setStatusMsg(
+  res.published === 0
+  ? "Everything is already published."
+  : `Published ${res.published} shift${res.published > 1 ? "s" : ""}` +
+  (res.notified > 0 ? ` · notified ${res.notified} staff` : ""),
+  )
+  })
+  }
+
+  function handleSchedulePublish() {
+    if (!scheduleAt) return
+    setStatusMsg(null)
+    startSchedule(async () => {
+      try {
+        await scheduleRotaPublish(venueId, weekStart, new Date(scheduleAt).toISOString())
+        setScheduleOpen(false)
+        setScheduleAt("")
+        setStatusMsg("Scheduled. This rota will publish automatically.")
+        router.refresh()
+      } catch (err) {
+        setStatusMsg(err instanceof Error ? err.message : "Could not schedule publish.")
+      }
+    })
+  }
+
+  function handleCancelSchedule() {
+    setStatusMsg(null)
+    startSchedule(async () => {
+      await cancelScheduledPublish(venueId, weekStart)
+      setStatusMsg("Scheduled publish cancelled.")
+      router.refresh()
     })
   }
 
@@ -777,12 +833,78 @@ export function RotaBoard({
             </DropdownMenuContent>
           </DropdownMenu>
 
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setScheduleOpen(true)}
+            disabled={isScheduling}
+            aria-label="Schedule rota to publish later"
+          >
+            <CalendarClock className="size-4" />
+            Schedule
+          </Button>
+
           <Button onClick={handlePublish} disabled={isPublishing || !hasDraft}>
             <Send className="size-4" />
             {isPublishing ? "Publishing..." : "Publish"}
           </Button>
         </div>
       </div>
+
+      {scheduledPublish && (
+        <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border bg-amber-50 px-4 py-2 text-xs font-medium text-amber-900">
+          <span className="flex items-center gap-1.5">
+            <CalendarClock className="size-3.5" />
+            {`Auto-publishes ${formatPublishAt(scheduledPublish.publishAt)}`}
+          </span>
+          <Button
+            variant="ghost"
+            size="sm"
+            className="h-6 px-2 text-amber-900 hover:bg-amber-100 hover:text-amber-900"
+            onClick={handleCancelSchedule}
+            disabled={isScheduling}
+          >
+            <X className="size-3.5" />
+            Cancel
+          </Button>
+        </div>
+      )}
+
+      <Dialog open={scheduleOpen} onOpenChange={setScheduleOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Schedule rota to publish</DialogTitle>
+            <DialogDescription>
+              Pick when this week&apos;s rota should publish. Draft shifts are released and staff are
+              notified automatically at that time.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="flex flex-col gap-2 py-2">
+            <Label htmlFor="schedule-at">Publish date &amp; time</Label>
+            <Input
+              id="schedule-at"
+              type="datetime-local"
+              value={scheduleAt}
+              min={minDateTimeLocal()}
+              onChange={(e) => setScheduleAt(e.target.value)}
+            />
+            {!hasDraft && (
+              <p className="text-xs text-muted-foreground">
+                There are no draft shifts yet. You can still schedule a time; any drafts present then
+                will be published.
+              </p>
+            )}
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setScheduleOpen(false)} disabled={isScheduling}>
+              Cancel
+            </Button>
+            <Button onClick={handleSchedulePublish} disabled={isScheduling || !scheduleAt}>
+              {isScheduling ? "Scheduling..." : "Schedule publish"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {statusMsg && (
         <div className="border-b border-border bg-emerald-50 px-4 py-2 text-xs font-medium text-emerald-800">
