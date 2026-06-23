@@ -43,11 +43,9 @@ export default async function AppLayout({ children }: { children: React.ReactNod
 
   const businesses = me.appRole === "owner" ? await getMyBusinesses() : []
 
-  // Staff are locked to scheduling + tasks; hide every other module.
-  const hiddenModules =
-    me.appRole === "staff"
-      ? ["/operations", "/assets", "/financials", "/compliance"]
-      : company.hiddenModules
+  // Staff module restriction (scheduling + tasks only) is handled in AppSidebar
+  // via STAFF_ALLOWED_PATHS, so the layout only applies the owner's hidden modules.
+  const hiddenModules = company.hiddenModules
 
   return (
     <RealtimeProvider>

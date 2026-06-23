@@ -1,6 +1,6 @@
 "use client"
 
-import { useMemo, useState, useTransition } from "react"
+import { useEffect, useMemo, useState, useTransition } from "react"
 import {
   Users,
   Clock,
@@ -73,6 +73,9 @@ import type {
   DbTimecard,
   DbTipEntry,
   DbSchedulingSettings,
+  DbShiftPattern,
+  DbShiftTask,
+  DbRotaTemplate,
 } from "@/lib/db/schema"
 import { cn } from "@/lib/utils"
 import { Copy, Check, Link2, ArrowLeftRight } from "lucide-react"
@@ -110,6 +113,10 @@ interface Props {
   initialTips: DbTipEntry[]
   settings: DbSchedulingSettings
   weekSales: Record<string, number>
+  initialPatterns: DbShiftPattern[]
+  initialTemplates: (DbRotaTemplate & { shiftCount: number })[]
+  initialShiftTasks: DbShiftTask[]
+  initialConflicts: Record<number, string>
   weekStart: string
   rotaDays: string[]
 }
@@ -129,12 +136,21 @@ export function StaffView({
   initialTips,
   settings,
   weekSales,
+  initialPatterns,
+  initialTemplates,
+  initialShiftTasks,
+  initialConflicts,
   weekStart,
   rotaDays,
 }: Props) {
   const [staff, setStaff] = useState<DbStaffMember[]>(initialStaff)
   const [leaveReqs, setLeaveReqs] = useState<DbLeaveRequest[]>(initialLeave)
   const [shifts, setShifts] = useState<DbRotaShift[]>(initialShifts)
+  // Re-sync from the server whenever a router.refresh() delivers fresh shifts
+  // (bulk add, auto-fill, clear week, recurring pattern generation, week nav).
+  useEffect(() => {
+    setShifts(initialShifts)
+  }, [initialShifts])
   const [clockEvents, setClockEvents] = useState<DbClockEvent[]>(initialClockEvents)
   const [swaps, setSwaps] = useState<DbShiftSwap[]>(initialSwaps)
   const [inviteStatuses, setInviteStatuses] =
@@ -450,16 +466,20 @@ export function StaffView({
 
         {/* ── Rota ── */}
         <TabsContent value="rota" className="mt-4">
-          <RotaBoard
-            venueId={venueId}
-            weekStart={weekStart}
-            rotaDays={rotaDays}
-            staff={staff}
-            shifts={shifts}
-            availability={initialAvailability}
-            settings={settings}
-            onShiftsChange={setShifts}
-          />
+            <RotaBoard
+              venueId={venueId}
+              weekStart={weekStart}
+              rotaDays={rotaDays}
+              staff={staff}
+              shifts={shifts}
+              availability={initialAvailability}
+              settings={settings}
+              patterns={initialPatterns}
+              templates={initialTemplates}
+              shiftTasks={initialShiftTasks}
+              conflicts={initialConflicts}
+              onShiftsChange={setShifts}
+            />
         </TabsContent>
 
         {/* ── Availability ── */}

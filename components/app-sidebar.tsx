@@ -18,7 +18,7 @@ import {
   type LucideIcon,
 } from "lucide-react"
 import { cn } from "@/lib/utils"
-import { MODULES } from "@/lib/nav-config"
+import { MODULES, STAFF_ALLOWED_PATHS } from "@/lib/nav-config"
 import { useVenue } from "@/components/venue-provider"
 
 const moduleIcons: Record<string, LucideIcon> = {
@@ -36,23 +36,21 @@ export function AppSidebar({ onNavigate }: { onNavigate?: () => void }) {
   const { hiddenModules, appRole } = useVenue()
   const isStaff = appRole === "staff"
 
-  const moduleItems = MODULES.filter((m) => !hiddenModules.includes(m.href)).map((m) => ({
+  // Staff are limited to Staff & Scheduling and Task Management. Owners see the
+  // Dashboard plus every module they haven't hidden.
+  const moduleItems = MODULES.filter((m) => {
+    if (isStaff) return STAFF_ALLOWED_PATHS.includes(m.href)
+    return !hiddenModules.includes(m.href)
+  }).map((m) => ({
     href: m.href,
     label: m.label,
     icon: moduleIcons[m.href] ?? LayoutDashboard,
   }))
 
-  // Staff get a focused workspace: their schedule and assigned tasks only.
   const sections = isStaff
-    ? [
-        {
-          label: "My workspace",
-          items: [
-            { href: "/staff", label: "My Schedule", icon: Users },
-            { href: "/tasks", label: "Task Management", icon: ListChecks },
-          ],
-        },
-      ]
+    ? moduleItems.length > 0
+      ? [{ label: "Modules", items: moduleItems }]
+      : []
     : [
         {
           label: "Workspace",

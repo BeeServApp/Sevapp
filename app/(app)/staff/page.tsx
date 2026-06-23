@@ -16,6 +16,13 @@ import {
   getTips,
   getWeekSales,
 } from "@/app/actions/scheduling"
+import {
+  generatePatternShifts,
+  getShiftPatterns,
+  getRotaTemplates,
+  getShiftTasks,
+  getCrossLocationConflicts,
+} from "@/app/actions/shift-planning"
 import { ROTA_DAYS, weekStartOf, addWeeks } from "@/lib/rota"
 import { StaffView } from "@/components/staff-view"
 
@@ -54,6 +61,9 @@ export default async function StaffPage({
     )
   }
 
+  // Materialise any recurring-pattern shifts that fall on this week before we read.
+  await generatePatternShifts(venueId, weekStart)
+
   const [
     staffMembers,
     leaveRequests,
@@ -66,6 +76,9 @@ export default async function StaffPage({
     timecards,
     tips,
     weekSales,
+    patterns,
+    templates,
+    conflicts,
   ] = await Promise.all([
     getStaffMembers(venueId),
     getLeaveRequests(venueId),
@@ -78,7 +91,12 @@ export default async function StaffPage({
     getTimecards(venueId, weekStart, weekEnd),
     getTips(venueId, weekStart, weekEnd),
     getWeekSales(venueId, weekStart),
+    getShiftPatterns(venueId),
+    getRotaTemplates(venueId),
+    getCrossLocationConflicts(venueId, weekStart),
   ])
+
+  const shiftTasks = await getShiftTasks(rotaShifts.map((s) => s.id))
 
   return (
     <StaffView
@@ -94,6 +112,10 @@ export default async function StaffPage({
       initialTips={tips}
       settings={settings}
       weekSales={weekSales}
+      initialPatterns={patterns}
+      initialTemplates={templates}
+      initialShiftTasks={shiftTasks}
+      initialConflicts={conflicts}
       weekStart={weekStart}
       rotaDays={[...ROTA_DAYS]}
     />
