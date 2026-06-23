@@ -2,12 +2,13 @@ import "server-only"
 
 import { auth } from "@/lib/auth"
 import { db } from "@/lib/db"
-import { staffMember, user, venue } from "@/lib/db/schema"
+import { business, staffMember, user, venue } from "@/lib/db/schema"
 import { asc, eq } from "drizzle-orm"
 import { cookies, headers } from "next/headers"
 import { redirect } from "next/navigation"
 
 export const ACTIVE_VENUE_COOKIE = "tapsheet_active_venue"
+export const ACTIVE_BUSINESS_COOKIE = "tapsheet_active_business"
 
 export type AppRole = "owner" | "staff"
 
@@ -43,16 +44,43 @@ export async function getCurrentUser(): Promise<CurrentUser> {
 
   const [row] = await db.select().from(user).where(eq(user.id, session.user.id)).limit(1)
   const appRole: AppRole = row?.appRole === "staff" ? "staff" : "owner"
-  const ownerId = appRole === "staff" && row?.ownerId ? row.ownerId : session.user.id
+
+  // Staff always read their owner's data. Owners read the data of their
+  // currently-active business (one login can own several businesses).
+  const accountId =
+    appRole === "staff" && row?.ownerId
+      ? row.ownerId
+      : await resolveActiveBusinessScope(session.user.id)
 
   return {
     id: session.user.id,
     name: row?.name ?? session.user.name,
     email: row?.email ?? session.user.email,
     appRole,
-    accountId: ownerId,
+    accountId,
     staffMemberId: row?.staffMemberId ?? null,
   }
+}
+
+/**
+ * Resolves the active business data-scope for an owner login. Returns the
+ * `scopeId` of the business selected via cookie, falling back to the first
+ * business. When the owner has no business rows yet (legacy accounts), the
+ * scope is simply their own login id so existing data stays accessible.
+ */
+export async function resolveActiveBusinessScope(loginId: string): Promise<string> {
+  const businesses = await db
+    .select({ scopeId: business.scopeId })
+    .from(business)
+    .where(eq(business.ownerUserId, loginId))
+    .orderBy(asc(business.id))
+
+  if (businesses.length === 0) return loginId
+
+  const cookieStore = await cookies()
+  const wanted = cookieStore.get(ACTIVE_BUSINESS_COOKIE)?.value
+  const match = businesses.find((b) => b.scopeId === wanted)
+  return (match ?? businesses[0]).scopeId
 }
 
 /**
@@ -77,7 +105,7 @@ export async function requireOwner(): Promise<CurrentUser> {
  */
 export async function guardOwnerPage(): Promise<CurrentUser> {
   const me = await getCurrentUser()
-  if (me.appRole !== "owner") redirect("/staff")
+  if (me.appRole !== "owner") redirect("/portal/home")
   return me
 }
 

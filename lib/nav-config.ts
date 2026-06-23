@@ -42,5 +42,7 @@ export const SETTINGS_TABS: SettingsTabDef[] = [
   { id: "company", label: "Company", lockable: true },
   { id: "venues", label: "Venues", lockable: true },
   { id: "team", label: "Team & users", lockable: true },
+  { id: "billing", label: "Billing", lockable: true },
+  { id: "integrations", label: "Integrations", lockable: true },
   { id: "preferences", label: "Preferences", lockable: false },
 ]

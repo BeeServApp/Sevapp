@@ -4,7 +4,9 @@ import { revalidatePath } from "next/cache"
 import { and, asc, desc, eq, or } from "drizzle-orm"
 import { db } from "@/lib/db"
 import { taskCheck, taskCheckItem, correctiveAction, staffMember } from "@/lib/db/schema"
-import { getUserId, getAccountId, getCurrentUser } from "@/lib/session"
+// Tasks are always scoped to the business account. `getUserId` is aliased to
+// `getAccountId` so every query uses the owner/business scope (and works for staff).
+import { getAccountId, getAccountId as getUserId, getCurrentUser } from "@/lib/session"
 import { weekStartOf } from "@/lib/rota"
 
 export type TaskWithItems = typeof taskCheck.$inferSelect & {

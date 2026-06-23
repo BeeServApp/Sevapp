@@ -1,4 +1,5 @@
 import type { Metadata } from "next"
+import { redirect } from "next/navigation"
 import { getActiveVenueId, getCurrentUser } from "@/lib/session"
 import {
   getStaffMembers,
@@ -6,18 +7,12 @@ import {
   getRotaShifts,
   getClockEvents,
   getStaffInviteStatuses,
-  getMyShifts,
-  getMyProfile,
 } from "@/app/actions/staff"
-import { getMyTasks } from "@/app/actions/tasks"
 import {
   getSchedulingSettings,
   getAvailability,
-  getMyAvailability,
   getSwaps,
-  getMySwaps,
   getTimecards,
-  getMyTimecards,
   getTips,
   getWeekSales,
 } from "@/app/actions/scheduling"
@@ -26,12 +21,10 @@ import {
   getShiftPatterns,
   getRotaTemplates,
   getShiftTasks,
-  getMyShiftTasks,
   getCrossLocationConflicts,
 } from "@/app/actions/shift-planning"
 import { ROTA_DAYS, weekStartOf, addWeeks } from "@/lib/rota"
 import { StaffView } from "@/components/staff-view"
-import { StaffPortal } from "@/components/staff/staff-portal"
 
 export const metadata: Metadata = {
   title: "Staff & Scheduling — Tapsheet",
@@ -52,32 +45,9 @@ export default async function StaffPage({
   const weekStart = normalizeWeek(sp.week)
   const weekEnd = addWeeks(weekStart, 1)
 
-  // ── Staff portal: focused, personal view of their own schedule ──────────────
+  // ── Staff use the dedicated mobile portal experience ────────────────────────
   if (me.appRole === "staff") {
-    const [profile, myShifts, myAvailability, mySwaps, myTimecards, myTasks] = await Promise.all([
-      getMyProfile(),
-      getMyShifts(weekStart),
-      getMyAvailability(),
-      getMySwaps(),
-      getMyTimecards(weekStart, weekEnd),
-      getMyTasks(),
-    ])
-    const myShiftTasks = await getMyShiftTasks(myShifts.map((s) => s.id))
-    return (
-      <StaffPortal
-        name={me.name}
-        weekStart={weekStart}
-        rotaDays={[...ROTA_DAYS]}
-        initialShifts={myShifts}
-        initialAvailability={myAvailability}
-        initialSwaps={mySwaps}
-        initialTimecards={myTimecards}
-        initialTasks={myTasks}
-        initialShiftTasks={myShiftTasks}
-        staffMemberId={me.staffMemberId}
-        venueId={profile?.venueId ?? 0}
-      />
-    )
+    redirect("/portal/home")
   }
 
   // ── Owner: full scheduling management ───────────────────────────────────────

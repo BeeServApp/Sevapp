@@ -2,7 +2,7 @@
 
 import { db } from "@/lib/db"
 import { staffMember, rotaShift, leaveRequest, clockEvent, staffInvite } from "@/lib/db/schema"
-import { getAccountId, getCurrentUser, getUserId, requireOwner } from "@/lib/session"
+import { getAccountId, getCurrentUser, requireOwner } from "@/lib/session"
 import { emitChange } from "@/lib/realtime"
 import { notify } from "@/app/actions/notifications"
 import { and, asc, desc, eq, inArray } from "drizzle-orm"

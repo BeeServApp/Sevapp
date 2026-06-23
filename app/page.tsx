@@ -13,6 +13,7 @@ import {
   CheckCircle2,
 } from "lucide-react"
 import { buttonVariants } from "@/components/ui/button"
+import { PricingSection } from "@/components/pricing-section"
 import { cn } from "@/lib/utils"
 import { getCurrentUser, getSession } from "@/lib/session"
 import { redirect } from "next/navigation"
@@ -21,7 +22,7 @@ export default async function LandingPage() {
   const session = await getSession()
   if (session?.user) {
     const me = await getCurrentUser()
-    redirect(me.appRole === "staff" ? "/staff" : "/dashboard")
+    redirect(me.appRole === "staff" ? "/portal/home" : "/dashboard")
   }
 
   return (
@@ -42,6 +43,9 @@ export default async function LandingPage() {
             </a>
             <a href="#modules" className="text-sm text-muted-foreground transition-colors hover:text-foreground">
               Modules
+            </a>
+            <a href="#pricing" className="text-sm text-muted-foreground transition-colors hover:text-foreground">
+              Pricing
             </a>
           </nav>
 
@@ -279,6 +283,9 @@ export default async function LandingPage() {
           })}
         </div>
       </section>
+
+      {/* ── Pricing ──────────────────────────────────────────────── */}
+      <PricingSection />
 
       {/* ── CTA ──────────────────────────────────────────────────── */}
       <section className="border-t border-border bg-primary py-20 text-primary-foreground">

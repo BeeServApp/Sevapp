@@ -81,6 +81,9 @@ export const venue = pgTable("venue", {
   status: text("status").notNull().default("Active"),
   openingDate: text("openingDate"),
   notes: text("notes"),
+  // Square integration: the mapped Square location id for this venue (if any).
+  // The human-readable name is resolved live from the Square API.
+  squareLocationId: text("squareLocationId"),
   createdAt: timestamp("createdAt").notNull().defaultNow(),
 })
 
@@ -108,6 +111,42 @@ export const company = pgTable("company", {
   // JSON-encoded arrays of hidden sidebar module hrefs / settings tab ids.
   hiddenModules: text("hiddenModules").notNull().default("[]"),
   hiddenSettingsTabs: text("hiddenSettingsTabs").notNull().default("[]"),
+  // Stripe subscription / billing state. Pricing is per-location (per venue).
+  subscriptionPlan: text("subscriptionPlan"),
+  subscriptionStatus: text("subscriptionStatus").notNull().default("none"),
+  stripeCustomerId: text("stripeCustomerId"),
+  stripeSubscriptionId: text("stripeSubscriptionId"),
+  subscriptionQuantity: integer("subscriptionQuantity"),
+  trialEndsAt: timestamp("trialEndsAt"),
+  currentPeriodEnd: timestamp("currentPeriodEnd"),
+  createdAt: timestamp("createdAt").notNull().defaultNow(),
+  updatedAt: timestamp("updatedAt").notNull().defaultNow(),
+})
+
+// A "business" is a separate data scope owned by a login. One email/login can
+// own several businesses; the active one is selected via cookie. Every app
+// table keys off `userId`, which equals the active business's `scopeId`.
+export const business = pgTable("business", {
+  id: serial("id").primaryKey(),
+  // The data-scope id written into every table's `userId` column for this business.
+  scopeId: text("scopeId").notNull().unique(),
+  // The login (user.id) that owns and can switch into this business.
+  ownerUserId: text("ownerUserId").notNull(),
+  name: text("name").notNull(),
+  createdAt: timestamp("createdAt").notNull().defaultNow(),
+})
+
+// One Square OAuth connection per account owner (scoped by accountId).
+// Access/refresh tokens are stored AES-256-GCM encrypted; never sent to the client.
+export const squareConnection = pgTable("square_connection", {
+  id: serial("id").primaryKey(),
+  accountId: text("accountId").notNull(),
+  merchantId: text("merchantId"),
+  merchantName: text("merchantName"),
+  accessToken: text("accessToken").notNull(),
+  refreshToken: text("refreshToken").notNull(),
+  scopes: text("scopes"),
+  expiresAt: timestamp("expiresAt"),
   createdAt: timestamp("createdAt").notNull().defaultNow(),
   updatedAt: timestamp("updatedAt").notNull().defaultNow(),
 })
