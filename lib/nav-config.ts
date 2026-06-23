@@ -11,6 +11,7 @@ export interface ModuleDef {
 // Toggleable sidebar modules. The Dashboard is intentionally omitted because it
 // is the workspace home and cannot be hidden.
 export const MODULES: ModuleDef[] = [
+  { href: "/calendar", label: "Calendar", description: "Events, tasks and bookings on one schedule." },
   { href: "/operations", label: "Operations", description: "Orders, suppliers, events and maintenance." },
   { href: "/tasks", label: "Task Management", description: "Checklists, corrective actions and audits." },
   { href: "/assets", label: "Asset Tracking", description: "Equipment register and lifecycle." },

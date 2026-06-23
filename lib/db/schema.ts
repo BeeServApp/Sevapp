@@ -240,6 +240,33 @@ export const venueEvent = pgTable("venue_event", {
   createdAt: timestamp("createdAt").notNull().defaultNow(),
 })
 
+// Calendar entries, scoped per venue (location). A calendar event can optionally
+// link to an existing operations event, task, task-check or corrective action via
+// `linkType` + `linkId`, so dated work and bookings surface on one shared calendar.
+export const calendarEvent = pgTable("calendar_event", {
+  id: serial("id").primaryKey(),
+  userId: text("userId").notNull(),
+  venueId: integer("venueId").notNull(),
+  title: text("title").notNull(),
+  description: text("description"),
+  // Start date as ISO YYYY-MM-DD (always machine-parseable for the grid).
+  date: text("date").notNull(),
+  endDate: text("endDate"),
+  startTime: text("startTime"),
+  endTime: text("endTime"),
+  allDay: boolean("allDay").notNull().default(true),
+  // "event" | "task" | "booking" | "maintenance" | "reminder"
+  type: text("type").notNull().default("event"),
+  // "blue" | "amber" | "gold" | "red" | "slate"
+  color: text("color").notNull().default("blue"),
+  location: text("location"),
+  // When set, the entry mirrors another record: "event" | "task" | "taskCheck" | "correctiveAction".
+  linkType: text("linkType"),
+  linkId: integer("linkId"),
+  status: text("status").notNull().default("Scheduled"),
+  createdAt: timestamp("createdAt").notNull().defaultNow(),
+})
+
 export const task = pgTable("task", {
   id: serial("id").primaryKey(),
   userId: text("userId").notNull(),
@@ -836,6 +863,7 @@ export type DbOrder = typeof order.$inferSelect
 export type DbSupplier = typeof supplier.$inferSelect
 export type DbMaintenance = typeof maintenance.$inferSelect
 export type DbEvent = typeof venueEvent.$inferSelect
+export type DbCalendarEvent = typeof calendarEvent.$inferSelect
 export type DbTask = typeof task.$inferSelect
 export type DbComplianceCheck = typeof complianceCheck.$inferSelect
 export type DbCertificate = typeof certificate.$inferSelect

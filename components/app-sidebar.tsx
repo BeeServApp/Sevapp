@@ -5,6 +5,7 @@ import { usePathname } from "next/navigation"
 import { BrandLogo } from "@/components/brand-logo"
 import {
   LayoutDashboard,
+  CalendarDays,
   ClipboardList,
   ListChecks,
   Wallet,
@@ -22,6 +23,7 @@ import { MODULES, STAFF_ALLOWED_PATHS } from "@/lib/nav-config"
 import { useVenue } from "@/components/venue-provider"
 
 const moduleIcons: Record<string, LucideIcon> = {
+  "/calendar": CalendarDays,
   "/operations": ClipboardList,
   "/tasks": ListChecks,
   "/assets": Package,
