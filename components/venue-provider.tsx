@@ -3,6 +3,7 @@
 import { createContext, useContext, useState, type ReactNode } from "react"
 import { useRouter } from "next/navigation"
 import { setActiveVenue } from "@/app/actions/venues"
+import type { BusinessSummary } from "@/app/actions/business"
 
 export interface VenueSummary {
   id: number
@@ -10,6 +11,18 @@ export interface VenueSummary {
   type: string
   address: string | null
   city: string | null
+  postcode?: string | null
+  phone?: string | null
+  email?: string | null
+  managerName?: string | null
+  capacity?: number | null
+  floors?: number | null
+  licenseNumber?: string | null
+  licenseType?: string | null
+  openingHours?: string | null
+  status?: string | null
+  openingDate?: string | null
+  notes?: string | null
 }
 
 export interface SessionUser {
@@ -17,10 +30,16 @@ export interface SessionUser {
   email: string
 }
 
+type AppRole = "owner" | "staff"
+
 interface VenueContextValue {
   venues: VenueSummary[]
   activeVenue: VenueSummary | null
   user: SessionUser
+  hiddenModules: string[]
+  appRole: AppRole
+  businesses: BusinessSummary[]
+  isSuperAdmin: boolean
   switching: boolean
   switchVenue: (id: number) => void
 }
@@ -31,11 +50,19 @@ export function VenueProvider({
   venues,
   activeVenueId,
   user,
+  hiddenModules = [],
+  appRole = "owner",
+  businesses = [],
+  isSuperAdmin = false,
   children,
 }: {
   venues: VenueSummary[]
   activeVenueId: number | null
   user: SessionUser
+  hiddenModules?: string[]
+  appRole?: AppRole
+  businesses?: BusinessSummary[]
+  isSuperAdmin?: boolean
   children: ReactNode
 }) {
   const router = useRouter()
@@ -52,7 +79,19 @@ export function VenueProvider({
   }
 
   return (
-    <VenueContext.Provider value={{ venues, activeVenue, user, switching, switchVenue }}>
+    <VenueContext.Provider
+      value={{
+        venues,
+        activeVenue,
+        user,
+        hiddenModules,
+        appRole,
+        businesses,
+        isSuperAdmin,
+        switching,
+        switchVenue,
+      }}
+    >
       {children}
     </VenueContext.Provider>
   )

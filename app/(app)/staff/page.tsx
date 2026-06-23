@@ -1,31 +1,57 @@
 import type { Metadata } from "next"
-import { getUserId, getActiveVenueId } from "@/lib/session"
+import { redirect } from "next/navigation"
+import { getActiveVenueId, getCurrentUser } from "@/lib/session"
 import {
   getStaffMembers,
   getLeaveRequests,
   getRotaShifts,
   getClockEvents,
+  getStaffInviteStatuses,
 } from "@/app/actions/staff"
+import {
+  getSchedulingSettings,
+  getAvailability,
+  getSwaps,
+  getTimecards,
+  getTips,
+  getWeekSales,
+} from "@/app/actions/scheduling"
+import {
+  generatePatternShifts,
+  getShiftPatterns,
+  getRotaTemplates,
+  getShiftTasks,
+  getCrossLocationConflicts,
+} from "@/app/actions/shift-planning"
+import { ROTA_DAYS, weekStartOf, addWeeks } from "@/lib/rota"
 import { StaffView } from "@/components/staff-view"
 
 export const metadata: Metadata = {
   title: "Staff & Scheduling — Tapsheet",
 }
 
-const ROTA_DAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
-
-function currentWeekStart() {
-  const now = new Date()
-  const day = now.getDay() // 0 = Sun
-  const diff = day === 0 ? -6 : 1 - day
-  const mon = new Date(now)
-  mon.setDate(now.getDate() + diff)
-  return mon.toISOString().slice(0, 10)
+function normalizeWeek(raw: string | undefined): string {
+  if (raw && /^\d{4}-\d{2}-\d{2}$/.test(raw)) return weekStartOf(new Date(`${raw}T00:00:00`))
+  return weekStartOf()
 }
 
-export default async function StaffPage() {
-  const userId = await getUserId()
-  const venueId = await getActiveVenueId(userId)
+export default async function StaffPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ week?: string }>
+}) {
+  const me = await getCurrentUser()
+  const sp = await searchParams
+  const weekStart = normalizeWeek(sp.week)
+  const weekEnd = addWeeks(weekStart, 1)
+
+  // ── Staff use the dedicated mobile portal experience ────────────────────────
+  if (me.appRole === "staff") {
+    redirect("/portal/home")
+  }
+
+  // ── Owner: full scheduling management ───────────────────────────────────────
+  const venueId = await getActiveVenueId(me.accountId)
 
   if (!venueId) {
     return (
@@ -35,14 +61,42 @@ export default async function StaffPage() {
     )
   }
 
-  const weekStart = currentWeekStart()
+  // Materialise any recurring-pattern shifts that fall on this week before we read.
+  await generatePatternShifts(venueId, weekStart)
 
-  const [staffMembers, leaveRequests, rotaShifts, clockEvents] = await Promise.all([
+  const [
+    staffMembers,
+    leaveRequests,
+    rotaShifts,
+    clockEvents,
+    inviteStatuses,
+    settings,
+    availabilityRows,
+    swaps,
+    timecards,
+    tips,
+    weekSales,
+    patterns,
+    templates,
+    conflicts,
+  ] = await Promise.all([
     getStaffMembers(venueId),
     getLeaveRequests(venueId),
     getRotaShifts(venueId, weekStart),
     getClockEvents(venueId),
+    getStaffInviteStatuses(venueId),
+    getSchedulingSettings(),
+    getAvailability(venueId),
+    getSwaps(venueId),
+    getTimecards(venueId, weekStart, weekEnd),
+    getTips(venueId, weekStart, weekEnd),
+    getWeekSales(venueId, weekStart),
+    getShiftPatterns(venueId),
+    getRotaTemplates(venueId),
+    getCrossLocationConflicts(venueId, weekStart),
   ])
+
+  const shiftTasks = await getShiftTasks(rotaShifts.map((s) => s.id))
 
   return (
     <StaffView
@@ -51,8 +105,19 @@ export default async function StaffPage() {
       initialLeave={leaveRequests}
       initialShifts={rotaShifts}
       initialClockEvents={clockEvents}
+      initialInviteStatuses={inviteStatuses}
+      initialAvailability={availabilityRows}
+      initialSwaps={swaps}
+      initialTimecards={timecards}
+      initialTips={tips}
+      settings={settings}
+      weekSales={weekSales}
+      initialPatterns={patterns}
+      initialTemplates={templates}
+      initialShiftTasks={shiftTasks}
+      initialConflicts={conflicts}
       weekStart={weekStart}
-      rotaDays={ROTA_DAYS}
+      rotaDays={[...ROTA_DAYS]}
     />
   )
 }

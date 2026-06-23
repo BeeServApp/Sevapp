@@ -2,7 +2,7 @@
 
 import { db } from "@/lib/db"
 import { asset, member, venue } from "@/lib/db/schema"
-import { ACTIVE_VENUE_COOKIE, getUserId } from "@/lib/session"
+import { ACTIVE_VENUE_COOKIE, getAccountId as getUserId } from "@/lib/session"
 import { and, asc, eq } from "drizzle-orm"
 import { cookies } from "next/headers"
 import { revalidatePath } from "next/cache"
@@ -12,12 +12,46 @@ export async function getVenues() {
   return db.select().from(venue).where(eq(venue.userId, userId)).orderBy(asc(venue.id))
 }
 
-export async function createVenue(data: {
+export interface VenueInput {
   name: string
   type: string
   address?: string
   city?: string
-}) {
+  postcode?: string
+  phone?: string
+  email?: string
+  managerName?: string
+  capacity?: number | null
+  floors?: number | null
+  licenseNumber?: string
+  licenseType?: string
+  openingHours?: string | null
+  status?: string
+  openingDate?: string
+  notes?: string
+}
+
+function normalizeVenue(data: VenueInput) {
+  return {
+    type: data.type || "Pub",
+    address: data.address?.trim() || null,
+    city: data.city?.trim() || null,
+    postcode: data.postcode?.trim() || null,
+    phone: data.phone?.trim() || null,
+    email: data.email?.trim() || null,
+    managerName: data.managerName?.trim() || null,
+    capacity: typeof data.capacity === "number" && !Number.isNaN(data.capacity) ? data.capacity : null,
+    floors: typeof data.floors === "number" && !Number.isNaN(data.floors) ? data.floors : null,
+    licenseNumber: data.licenseNumber?.trim() || null,
+    licenseType: data.licenseType?.trim() || null,
+    openingHours: data.openingHours || null,
+    status: data.status || "Active",
+    openingDate: data.openingDate?.trim() || null,
+    notes: data.notes?.trim() || null,
+  }
+}
+
+export async function createVenue(data: VenueInput) {
   const userId = await getUserId()
   const name = data.name.trim()
   if (!name) throw new Error("Venue name is required")
@@ -27,9 +61,7 @@ export async function createVenue(data: {
     .values({
       userId,
       name,
-      type: data.type || "Pub",
-      address: data.address?.trim() || null,
-      city: data.city?.trim() || null,
+      ...normalizeVenue(data),
     })
     .returning()
 
@@ -44,18 +76,16 @@ export async function createVenue(data: {
   return created
 }
 
-export async function updateVenue(
-  id: number,
-  data: { name: string; type: string; address?: string; city?: string },
-) {
+export async function updateVenue(id: number, data: VenueInput) {
   const userId = await getUserId()
+  const name = data.name.trim()
+  if (!name) throw new Error("Venue name is required")
+
   await db
     .update(venue)
     .set({
-      name: data.name.trim(),
-      type: data.type,
-      address: data.address?.trim() || null,
-      city: data.city?.trim() || null,
+      name,
+      ...normalizeVenue(data),
     })
     .where(and(eq(venue.id, id), eq(venue.userId, userId)))
   revalidatePath("/", "layout")

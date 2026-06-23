@@ -16,12 +16,14 @@ import { buttonVariants } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
 import { RevenueChart, SalesMixChart } from "@/components/charts"
 import type { Kpi } from "@/lib/mock-data"
-import { getSession, getUserId, getActiveVenueId } from "@/lib/session"
+import { getSession, getUserId, getActiveVenueId, guardOwnerPage } from "@/lib/session"
 import { getVenues } from "@/app/actions/venues"
 import { getTasks, getEvents } from "@/app/actions/operations"
 import { getTakings } from "@/app/actions/takings"
 import { getExpenses } from "@/app/actions/financials"
 import { getGamingMachines } from "@/app/actions/gaming"
+import { getSquareSales, type SquareSales } from "@/app/actions/square"
+import { SquareSalesCard } from "@/components/square-sales-card"
 import { sumEntries, entriesForMonth } from "@/lib/gaming"
 import {
   gbp0,
@@ -47,6 +49,7 @@ function pctDelta(curr: number, prev: number) {
 
 export default async function DashboardPage() {
   const session = await getSession()
+  await guardOwnerPage()
   const userId = await getUserId()
   const venueId = await getActiveVenueId(userId)
   const venues = await getVenues()
@@ -62,6 +65,15 @@ export default async function DashboardPage() {
         getGamingMachines(venueId),
       ])
     : [[], [], [], [], []]
+
+  // Square sales for the active venue. Fail soft so Square downtime never
+  // breaks the dashboard.
+  let squareSales: SquareSales = { state: "not_connected" }
+  try {
+    squareSales = await getSquareSales(venueId)
+  } catch {
+    squareSales = { state: "error", message: "Square request failed" }
+  }
 
   // --- KPIs ----------------------------------------------------------------
   const weekRevenue = revenuePenceForWeek(takings, 0)
@@ -201,6 +213,12 @@ export default async function DashboardPage() {
           </CardContent>
         </Card>
       </div>
+
+      {venueId && (
+        <div className="mt-4">
+          <SquareSalesCard sales={squareSales} />
+        </div>
+      )}
 
       <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
         {quickLinks.map((link) => {
