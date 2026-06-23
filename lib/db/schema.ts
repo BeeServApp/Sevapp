@@ -14,6 +14,8 @@ export const user = pgTable("user", {
   // For staff accounts: the owner whose data this user reads, and the linked staff record.
   ownerId: text("ownerId"),
   staffMemberId: integer("staffMemberId"),
+  // Per-user personal preferences as JSON (e.g. staff's own hidden sidebar modules).
+  preferences: text("preferences").notNull().default("{}"),
   createdAt: timestamp("createdAt").notNull().defaultNow(),
   updatedAt: timestamp("updatedAt").notNull().defaultNow(),
 })
@@ -111,6 +113,9 @@ export const company = pgTable("company", {
   // JSON-encoded arrays of hidden sidebar module hrefs / settings tab ids.
   hiddenModules: text("hiddenModules").notNull().default("[]"),
   hiddenSettingsTabs: text("hiddenSettingsTabs").notNull().default("[]"),
+  // JSON-encoded { order: string[]; hidden: string[] } for the owner's
+  // customizable dashboard (section order + hidden sections).
+  dashboardLayout: text("dashboardLayout").notNull().default("{}"),
   // Stripe subscription / billing state. Pricing is per-location (per venue).
   subscriptionPlan: text("subscriptionPlan"),
   subscriptionStatus: text("subscriptionStatus").notNull().default("none"),
@@ -121,6 +126,19 @@ export const company = pgTable("company", {
   currentPeriodEnd: timestamp("currentPeriodEnd"),
   createdAt: timestamp("createdAt").notNull().defaultNow(),
   updatedAt: timestamp("updatedAt").notNull().defaultNow(),
+})
+
+// A "business" is a separate data scope owned by a login. One email/login can
+// own several businesses; the active one is selected via cookie. Every app
+// table keys off `userId`, which equals the active business's `scopeId`.
+export const business = pgTable("business", {
+  id: serial("id").primaryKey(),
+  // The data-scope id written into every table's `userId` column for this business.
+  scopeId: text("scopeId").notNull().unique(),
+  // The login (user.id) that owns and can switch into this business.
+  ownerUserId: text("ownerUserId").notNull(),
+  name: text("name").notNull(),
+  createdAt: timestamp("createdAt").notNull().defaultNow(),
 })
 
 // One Square OAuth connection per account owner (scoped by accountId).
@@ -199,10 +217,14 @@ export const maintenance = pgTable("maintenance", {
   userId: text("userId").notNull(),
   venueId: integer("venueId").notNull(),
   assetName: text("assetName").notNull(),
+  // Optional link to a specific asset in the asset register.
+  assetId: integer("assetId"),
   issue: text("issue"),
   priority: text("priority").notNull().default("Medium"),
   assignee: text("assignee"),
   status: text("status").notNull().default("Open"),
+  costPence: integer("costPence").notNull().default(0),
+  loggedDate: text("loggedDate"),
   createdAt: timestamp("createdAt").notNull().defaultNow(),
 })
 
@@ -335,7 +357,23 @@ export const rotaShift = pgTable("rota_shift", {
   payRatePence: integer("payRatePence").notNull().default(0),
   // "draft" until the rota is published, then "published".
   status: text("status").notNull().default("draft"),
+  // Set when this shift was generated from a recurring shift pattern.
+  patternId: integer("patternId"),
   createdAt: timestamp("createdAt").notNull().defaultNow(),
+})
+
+// A future-dated request to auto-publish a venue's rota for a given week. A cron
+// job (and a page-load fallback) flips due jobs to "done", publishing the week's
+// draft shifts and notifying staff. Status: "pending" | "done" | "cancelled".
+export const scheduledPublish = pgTable("scheduled_publish", {
+  id: serial("id").primaryKey(),
+  userId: text("userId").notNull(),
+  venueId: integer("venueId").notNull(),
+  weekStart: text("weekStart").notNull(),
+  publishAt: timestamp("publishAt").notNull(),
+  status: text("status").notNull().default("pending"),
+  createdAt: timestamp("createdAt").notNull().defaultNow(),
+  processedAt: timestamp("processedAt"),
 })
 
 // Invite links that let a staff member create a login bound to their rota record.
@@ -480,6 +518,65 @@ export const tipEntry = pgTable("tip_entry", {
   createdAt: timestamp("createdAt").notNull().defaultNow(),
 })
 
+// Recurring shift template: auto-generates draft shifts into matching weeks.
+export const shiftPattern = pgTable("shift_pattern", {
+  id: serial("id").primaryKey(),
+  userId: text("userId").notNull(),
+  venueId: integer("venueId").notNull(),
+  // 0 = recurring open shift; otherwise the staff member it repeats for.
+  staffMemberId: integer("staffMemberId").notNull().default(0),
+  day: text("day").notNull(),
+  role: text("role"),
+  startTime: text("startTime"),
+  endTime: text("endTime"),
+  color: text("color").default("green"),
+  breakMins: integer("breakMins").notNull().default(0),
+  notes: text("notes"),
+  payRatePence: integer("payRatePence").notNull().default(0),
+  // Repeat cadence in weeks (1 = weekly, 2 = fortnightly, ...).
+  repeatWeeks: integer("repeatWeeks").notNull().default(1),
+  // The weekStart this pattern begins from; cadence is measured from here.
+  anchorWeek: text("anchorWeek").notNull(),
+  active: boolean("active").notNull().default(true),
+  createdAt: timestamp("createdAt").notNull().defaultNow(),
+})
+
+// A named, reusable week of shifts that can be applied to any week.
+export const rotaTemplate = pgTable("rota_template", {
+  id: serial("id").primaryKey(),
+  userId: text("userId").notNull(),
+  venueId: integer("venueId").notNull(),
+  name: text("name").notNull(),
+  createdAt: timestamp("createdAt").notNull().defaultNow(),
+})
+
+export const rotaTemplateShift = pgTable("rota_template_shift", {
+  id: serial("id").primaryKey(),
+  userId: text("userId").notNull(),
+  templateId: integer("templateId").notNull(),
+  staffMemberId: integer("staffMemberId").notNull().default(0),
+  day: text("day").notNull(),
+  role: text("role"),
+  startTime: text("startTime"),
+  endTime: text("endTime"),
+  color: text("color").default("green"),
+  breakMins: integer("breakMins").notNull().default(0),
+  notes: text("notes"),
+  payRatePence: integer("payRatePence").notNull().default(0),
+  createdAt: timestamp("createdAt").notNull().defaultNow(),
+})
+
+// A to-do attached to a specific rota shift, visible to the assigned staff.
+export const shiftTask = pgTable("shift_task", {
+  id: serial("id").primaryKey(),
+  userId: text("userId").notNull(),
+  shiftId: integer("shiftId").notNull(),
+  label: text("label").notNull(),
+  done: boolean("done").notNull().default(false),
+  sortOrder: integer("sortOrder").notNull().default(0),
+  createdAt: timestamp("createdAt").notNull().defaultNow(),
+})
+
 // --- Task Management -------------------------------------------------------
 
 export const taskCheck = pgTable("task_check", {
@@ -488,7 +585,12 @@ export const taskCheck = pgTable("task_check", {
   venueId: integer("venueId").notNull(),
   title: text("title").notNull(),
   category: text("category").notNull().default("Checklist"),
+  // Legacy free-text assignee, kept for display/back-compat.
   assignee: text("assignee"),
+  // Linked staff member this task is assigned to (null = unassigned/role-based).
+  assigneeStaffId: integer("assigneeStaffId"),
+  // Role this task is assigned to, e.g. "Bar" (null = none).
+  assigneeRole: text("assigneeRole"),
   dueDate: text("dueDate"),
   dueTime: text("dueTime"),
   frequency: text("frequency").notNull().default("Daily"),
@@ -499,6 +601,12 @@ export const taskCheck = pgTable("task_check", {
   photoUrl: text("photoUrl"),
   completedBy: text("completedBy"),
   completedAt: timestamp("completedAt"),
+  // Recurrence: a template row (recurring=true) auto-spawns dated instances.
+  recurring: boolean("recurring").notNull().default(false),
+  // Set on generated instances; points at the template's id.
+  recurrenceParentId: integer("recurrenceParentId"),
+  // Last period date a template generated an instance for (YYYY-MM-DD).
+  lastGeneratedDate: text("lastGeneratedDate"),
   createdAt: timestamp("createdAt").notNull().defaultNow(),
 })
 
@@ -707,6 +815,8 @@ export const takings = pgTable("takings", {
   foodPence: integer("foodPence").notNull().default(0),
   eventsPence: integer("eventsPence").notNull().default(0),
   retailPence: integer("retailPence").notNull().default(0),
+  // Synced card sales pulled from Square (separate from manual categories).
+  squarePence: integer("squarePence").notNull().default(0),
   createdAt: timestamp("createdAt").notNull().defaultNow(),
 })
 
@@ -769,6 +879,10 @@ export type DbAvailability = typeof availability.$inferSelect
 export type DbShiftSwap = typeof shiftSwap.$inferSelect
 export type DbTimecard = typeof timecard.$inferSelect
 export type DbTipEntry = typeof tipEntry.$inferSelect
+export type DbShiftPattern = typeof shiftPattern.$inferSelect
+export type DbRotaTemplate = typeof rotaTemplate.$inferSelect
+export type DbRotaTemplateShift = typeof rotaTemplateShift.$inferSelect
+export type DbShiftTask = typeof shiftTask.$inferSelect
 export type DbExpense = typeof expense.$inferSelect
 export type DbTakings = typeof takings.$inferSelect
 export type DbTaskCheck = typeof taskCheck.$inferSelect

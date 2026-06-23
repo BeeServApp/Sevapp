@@ -89,40 +89,61 @@ export function timeLabel(startTime: string | null, endTime: string | null, fall
 
 export const ROTA_DAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"] as const
 
+/**
+ * Parse a yyyy-mm-dd string into a Date at LOCAL noon. Using noon (rather than
+ * midnight) keeps the calendar date stable across DST transitions, and using
+ * local time — never UTC — means week math gives the same result in every
+ * timezone. This is critical: these helpers run on the client (e.g. the week
+ * navigator), so relying on toISOString()/UTC previously made "next week" land
+ * on the wrong day for users ahead of UTC (e.g. UK summer time).
+ */
+function parseLocalDate(iso: string): Date {
+  const [y, m, d] = iso.split("-").map(Number)
+  return new Date(y, (m ?? 1) - 1, d ?? 1, 12, 0, 0, 0)
+}
+
+/** Format a Date to yyyy-mm-dd using its LOCAL calendar date (not UTC). */
+function formatLocalDate(d: Date): string {
+  const y = d.getFullYear()
+  const m = String(d.getMonth() + 1).padStart(2, "0")
+  const day = String(d.getDate()).padStart(2, "0")
+  return `${y}-${m}-${day}`
+}
+
 /** Monday (ISO yyyy-mm-dd) of the week containing the given date (default: now). */
 export function weekStartOf(date = new Date()): string {
-  const d = new Date(date)
+  const d = new Date(date.getFullYear(), date.getMonth(), date.getDate(), 12, 0, 0, 0)
   const day = d.getDay() // 0 = Sun
   const diff = day === 0 ? -6 : 1 - day
   d.setDate(d.getDate() + diff)
-  return d.toISOString().slice(0, 10)
+  return formatLocalDate(d)
 }
 
 /** Shift a yyyy-mm-dd week start by N weeks (positive = forward). */
 export function addWeeks(weekStart: string, weeks: number): string {
-  const d = new Date(`${weekStart}T00:00:00`)
+  const d = parseLocalDate(weekStart)
   d.setDate(d.getDate() + weeks * 7)
-  return d.toISOString().slice(0, 10)
+  return formatLocalDate(d)
 }
 
 /** yyyy-mm-dd for a given day label within a week. */
 export function dateForDay(weekStart: string, day: string): string {
   const idx = (ROTA_DAYS as readonly string[]).indexOf(day)
-  const d = new Date(`${weekStart}T00:00:00`)
+  const d = parseLocalDate(weekStart)
   d.setDate(d.getDate() + Math.max(0, idx))
-  return d.toISOString().slice(0, 10)
+  return formatLocalDate(d)
 }
 
 /** Day label (Mon..Sun) for a yyyy-mm-dd date. */
 export function dayLabelOf(dateISO: string): string {
-  const d = new Date(`${dateISO}T00:00:00`)
+  const d = parseLocalDate(dateISO)
   const js = d.getDay() // 0 = Sun
   return (ROTA_DAYS as readonly string[])[js === 0 ? 6 : js - 1]
 }
 
 /** Human label for a week range e.g. "6–12 Jan 2026". */
 export function weekRangeLabel(weekStart: string): string {
-  const start = new Date(`${weekStart}T00:00:00`)
+  const start = parseLocalDate(weekStart)
   const end = new Date(start)
   end.setDate(start.getDate() + 6)
   const sameMonth = start.getMonth() === end.getMonth()

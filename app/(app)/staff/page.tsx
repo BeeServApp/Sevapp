@@ -1,5 +1,4 @@
 import type { Metadata } from "next"
-import { redirect } from "next/navigation"
 import { getActiveVenueId, getCurrentUser } from "@/lib/session"
 import {
   getStaffMembers,
@@ -16,8 +15,20 @@ import {
   getTips,
   getWeekSales,
 } from "@/app/actions/scheduling"
-import { ROTA_DAYS, weekStartOf, addWeeks } from "@/lib/rota"
+import {
+  generatePatternShifts,
+  getShiftPatterns,
+  getRotaTemplates,
+  getShiftTasks,
+  getCrossLocationConflicts,
+} from "@/app/actions/shift-planning"
+import { getHomeData, getRotaData } from "@/app/actions/portal"
+import { getMyProfile, getMyLeaveRequests } from "@/app/actions/staff"
+import { getMyAvailability, getMyTimecards } from "@/app/actions/scheduling"
+import { getScheduledPublish, runDueScheduledPublishes } from "@/app/actions/scheduled-publish"
+import { ROTA_DAYS, weekStartOf, addWeeks, dateForDay } from "@/lib/rota"
 import { StaffView } from "@/components/staff-view"
+import { StaffPortalView } from "@/components/staff-portal-view"
 
 export const metadata: Metadata = {
   title: "Staff & Scheduling — Tapsheet",
@@ -38,12 +49,41 @@ export default async function StaffPage({
   const weekStart = normalizeWeek(sp.week)
   const weekEnd = addWeeks(weekStart, 1)
 
-  // ── Staff use the dedicated mobile portal experience ────────────────────────
+  // ── Staff: self-service view (their own shifts, timecards, availability) ────
   if (me.appRole === "staff") {
-    redirect("/portal/home")
+    const [home, rota, timecards, profile, availability, leave] = await Promise.all([
+      getHomeData(weekStart),
+      getRotaData(weekStart),
+      getMyTimecards(weekStart, dateForDay(weekStart, "Sun")),
+      getMyProfile(),
+      getMyAvailability(),
+      getMyLeaveRequests(),
+    ])
+    return (
+      <StaffPortalView
+        home={home}
+        rota={rota}
+        timecards={timecards}
+        leave={leave}
+        weekStart={weekStart}
+        me={{
+          name: me.name,
+          email: me.email,
+          role: profile?.role ?? null,
+          venueId: profile?.venueId ?? 0,
+          staffMemberId: me.staffMemberId,
+        }}
+        availability={availability}
+        rotaDays={[...ROTA_DAYS]}
+      />
+    )
   }
 
-  // ── Owner: full scheduling management ───────────────────────────────────────
+  // ── Owner: full scheduling management console ───────────────────────────────
+  // Fallback for environments where Vercel Cron may not run (preview/local):
+  // publish any rota whose scheduled time has passed whenever an owner loads.
+  await runDueScheduledPublishes()
+
   const venueId = await getActiveVenueId(me.accountId)
 
   if (!venueId) {
@@ -53,6 +93,9 @@ export default async function StaffPage({
       </div>
     )
   }
+
+  // Materialise any recurring-pattern shifts that fall on this week before we read.
+  await generatePatternShifts(venueId, weekStart)
 
   const [
     staffMembers,
@@ -66,6 +109,9 @@ export default async function StaffPage({
     timecards,
     tips,
     weekSales,
+    patterns,
+    templates,
+    conflicts,
   ] = await Promise.all([
     getStaffMembers(venueId),
     getLeaveRequests(venueId),
@@ -78,7 +124,13 @@ export default async function StaffPage({
     getTimecards(venueId, weekStart, weekEnd),
     getTips(venueId, weekStart, weekEnd),
     getWeekSales(venueId, weekStart),
+    getShiftPatterns(venueId),
+    getRotaTemplates(venueId),
+    getCrossLocationConflicts(venueId, weekStart),
   ])
+
+  const scheduledPublish = await getScheduledPublish(venueId, weekStart)
+  const shiftTasks = await getShiftTasks(rotaShifts.map((s) => s.id))
 
   return (
     <StaffView
@@ -94,6 +146,11 @@ export default async function StaffPage({
       initialTips={tips}
       settings={settings}
       weekSales={weekSales}
+      initialPatterns={patterns}
+      initialTemplates={templates}
+      initialShiftTasks={shiftTasks}
+      initialConflicts={conflicts}
+      initialScheduledPublish={scheduledPublish}
       weekStart={weekStart}
       rotaDays={[...ROTA_DAYS]}
     />

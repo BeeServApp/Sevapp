@@ -19,7 +19,7 @@ import {
   type LucideIcon,
 } from "lucide-react"
 import { cn } from "@/lib/utils"
-import { MODULES } from "@/lib/nav-config"
+import { MODULES, STAFF_ALLOWED_PATHS } from "@/lib/nav-config"
 import { useVenue } from "@/components/venue-provider"
 
 const moduleIcons: Record<string, LucideIcon> = {
@@ -38,23 +38,22 @@ export function AppSidebar({ onNavigate }: { onNavigate?: () => void }) {
   const { hiddenModules, appRole } = useVenue()
   const isStaff = appRole === "staff"
 
-  const moduleItems = MODULES.filter((m) => !hiddenModules.includes(m.href)).map((m) => ({
+  // Staff are limited to Staff & Scheduling and Task Management, minus any they
+  // have personally hidden. Owners see the Dashboard plus every module they
+  // haven't hidden company-wide.
+  const moduleItems = MODULES.filter((m) => {
+    if (isStaff) return STAFF_ALLOWED_PATHS.includes(m.href) && !hiddenModules.includes(m.href)
+    return !hiddenModules.includes(m.href)
+  }).map((m) => ({
     href: m.href,
     label: m.label,
     icon: moduleIcons[m.href] ?? LayoutDashboard,
   }))
 
-  // Staff get a focused workspace: their schedule and assigned tasks only.
   const sections = isStaff
-    ? [
-        {
-          label: "My workspace",
-          items: [
-            { href: "/staff", label: "My Schedule", icon: Users },
-            { href: "/tasks", label: "Task Management", icon: ListChecks },
-          ],
-        },
-      ]
+    ? moduleItems.length > 0
+      ? [{ label: "Modules", items: moduleItems }]
+      : []
     : [
         {
           label: "Workspace",
@@ -110,23 +109,21 @@ export function AppSidebar({ onNavigate }: { onNavigate?: () => void }) {
 
       <div className="border-t border-sidebar-border p-3">
         <ul className="flex flex-col gap-1">
-          {!isStaff && (
-            <li>
-              <Link
-                href="/settings"
-                onClick={onNavigate}
-                className={cn(
-                  "flex w-full items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition-colors",
-                  pathname.startsWith("/settings")
-                    ? "bg-sidebar-primary text-sidebar-primary-foreground"
-                    : "text-sidebar-foreground/80 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground",
-                )}
-              >
-                <Settings className="size-4" />
-                Settings
-              </Link>
-            </li>
-          )}
+          <li>
+            <Link
+              href="/settings"
+              onClick={onNavigate}
+              className={cn(
+                "flex w-full items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition-colors",
+                pathname.startsWith("/settings")
+                  ? "bg-sidebar-primary text-sidebar-primary-foreground"
+                  : "text-sidebar-foreground/80 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground",
+              )}
+            >
+              <Settings className="size-4" />
+              Settings
+            </Link>
+          </li>
           <li>
             <button className="flex w-full items-center gap-3 rounded-md px-3 py-2 text-sm font-medium text-sidebar-foreground/80 transition-colors hover:bg-sidebar-accent hover:text-sidebar-accent-foreground">
               <LifeBuoy className="size-4" />

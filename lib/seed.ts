@@ -1,5 +1,6 @@
 import "server-only"
 
+import { cache } from "react"
 import { db } from "@/lib/db"
 import {
   asset,
@@ -14,7 +15,7 @@ import {
   venue,
   venueEvent,
 } from "@/lib/db/schema"
-import { eq } from "drizzle-orm"
+import { eq, sql } from "drizzle-orm"
 
 // Demo fittings used to seed a brand-new account so the app isn't empty.
 const demoAssets = [
@@ -178,11 +179,26 @@ const demoDocuments = [
   { name: "Licensing Objectives.pdf", category: "Licensing", updated: "15 Feb 2026", owner: "Sarah W." },
 ]
 
+// Stable namespace for the seeding advisory lock (any constant int4 works).
+const SEED_LOCK_NAMESPACE = 826514
+
 /**
- * Seeds a default venue, team members and demo assets the first time an account
- * is used. Safe to call on every request — it no-ops once a venue exists.
+ * Seeds a brand-new account with demo data the first time it is used. Safe to
+ * call on every request: it no-ops once a venue exists.
+ *
+ * Wrapped in React `cache()` so concurrent callers within the SAME request
+ * (e.g. the app layout and a page that both resolve the active venue) share one
+ * execution. To also guard against concurrent callers across SEPARATE requests
+ * (route prefetches can fire several parallel requests right after sign-up), the
+ * actual seeding runs inside a transaction holding a per-user advisory lock and
+ * re-checks existence under that lock — so only one seeder ever inserts.
  */
-export async function ensureSeeded(userId: string, userName: string, userEmail: string) {
+export const ensureSeeded = cache(async function ensureSeeded(
+  userId: string,
+  userName: string,
+  userEmail: string,
+) {
+  // Fast path: avoid a transaction/lock once the account is already seeded.
   const existing = await db
     .select({ id: venue.id })
     .from(venue)
@@ -191,54 +207,69 @@ export async function ensureSeeded(userId: string, userName: string, userEmail: 
 
   if (existing.length > 0) return
 
-  const [created] = await db
-    .insert(venue)
-    .values({
-      userId,
-      name: "The Crown & Anchor",
-      type: "Pub",
-      address: "12 Harbourside",
-      city: "Bristol, UK",
-    })
-    .returning()
+  await db.transaction(async (tx) => {
+    // Serialize concurrent seeders for this user. The lock is released
+    // automatically when the transaction commits or rolls back.
+    await tx.execute(sql`select pg_advisory_xact_lock(${SEED_LOCK_NAMESPACE}, hashtext(${userId}))`)
 
-  const venueId = created.id
+    // Re-check inside the lock: another request may have seeded while we waited.
+    const seeded = await tx
+      .select({ id: venue.id })
+      .from(venue)
+      .where(eq(venue.userId, userId))
+      .limit(1)
 
-  await db.insert(asset).values(demoAssets.map((a) => ({ ...a, userId, venueId })))
+    if (seeded.length > 0) return
 
-  await db.insert(member).values([
-    {
-      userId,
-      venueId,
-      name: userName || "Account Owner",
-      email: userEmail,
-      role: "Owner",
-      status: "Active",
-    },
-    {
-      userId,
-      venueId,
-      name: "James Patel",
-      email: "james.patel@crownanchor.co.uk",
-      role: "Manager",
-      status: "Active",
-    },
-    {
-      userId,
-      venueId,
-      name: "Mia Roberts",
-      email: "mia.roberts@crownanchor.co.uk",
-      role: "Bar Staff",
-      status: "Active",
-    },
-  ])
+    const [created] = await tx
+      .insert(venue)
+      .values({
+        userId,
+        name: "The Crown & Anchor",
+        type: "Pub",
+        address: "12 Harbourside",
+        city: "Bristol, UK",
+      })
+      .returning()
 
-  await db.insert(order).values(demoOrders.map((o) => ({ ...o, userId, venueId })))
-  await db.insert(supplier).values(demoSuppliers.map((s) => ({ ...s, userId, venueId })))
-  await db.insert(maintenance).values(demoMaintenance.map((m) => ({ ...m, userId, venueId })))
-  await db.insert(venueEvent).values(demoEvents.map((e) => ({ ...e, userId, venueId })))
-  await db.insert(task).values(demoTasks.map((t) => ({ ...t, userId, venueId })))
-  await db.insert(complianceCheck).values(demoChecks.map((c) => ({ ...c, userId, venueId })))
-  await db.insert(certificate).values(demoCertificates.map((c) => ({ ...c, userId, venueId })))
-  await db.insert(document).values(demoDocuments.map((d) => ({ ...d, userId, venueId })))
-}
+    const venueId = created.id
+
+    await tx.insert(asset).values(demoAssets.map((a) => ({ ...a, userId, venueId })))
+
+    await tx.insert(member).values([
+      {
+        userId,
+        venueId,
+        name: userName || "Account Owner",
+        email: userEmail,
+        role: "Owner",
+        status: "Active",
+      },
+      {
+        userId,
+        venueId,
+        name: "James Patel",
+        email: "james.patel@crownanchor.co.uk",
+        role: "Manager",
+        status: "Active",
+      },
+      {
+        userId,
+        venueId,
+        name: "Mia Roberts",
+        email: "mia.roberts@crownanchor.co.uk",
+        role: "Bar Staff",
+        status: "Active",
+      },
+    ])
+
+    await tx.insert(order).values(demoOrders.map((o) => ({ ...o, userId, venueId })))
+    await tx.insert(supplier).values(demoSuppliers.map((s) => ({ ...s, userId, venueId })))
+    await tx.insert(maintenance).values(demoMaintenance.map((m) => ({ ...m, userId, venueId })))
+    await tx.insert(venueEvent).values(demoEvents.map((e) => ({ ...e, userId, venueId })))
+    await tx.insert(task).values(demoTasks.map((t) => ({ ...t, userId, venueId })))
+    await tx.insert(complianceCheck).values(demoChecks.map((c) => ({ ...c, userId, venueId })))
+    await tx.insert(certificate).values(demoCertificates.map((c) => ({ ...c, userId, venueId })))
+    await tx.insert(document).values(demoDocuments.map((d) => ({ ...d, userId, venueId })))
+  })
+})

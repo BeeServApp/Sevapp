@@ -15,6 +15,9 @@ import { getExpenses } from "@/app/actions/financials"
 import { getTakings } from "@/app/actions/takings"
 import { getGamingMachines } from "@/app/actions/gaming"
 import { getAssets } from "@/app/actions/assets"
+import { getSquareConnection } from "@/app/actions/square"
+import { syncSquareForVenue } from "@/lib/square-sync"
+import { SquareSyncButton } from "@/components/square-sync-button"
 import {
   gbp0,
   profitSeries,
@@ -45,6 +48,17 @@ export default async function FinancialsPage({
   const { tab } = await searchParams
   const userId = await getUserId()
   const venueId = await getActiveVenueId(userId)
+
+  // Sync Square card sales into takings before computing the P&L. Fail soft.
+  if (venueId) {
+    try {
+      await syncSquareForVenue(userId, venueId)
+    } catch {
+      // Square downtime must never break Financials.
+    }
+  }
+
+  const squareConn = await getSquareConnection()
   const [expenses, takings, gamingMachines, assets] = venueId
     ? await Promise.all([
         getExpenses(venueId),
@@ -154,9 +168,12 @@ export default async function FinancialsPage({
         title="Financials"
         description="P&L tracking, revenue targets, expenses and real-time spending insights."
         actions={
-          <Button variant="outline" className="gap-1.5">
-            <Download className="size-4" /> Export
-          </Button>
+          <div className="flex items-center gap-2">
+            {squareConn.connected && <SquareSyncButton scope="active" />}
+            <Button variant="outline" className="gap-1.5">
+              <Download className="size-4" /> Export
+            </Button>
+          </div>
         }
       />
 

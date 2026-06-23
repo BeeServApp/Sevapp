@@ -2,7 +2,7 @@
 
 import { db } from "@/lib/db"
 import { foodCheck, foodCheckLog, foodPolicy } from "@/lib/db/schema"
-import { getUserId } from "@/lib/session"
+import { getAccountId as getUserId } from "@/lib/session"
 import { tempToTenths, tenthsToTemp } from "@/lib/food"
 import { and, asc, desc, eq } from "drizzle-orm"
 import { revalidatePath } from "next/cache"

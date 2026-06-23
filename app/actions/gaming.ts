@@ -2,7 +2,7 @@
 
 import { db } from "@/lib/db"
 import { gamingMachine, gamingEntry } from "@/lib/db/schema"
-import { getUserId } from "@/lib/session"
+import { getAccountId as getUserId } from "@/lib/session"
 import { bpsForBand, computeSplit, type GamingMachineWithEntries } from "@/lib/gaming"
 import { and, asc, desc, eq } from "drizzle-orm"
 import { revalidatePath } from "next/cache"

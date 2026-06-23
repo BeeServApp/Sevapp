@@ -2,7 +2,7 @@
 
 import { db } from "@/lib/db"
 import { takings } from "@/lib/db/schema"
-import { getUserId } from "@/lib/session"
+import { getAccountId as getUserId } from "@/lib/session"
 import { and, desc, eq } from "drizzle-orm"
 import { revalidatePath } from "next/cache"
 
@@ -24,7 +24,19 @@ export async function createTakings(data: {
   retailPence: number
 }) {
   const userId = await getUserId()
-  // One entry per day: replace any existing row for the same date.
+  // One entry per day: replace any existing row for the same date, but carry
+  // over any Square-synced card sales so manual edits never wipe them.
+  const [existing] = await db
+    .select({ squarePence: takings.squarePence })
+    .from(takings)
+    .where(
+      and(
+        eq(takings.userId, userId),
+        eq(takings.venueId, data.venueId),
+        eq(takings.dateISO, data.dateISO),
+      ),
+    )
+    .limit(1)
   await db
     .delete(takings)
     .where(
@@ -34,7 +46,10 @@ export async function createTakings(data: {
         eq(takings.dateISO, data.dateISO),
       ),
     )
-  const [created] = await db.insert(takings).values({ userId, ...data }).returning()
+  const [created] = await db
+    .insert(takings)
+    .values({ userId, ...data, squarePence: existing?.squarePence ?? 0 })
+    .returning()
   revalidatePath("/financials")
   revalidatePath("/dashboard")
   return created

@@ -2,7 +2,7 @@
 
 import { db } from "@/lib/db"
 import { staffMember, rotaShift, leaveRequest, clockEvent, staffInvite } from "@/lib/db/schema"
-import { getAccountId, getCurrentUser, getUserId, requireOwner } from "@/lib/session"
+import { getAccountId, getCurrentUser, requireOwner } from "@/lib/session"
 import { emitChange } from "@/lib/realtime"
 import { notify } from "@/app/actions/notifications"
 import { and, asc, desc, eq, inArray } from "drizzle-orm"
@@ -192,13 +192,22 @@ export async function deleteShift(shiftId: number) {
  */
 export async function publishRota(venueId: number, weekStart: string) {
   const me = await requireOwner()
+  return publishRotaCore(me.accountId, venueId, weekStart)
+}
 
+/**
+ * Session-less publish used by both the owner action above and the scheduled /
+ * cron publisher. Flips a week's draft shifts to published and notifies every
+ * assigned staff member with a linked login. Idempotent: a no-op if there are
+ * no drafts. Callers are responsible for authorizing `accountId`.
+ */
+export async function publishRotaCore(accountId: string, venueId: number, weekStart: string) {
   const drafts = await db
     .select()
     .from(rotaShift)
     .where(
       and(
-        eq(rotaShift.userId, me.accountId),
+        eq(rotaShift.userId, accountId),
         eq(rotaShift.venueId, venueId),
         eq(rotaShift.weekStart, weekStart),
         eq(rotaShift.status, "draft"),
@@ -212,7 +221,7 @@ export async function publishRota(venueId: number, weekStart: string) {
     .set({ status: "published" })
     .where(
       and(
-        eq(rotaShift.userId, me.accountId),
+        eq(rotaShift.userId, accountId),
         eq(rotaShift.venueId, venueId),
         eq(rotaShift.weekStart, weekStart),
         eq(rotaShift.status, "draft"),
@@ -235,7 +244,7 @@ export async function publishRota(venueId: number, weekStart: string) {
     const members = await db
       .select()
       .from(staffMember)
-      .where(and(eq(staffMember.userId, me.accountId), inArray(staffMember.id, ids)))
+      .where(and(eq(staffMember.userId, accountId), inArray(staffMember.id, ids)))
 
     for (const m of members) {
       if (!m.linkedUserId) continue
@@ -244,7 +253,7 @@ export async function publishRota(venueId: number, weekStart: string) {
         .map((s) => `${s.day} ${s.startTime ?? ""}-${s.endTime ?? ""}`.trim())
         .join(", ")
       await notify({
-        accountId: me.accountId,
+        accountId,
         recipientUserId: m.linkedUserId,
         staffMemberId: m.id,
         kind: "shift",
@@ -257,7 +266,7 @@ export async function publishRota(venueId: number, weekStart: string) {
     }
   }
 
-  await emitChange(me.accountId, "all")
+  await emitChange(accountId, "all")
   revalidatePath("/staff")
   return { published: drafts.length, notified }
 }
@@ -385,9 +394,95 @@ export async function updateLeaveStatus(id: number, status: "Approved" | "Declin
     .set({ status })
     .where(and(eq(leaveRequest.id, id), eq(leaveRequest.userId, me.accountId)))
     .returning()
+
+  // Notify the staff member who made the request.
+  const [member] = await db
+    .select()
+    .from(staffMember)
+    .where(and(eq(staffMember.id, updated.staffMemberId), eq(staffMember.userId, me.accountId)))
+    .limit(1)
+  if (member?.linkedUserId) {
+    await notify({
+      accountId: me.accountId,
+      recipientUserId: member.linkedUserId,
+      staffMemberId: member.id,
+      kind: "leave",
+      title: `Leave ${status.toLowerCase()}`,
+      body: `${updated.type} leave (${updated.dates}) was ${status.toLowerCase()}.`,
+      href: "/portal/leave",
+      email: member.email,
+    })
+  }
+
   await emitChange(me.accountId, "all")
   revalidatePath("/staff")
   return updated
+}
+
+// ── Staff-facing leave (mobile portal) ─────────────────────────────────────────
+
+/** The logged-in staff member's own leave requests, newest first. */
+export async function getMyLeaveRequests() {
+  const me = await getCurrentUser()
+  if (me.staffMemberId == null) return []
+  return db
+    .select()
+    .from(leaveRequest)
+    .where(and(eq(leaveRequest.userId, me.accountId), eq(leaveRequest.staffMemberId, me.staffMemberId)))
+    .orderBy(desc(leaveRequest.createdAt))
+}
+
+/**
+ * A staff member submits their own leave request. It lands in the same
+ * `leaveRequest` table the owner reviews in Staff & Scheduling → Leave, so the
+ * two sides stay in sync. The owner is notified to approve or decline.
+ */
+export async function createMyLeaveRequest(input: {
+  type: string
+  dates: string
+  days: number
+}) {
+  const me = await getCurrentUser()
+  if (me.staffMemberId == null) throw new Error("Not a staff account")
+
+  const [profile] = await db
+    .select()
+    .from(staffMember)
+    .where(and(eq(staffMember.id, me.staffMemberId), eq(staffMember.userId, me.accountId)))
+    .limit(1)
+  if (!profile) throw new Error("Staff profile not found")
+
+  const days = Number.isFinite(input.days) && input.days > 0 ? Math.round(input.days) : 1
+
+  const [created] = await db
+    .insert(leaveRequest)
+    .values({
+      userId: me.accountId,
+      venueId: profile.venueId,
+      staffMemberId: me.staffMemberId,
+      name: profile.name,
+      type: input.type,
+      dates: input.dates,
+      days,
+      status: "Pending",
+    })
+    .returning()
+
+  // Notify the owner so they can review it.
+  await notify({
+    accountId: me.accountId,
+    recipientUserId: me.accountId,
+    staffMemberId: me.staffMemberId,
+    kind: "leave",
+    title: "Leave requested",
+    body: `${profile.name} requested ${input.type} leave (${input.dates}).`,
+    href: "/staff",
+  })
+
+  await emitChange(me.accountId, "all")
+  revalidatePath("/staff")
+  revalidatePath("/portal/leave")
+  return created
 }
 
 // ── Clock events ─────────────────────────────────────────────────────────────

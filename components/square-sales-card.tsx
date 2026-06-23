@@ -4,6 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { buttonVariants } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
 import type { SquareSales } from "@/app/actions/square"
+import { SquareSyncButton } from "@/components/square-sync-button"
 
 function formatMoney(pence: number, currency: string) {
   return new Intl.NumberFormat("en-GB", {
@@ -23,7 +24,13 @@ function formatTime(iso: string) {
   })
 }
 
-function CardShell({ children }: { children: React.ReactNode }) {
+function CardShell({
+  children,
+  showSync = false,
+}: {
+  children: React.ReactNode
+  showSync?: boolean
+}) {
   return (
     <Card>
       <CardHeader className="flex-row items-center justify-between">
@@ -36,12 +43,15 @@ function CardShell({ children }: { children: React.ReactNode }) {
             <p className="mt-0.5 text-sm text-muted-foreground">Live takings from Square, last 7 days</p>
           </div>
         </div>
-        <Link
-          href="/settings?tab=integrations"
-          className={cn(buttonVariants({ variant: "ghost", size: "sm" }), "gap-1 text-muted-foreground")}
-        >
-          Manage <ArrowRight className="size-4" />
-        </Link>
+        <div className="flex items-center gap-2">
+          {showSync && <SquareSyncButton scope="active" variant="outline" size="sm" />}
+          <Link
+            href="/settings?tab=integrations"
+            className={cn(buttonVariants({ variant: "ghost", size: "sm" }), "gap-1 text-muted-foreground")}
+          >
+            Manage <ArrowRight className="size-4" />
+          </Link>
+        </div>
       </CardHeader>
       <CardContent>{children}</CardContent>
     </Card>
@@ -125,7 +135,7 @@ export function SquareSalesCard({ sales }: { sales: SquareSales }) {
   }
 
   return (
-    <CardShell>
+    <CardShell showSync>
       <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
         <Stat label="Today" value={formatMoney(sales.todayPence, sales.currency)} />
         <Stat label="Today's txns" value={String(sales.todayCount)} />

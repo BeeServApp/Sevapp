@@ -2,7 +2,7 @@
 
 import { useTransition } from "react"
 import { useRouter } from "next/navigation"
-import { Clock, Plus } from "lucide-react"
+import { Clock } from "lucide-react"
 import { PortalHeader } from "@/components/portal/portal-header"
 import { PortalFilterBar } from "@/components/portal/portal-filter-bar"
 import { Card, CardContent } from "@/components/ui/card"
@@ -30,17 +30,7 @@ export function TimecardsView({ weekStart, timecards }: { weekStart: string; tim
 
   return (
     <div>
-      <PortalHeader
-        title="Timecards"
-        action={
-          <span
-            aria-hidden="true"
-            className="flex size-11 items-center justify-center rounded-full bg-muted text-foreground"
-          >
-            <Plus className="size-5" />
-          </span>
-        }
-      />
+      <PortalHeader title="Timecards" />
       <PortalFilterBar weekStart={weekStart} />
 
       {timecards.length === 0 ? (

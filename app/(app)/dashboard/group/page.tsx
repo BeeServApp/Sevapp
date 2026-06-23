@@ -13,6 +13,9 @@ import { getVenues } from "@/app/actions/venues"
 import { getTasks } from "@/app/actions/operations"
 import { getTakings } from "@/app/actions/takings"
 import { getExpenses } from "@/app/actions/financials"
+import { getSquareConnection } from "@/app/actions/square"
+import { syncSquareForAccount } from "@/lib/square-sync"
+import { SquareSyncButton } from "@/components/square-sync-button"
 import {
   gbp0,
   revenueThisWeek,
@@ -32,6 +35,15 @@ export default async function GroupDashboardPage() {
   await guardOwnerPage()
   const userId = await getUserId()
   const venues = await getVenues()
+
+  // Sync Square card sales for every mapped venue before aggregating. Fail soft.
+  try {
+    await syncSquareForAccount(userId)
+  } catch {
+    // Square downtime must never break the group dashboard.
+  }
+
+  const squareConn = await getSquareConnection()
 
   // Pull each venue's data in parallel, then aggregate across the group.
   const perVenue = await Promise.all(
@@ -137,6 +149,7 @@ export default async function GroupDashboardPage() {
         description={`Combined performance across ${venues.length} venue${
           venues.length === 1 ? "" : "s"
         }.`}
+        actions={squareConn.connected ? <SquareSyncButton scope="all" /> : undefined}
       />
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">

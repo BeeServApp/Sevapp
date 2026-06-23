@@ -14,7 +14,7 @@ import {
   safetyRecord,
   staffPolicy,
 } from "@/lib/db/schema"
-import { getUserId } from "@/lib/session"
+import { getAccountId as getUserId } from "@/lib/session"
 import { and, asc, desc, eq } from "drizzle-orm"
 import { revalidatePath } from "next/cache"
 

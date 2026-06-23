@@ -1,10 +1,11 @@
 "use server"
 
 import { db } from "@/lib/db"
-import { asset } from "@/lib/db/schema"
-import { getUserId } from "@/lib/session"
-import { and, asc, eq } from "drizzle-orm"
+import { asset, gamingMachine, maintenance, venue } from "@/lib/db/schema"
+import { getAccountId as getUserId } from "@/lib/session"
+import { and, asc, desc, eq, isNotNull } from "drizzle-orm"
 import { revalidatePath } from "next/cache"
+import type { MaintenancePriority, MaintenanceStatus } from "@/lib/asset-types"
 
 export async function getAssets(venueId: number) {
   const userId = await getUserId()
@@ -101,4 +102,123 @@ export async function deleteAsset(id: number) {
   const userId = await getUserId()
   await db.delete(asset).where(and(eq(asset.id, id), eq(asset.userId, userId)))
   revalidatePath("/assets")
+}
+
+/**
+ * Moves an asset to another venue on the same account, taking its linked data
+ * with it. Maintenance records follow the asset; any gaming-machine link is
+ * cleared because the machine itself stays registered at its original venue.
+ */
+export async function transferAsset(id: number, targetVenueId: number) {
+  const userId = await getUserId()
+
+  // Verify the asset belongs to this user and capture its current venue.
+  const [current] = await db
+    .select({ id: asset.id, venueId: asset.venueId })
+    .from(asset)
+    .where(and(eq(asset.id, id), eq(asset.userId, userId)))
+    .limit(1)
+  if (!current) throw new Error("Asset not found")
+  if (current.venueId === targetVenueId) throw new Error("Asset is already at this venue")
+
+  // Verify the destination venue belongs to this user.
+  const [destination] = await db
+    .select({ id: venue.id })
+    .from(venue)
+    .where(and(eq(venue.id, targetVenueId), eq(venue.userId, userId)))
+    .limit(1)
+  if (!destination) throw new Error("Destination venue not found")
+
+  await db.transaction(async (tx) => {
+    await tx
+      .update(asset)
+      .set({ venueId: targetVenueId })
+      .where(and(eq(asset.id, id), eq(asset.userId, userId)))
+
+    // Maintenance history moves with the asset.
+    await tx
+      .update(maintenance)
+      .set({ venueId: targetVenueId })
+      .where(and(eq(maintenance.assetId, id), eq(maintenance.userId, userId)))
+
+    // The gaming machine stays at its venue, so drop the now cross-venue link.
+    await tx
+      .update(gamingMachine)
+      .set({ assetId: null })
+      .where(and(eq(gamingMachine.assetId, id), eq(gamingMachine.userId, userId)))
+  })
+
+  revalidatePath("/assets")
+  revalidatePath("/operations")
+  revalidatePath("/financials")
+}
+
+/* --------------------------- Maintenance log ---------------------------- */
+
+// All maintenance records for the venue that are linked to an asset.
+export async function getAssetMaintenance(venueId: number) {
+  const userId = await getUserId()
+  return db
+    .select()
+    .from(maintenance)
+    .where(
+      and(
+        eq(maintenance.userId, userId),
+        eq(maintenance.venueId, venueId),
+        isNotNull(maintenance.assetId),
+      ),
+    )
+    .orderBy(desc(maintenance.id))
+}
+
+export async function createAssetMaintenance(data: {
+  venueId: number
+  assetId: number
+  assetName: string
+  issue: string
+  priority: MaintenancePriority
+  status: MaintenanceStatus
+  assignee: string
+  costPence: number
+  loggedDate: string
+}) {
+  const userId = await getUserId()
+  if (!data.issue.trim()) throw new Error("Please describe the maintenance issue")
+
+  const [created] = await db
+    .insert(maintenance)
+    .values({
+      userId,
+      venueId: data.venueId,
+      assetId: data.assetId,
+      assetName: data.assetName,
+      issue: data.issue.trim(),
+      priority: data.priority,
+      status: data.status,
+      assignee: data.assignee.trim() || null,
+      costPence: Number.isFinite(data.costPence) ? Math.round(data.costPence) : 0,
+      loggedDate: data.loggedDate || null,
+    })
+    .returning()
+
+  revalidatePath("/assets")
+  revalidatePath("/operations")
+  return created
+}
+
+export async function updateAssetMaintenanceStatus(id: number, status: MaintenanceStatus) {
+  const userId = await getUserId()
+  await db
+    .update(maintenance)
+    .set({ status })
+    .where(and(eq(maintenance.id, id), eq(maintenance.userId, userId)))
+  revalidatePath("/assets")
+  revalidatePath("/operations")
+}
+
+export async function deleteAssetMaintenance(id: number) {
+  const userId = await getUserId()
+  await db.delete(maintenance).where(and(eq(maintenance.id, id), eq(maintenance.userId, userId)))
+  revalidatePath("/assets")
+  revalidatePath("/operations")
 }
