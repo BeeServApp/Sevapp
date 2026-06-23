@@ -4,6 +4,7 @@ import { db } from "@/lib/db"
 import { company, venue } from "@/lib/db/schema"
 import { requireOwner, getAccountId as getUserId } from "@/lib/session"
 import { stripe } from "@/lib/stripe"
+import { ensureCompanyRow } from "@/lib/trial"
 import {
   getTier,
   MAX_PRICE_PER_LOCATION_PENCE,
@@ -31,11 +32,7 @@ export interface BillingState {
 }
 
 async function getCompanyRow(userId: string) {
-  let [row] = await db.select().from(company).where(eq(company.userId, userId))
-  if (!row) {
-    ;[row] = await db.insert(company).values({ userId }).returning()
-  }
-  return row
+  return ensureCompanyRow(userId)
 }
 
 async function countVenues(userId: string): Promise<number> {

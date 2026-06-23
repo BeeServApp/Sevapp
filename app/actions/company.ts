@@ -3,6 +3,7 @@
 import { db } from "@/lib/db"
 import { company } from "@/lib/db/schema"
 import { getAccountId as getUserId } from "@/lib/session"
+import { ensureCompanyRow } from "@/lib/trial"
 import { eq } from "drizzle-orm"
 import { revalidatePath } from "next/cache"
 
@@ -44,11 +45,7 @@ function parseList(raw: string | null | undefined): string[] {
  */
 export async function getCompany(): Promise<CompanyData> {
   const userId = await getUserId()
-  let [row] = await db.select().from(company).where(eq(company.userId, userId))
-
-  if (!row) {
-    ;[row] = await db.insert(company).values({ userId }).returning()
-  }
+  const row = await ensureCompanyRow(userId)
 
   return {
     name: row.name ?? "",
@@ -74,10 +71,7 @@ export async function getCompany(): Promise<CompanyData> {
 }
 
 async function ensureCompany(userId: string) {
-  const [row] = await db.select({ id: company.id }).from(company).where(eq(company.userId, userId))
-  if (!row) {
-    await db.insert(company).values({ userId })
-  }
+  await ensureCompanyRow(userId)
 }
 
 export async function updateCompany(data: {
