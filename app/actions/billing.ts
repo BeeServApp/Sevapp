@@ -2,7 +2,7 @@
 
 import { db } from "@/lib/db"
 import { company, venue } from "@/lib/db/schema"
-import { requireOwner, getUserId } from "@/lib/session"
+import { requireOwner, getAccountId as getUserId } from "@/lib/session"
 import { stripe } from "@/lib/stripe"
 import {
   getTier,

@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache"
 import { and, asc, desc, eq } from "drizzle-orm"
 import { db } from "@/lib/db"
 import { taskCheck, taskCheckItem, correctiveAction } from "@/lib/db/schema"
-import { getUserId } from "@/lib/session"
+import { getAccountId as getUserId } from "@/lib/session"
 
 export type TaskWithItems = typeof taskCheck.$inferSelect & {
   items: (typeof taskCheckItem.$inferSelect)[]

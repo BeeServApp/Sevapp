@@ -2,7 +2,7 @@
 
 import { db } from "@/lib/db"
 import { company } from "@/lib/db/schema"
-import { getUserId } from "@/lib/session"
+import { getAccountId as getUserId } from "@/lib/session"
 import { eq } from "drizzle-orm"
 import { revalidatePath } from "next/cache"
 
