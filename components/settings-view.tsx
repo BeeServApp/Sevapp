@@ -25,27 +25,34 @@ export interface SquareSettingsData {
 export function SettingsView({
   user,
   company,
-  venues,
-  activeVenueId,
-  members,
-  activeVenueName,
+  venues = [],
+  activeVenueId = null,
+  members = [],
+  activeVenueName = "this venue",
   defaultTab,
   billing,
   square,
+  allowedTabIds,
 }: {
   user: { name: string; email: string }
   company: CompanyData
-  venues: VenueSummary[]
-  activeVenueId: number | null
-  members: TeamMember[]
-  activeVenueName: string
+  venues?: VenueSummary[]
+  activeVenueId?: number | null
+  members?: TeamMember[]
+  activeVenueName?: string
   defaultTab: string
-  billing: BillingState
-  square: SquareSettingsData
+  billing?: BillingState
+  square?: SquareSettingsData
+  /** When provided, restricts the visible tabs to this set (e.g. staff users). */
+  allowedTabIds?: string[]
 }) {
-  // A tab is shown if it is not lockable (core) or not in the hidden list.
+  // A tab is shown if it is not lockable (core) or not in the hidden list, and —
+  // when an allow-list is provided (staff) — only if it is explicitly allowed.
   const hidden = new Set(company.hiddenSettingsTabs)
-  const visibleTabs = SETTINGS_TABS.filter((t) => !t.lockable || !hidden.has(t.id))
+  const visibleTabs = SETTINGS_TABS.filter(
+    (t) => (!t.lockable || !hidden.has(t.id)) && (!allowedTabIds || allowedTabIds.includes(t.id)),
+  )
+  const visibleIds = new Set(visibleTabs.map((t) => t.id))
   const resolvedDefault = visibleTabs.some((t) => t.id === defaultTab)
     ? defaultTab
     : visibleTabs[0]?.id ?? "account"
@@ -63,39 +70,53 @@ export function SettingsView({
           ))}
         </TabsList>
 
-        <TabsContent value="account">
-          <AccountSettings user={user} />
-        </TabsContent>
-        <TabsContent value="company">
-          <CompanySettings company={company} />
-        </TabsContent>
-        <TabsContent value="venues">
-          <VenuesSettings venues={venues} activeVenueId={activeVenueId} />
-        </TabsContent>
-        <TabsContent value="team">
-          {activeVenueId ? (
-            <TeamSettings members={members} venueId={activeVenueId} venueName={activeVenueName} />
-          ) : (
-            <p className="text-sm text-muted-foreground">Add a venue first to manage its team.</p>
-          )}
-        </TabsContent>
-        <TabsContent value="billing">
-          <BillingSettings billing={billing} />
-        </TabsContent>
-        <TabsContent value="integrations">
-          <IntegrationsSettings
-            connection={square.connection}
-            venues={square.venues}
-            locations={square.locations}
-            flash={square.flash}
-          />
-        </TabsContent>
-        <TabsContent value="preferences">
-          <PreferencesSettings
-            hiddenModules={company.hiddenModules}
-            hiddenSettingsTabs={company.hiddenSettingsTabs}
-          />
-        </TabsContent>
+        {visibleIds.has("account") && (
+          <TabsContent value="account">
+            <AccountSettings user={user} />
+          </TabsContent>
+        )}
+        {visibleIds.has("company") && (
+          <TabsContent value="company">
+            <CompanySettings company={company} />
+          </TabsContent>
+        )}
+        {visibleIds.has("venues") && (
+          <TabsContent value="venues">
+            <VenuesSettings venues={venues} activeVenueId={activeVenueId} />
+          </TabsContent>
+        )}
+        {visibleIds.has("team") && (
+          <TabsContent value="team">
+            {activeVenueId ? (
+              <TeamSettings members={members} venueId={activeVenueId} venueName={activeVenueName} />
+            ) : (
+              <p className="text-sm text-muted-foreground">Add a venue first to manage its team.</p>
+            )}
+          </TabsContent>
+        )}
+        {visibleIds.has("billing") && billing && (
+          <TabsContent value="billing">
+            <BillingSettings billing={billing} />
+          </TabsContent>
+        )}
+        {visibleIds.has("integrations") && square && (
+          <TabsContent value="integrations">
+            <IntegrationsSettings
+              connection={square.connection}
+              venues={square.venues}
+              locations={square.locations}
+              flash={square.flash}
+            />
+          </TabsContent>
+        )}
+        {visibleIds.has("preferences") && (
+          <TabsContent value="preferences">
+            <PreferencesSettings
+              hiddenModules={company.hiddenModules}
+              hiddenSettingsTabs={company.hiddenSettingsTabs}
+            />
+          </TabsContent>
+        )}
       </Tabs>
     </>
   )

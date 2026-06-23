@@ -1,5 +1,4 @@
 import type { Metadata } from "next"
-import { redirect } from "next/navigation"
 import { getActiveVenueId, getCurrentUser } from "@/lib/session"
 import {
   getStaffMembers,
@@ -45,12 +44,8 @@ export default async function StaffPage({
   const weekStart = normalizeWeek(sp.week)
   const weekEnd = addWeeks(weekStart, 1)
 
-  // ── Staff use the dedicated mobile portal experience ────────────────────────
-  if (me.appRole === "staff") {
-    redirect("/portal/home")
-  }
-
-  // ── Owner: full scheduling management ───────────────────────────────────────
+  // Staff and owners both use this sidebar-based Staff & Scheduling view. The
+  // venue is resolved from the staff member's own record for staff accounts.
   const venueId = await getActiveVenueId(me.accountId)
 
   if (!venueId) {
