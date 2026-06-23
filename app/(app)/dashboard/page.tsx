@@ -8,6 +8,7 @@ import {
   Coins,
 } from "lucide-react"
 import Link from "next/link"
+import type { ReactNode } from "react"
 import { PageHeader } from "@/components/page-header"
 import { StatCard } from "@/components/stat-card"
 import { StatusBadge } from "@/components/status-badge"
@@ -23,7 +24,10 @@ import { getTakings } from "@/app/actions/takings"
 import { getExpenses } from "@/app/actions/financials"
 import { getGamingMachines } from "@/app/actions/gaming"
 import { getSquareSales, type SquareSales } from "@/app/actions/square"
+import { getDashboardLayout } from "@/app/actions/company"
 import { SquareSalesCard } from "@/components/square-sales-card"
+import { DashboardGrid, type DashboardSection } from "@/components/dashboard/dashboard-grid"
+import { DASHBOARD_SECTIONS } from "@/lib/dashboard-sections"
 import { sumEntries, entriesForMonth } from "@/lib/gaming"
 import {
   gbp0,
@@ -65,6 +69,8 @@ export default async function DashboardPage() {
         getGamingMachines(venueId),
       ])
     : [[], [], [], [], []]
+
+  const dashboardLayout = await getDashboardLayout()
 
   // Square sales for the active venue. Fail soft so Square downtime never
   // breaks the dashboard.
@@ -137,90 +143,74 @@ export default async function DashboardPage() {
   const gamingMTD = sumEntries(gamingEntriesMTD)
   const hasGaming = gamingMachines.length > 0
 
-  return (
-    <>
-      <PageHeader
-        title={`Good afternoon, ${firstName}`}
-        description={
-          activeVenue
-            ? `Here's how ${activeVenue.name} is performing today.`
-            : "Create a venue to get started."
-        }
-      />
-
+  // --- Section nodes -------------------------------------------------------
+  // Each entry maps a section id to its rendered content. Sections that aren't
+  // applicable (no venue, no gaming) are null and get filtered out.
+  const nodeById: Record<string, ReactNode> = {
+    kpis: (
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
         {kpis.map((kpi) => (
           <StatCard key={kpi.label} kpi={kpi} />
         ))}
       </div>
-
-      <div className="mt-4 grid grid-cols-1 gap-4 lg:grid-cols-3">
-        <Card className="lg:col-span-2">
-          <CardHeader className="flex-row items-center justify-between">
-            <div>
-              <CardTitle>Revenue this week</CardTitle>
-              <p className="mt-1 text-sm text-muted-foreground">Daily takings, last 7 days</p>
-            </div>
-            <Link
+    ),
+    revenue: (
+      <Card>
+        <CardHeader className="flex-row items-center justify-between">
+          <div>
+            <CardTitle>Revenue this week</CardTitle>
+            <p className="mt-1 text-sm text-muted-foreground">Daily takings, last 7 days</p>
+          </div>
+          <Link
+            href="/financials"
+            className={cn(buttonVariants({ variant: "ghost", size: "sm" }), "gap-1 text-muted-foreground")}
+          >
+            Details <ArrowRight className="size-4" />
+          </Link>
+        </CardHeader>
+        <CardContent>
+          {hasTakings ? (
+            <RevenueChart data={weekSeries} />
+          ) : (
+            <EmptyState
+              title="No takings logged yet"
+              body="Record daily sales in Financials to see your revenue trend."
               href="/financials"
-              className={cn(
-                buttonVariants({ variant: "ghost", size: "sm" }),
-                "gap-1 text-muted-foreground",
-              )}
-            >
-              Details <ArrowRight className="size-4" />
-            </Link>
-          </CardHeader>
-          <CardContent>
-            {hasTakings ? (
-              <RevenueChart data={weekSeries} />
-            ) : (
-              <EmptyState
-                title="No takings logged yet"
-                body="Record daily sales in Financials to see your revenue trend."
-                href="/financials"
-                cta="Log takings"
-              />
-            )}
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader>
-            <CardTitle>Sales mix</CardTitle>
-            <p className="mt-1 text-sm text-muted-foreground">Revenue by category</p>
-          </CardHeader>
-          <CardContent>
-            {hasTakings ? (
-              <>
-                <SalesMixChart data={mix} />
-                <ul className="mt-2 flex flex-col gap-2">
-                  {mix.map((s) => (
-                    <li key={s.category} className="flex items-center gap-2 text-sm">
-                      <span className="size-2.5 rounded-full" style={{ backgroundColor: s.fill }} />
-                      <span className="text-muted-foreground">{s.category}</span>
-                      <span className="ml-auto font-medium text-foreground">{s.value}%</span>
-                    </li>
-                  ))}
-                </ul>
-              </>
-            ) : (
-              <EmptyState
-                title="No sales data"
-                body="Your category split appears once you log takings."
-              />
-            )}
-          </CardContent>
-        </Card>
-      </div>
-
-      {venueId && (
-        <div className="mt-4">
-          <SquareSalesCard sales={squareSales} />
-        </div>
-      )}
-
-      <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+              cta="Log takings"
+            />
+          )}
+        </CardContent>
+      </Card>
+    ),
+    salesMix: (
+      <Card>
+        <CardHeader>
+          <CardTitle>Sales mix</CardTitle>
+          <p className="mt-1 text-sm text-muted-foreground">Revenue by category</p>
+        </CardHeader>
+        <CardContent>
+          {hasTakings ? (
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+              <SalesMixChart data={mix} />
+              <ul className="flex flex-col justify-center gap-2">
+                {mix.map((s) => (
+                  <li key={s.category} className="flex items-center gap-2 text-sm">
+                    <span className="size-2.5 rounded-full" style={{ backgroundColor: s.fill }} />
+                    <span className="text-muted-foreground">{s.category}</span>
+                    <span className="ml-auto font-medium text-foreground">{s.value}%</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          ) : (
+            <EmptyState title="No sales data" body="Your category split appears once you log takings." />
+          )}
+        </CardContent>
+      </Card>
+    ),
+    square: venueId ? <SquareSalesCard sales={squareSales} /> : null,
+    quickLinks: (
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
         {quickLinks.map((link) => {
           const Icon = link.icon
           return (
@@ -241,118 +231,118 @@ export default async function DashboardPage() {
           )
         })}
       </div>
-
-      <div className="mt-4 grid grid-cols-1 gap-4 lg:grid-cols-2">
-        <Card>
-          <CardHeader>
-            <CardTitle>Open tasks</CardTitle>
-          </CardHeader>
-          <CardContent className="flex flex-col gap-1">
-            {todaysTasks.length === 0 ? (
-              <p className="px-2 py-8 text-center text-sm text-muted-foreground">
-                No open tasks. Add tasks in Operations.
-              </p>
-            ) : (
-              todaysTasks.map((task) => (
-                <div
-                  key={task.id}
-                  className="flex items-center gap-3 rounded-md px-2 py-2 hover:bg-secondary"
-                >
-                  <span
-                    className="size-4 rounded-full border-2 border-muted-foreground/40"
-                    aria-hidden
-                  />
-                  <div className="min-w-0">
-                    <p className="truncate text-sm font-medium text-foreground">{task.title}</p>
-                    <p className="text-xs text-muted-foreground">
-                      {task.area} · {task.assignee}
-                    </p>
-                  </div>
-                  <span className="ml-auto text-xs text-muted-foreground">{task.due}</span>
-                </div>
-              ))
-            )}
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader>
-            <CardTitle>Upcoming events</CardTitle>
-          </CardHeader>
-          <CardContent className="flex flex-col gap-3">
-            {upcoming.length === 0 ? (
-              <p className="py-8 text-center text-sm text-muted-foreground">
-                No events scheduled. Add events in Operations.
-              </p>
-            ) : (
-              upcoming.map((ev) => (
-                <div
-                  key={ev.id}
-                  className="flex items-center gap-3 rounded-md border border-border p-3"
-                >
-                  <div className="flex size-10 flex-col items-center justify-center rounded-md bg-accent text-accent-foreground">
-                    <CalendarDays className="size-4" />
-                  </div>
-                  <div className="min-w-0">
-                    <p className="truncate text-sm font-medium text-foreground">{ev.name}</p>
-                    <p className="text-xs text-muted-foreground">
-                      {ev.date} · {ev.covers} covers
-                    </p>
-                  </div>
-                  <div className="ml-auto">
-                    <StatusBadge status={ev.status} />
-                  </div>
-                </div>
-              ))
-            )}
-          </CardContent>
-        </Card>
-      </div>
-
-      {hasGaming && (
-        <div className="mt-4">
-          <Card>
-            <CardHeader className="flex-row items-center justify-between">
-              <div className="flex items-center gap-2">
-                <div className="flex size-8 items-center justify-center rounded-md bg-primary/10 text-primary">
-                  <Coins className="size-4" />
-                </div>
-                <div>
-                  <CardTitle>Gaming machines</CardTitle>
-                  <p className="mt-0.5 text-sm text-muted-foreground">
-                    Machine Games Duty &amp; revenue split, month to date
+    ),
+    tasks: (
+      <Card>
+        <CardHeader>
+          <CardTitle>Open tasks</CardTitle>
+        </CardHeader>
+        <CardContent className="flex flex-col gap-1">
+          {todaysTasks.length === 0 ? (
+            <p className="px-2 py-8 text-center text-sm text-muted-foreground">
+              No open tasks. Add tasks in Operations.
+            </p>
+          ) : (
+            todaysTasks.map((task) => (
+              <div key={task.id} className="flex items-center gap-3 rounded-md px-2 py-2 hover:bg-secondary">
+                <span className="size-4 rounded-full border-2 border-muted-foreground/40" aria-hidden />
+                <div className="min-w-0">
+                  <p className="truncate text-sm font-medium text-foreground">{task.title}</p>
+                  <p className="text-xs text-muted-foreground">
+                    {task.area} · {task.assignee}
                   </p>
                 </div>
+                <span className="ml-auto text-xs text-muted-foreground">{task.due}</span>
               </div>
-              <Link
-                href="/financials?tab=gaming"
-                className={cn(
-                  buttonVariants({ variant: "ghost", size: "sm" }),
-                  "gap-1 text-muted-foreground",
-                )}
-              >
-                Manage <ArrowRight className="size-4" />
-              </Link>
-            </CardHeader>
-            <CardContent>
-              <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
-                <GamingStat label="Gaming income" value={gbp0.format(gamingMTD.totalIncomePence / 100)} />
-                <GamingStat
-                  label="MGD due"
-                  value={gbp0.format(gamingMTD.mgdPence / 100)}
-                  tone="down"
-                />
-                <GamingStat
-                  label="Location share"
-                  value={gbp0.format(gamingMTD.locationSharePence / 100)}
-                  tone="up"
-                />
-                <GamingStat label="Machines" value={String(gamingMachines.filter((m) => m.active).length)} />
+            ))
+          )}
+        </CardContent>
+      </Card>
+    ),
+    events: (
+      <Card>
+        <CardHeader>
+          <CardTitle>Upcoming events</CardTitle>
+        </CardHeader>
+        <CardContent className="flex flex-col gap-3">
+          {upcoming.length === 0 ? (
+            <p className="py-8 text-center text-sm text-muted-foreground">
+              No events scheduled. Add events in Operations.
+            </p>
+          ) : (
+            upcoming.map((ev) => (
+              <div key={ev.id} className="flex items-center gap-3 rounded-md border border-border p-3">
+                <div className="flex size-10 flex-col items-center justify-center rounded-md bg-accent text-accent-foreground">
+                  <CalendarDays className="size-4" />
+                </div>
+                <div className="min-w-0">
+                  <p className="truncate text-sm font-medium text-foreground">{ev.name}</p>
+                  <p className="text-xs text-muted-foreground">
+                    {ev.date} · {ev.covers} covers
+                  </p>
+                </div>
+                <div className="ml-auto">
+                  <StatusBadge status={ev.status} />
+                </div>
               </div>
-            </CardContent>
-          </Card>
-        </div>
-      )}
+            ))
+          )}
+        </CardContent>
+      </Card>
+    ),
+    gaming: hasGaming ? (
+      <Card>
+        <CardHeader className="flex-row items-center justify-between">
+          <div className="flex items-center gap-2">
+            <div className="flex size-8 items-center justify-center rounded-md bg-primary/10 text-primary">
+              <Coins className="size-4" />
+            </div>
+            <div>
+              <CardTitle>Gaming machines</CardTitle>
+              <p className="mt-0.5 text-sm text-muted-foreground">
+                Machine Games Duty &amp; revenue split, month to date
+              </p>
+            </div>
+          </div>
+          <Link
+            href="/financials?tab=gaming"
+            className={cn(buttonVariants({ variant: "ghost", size: "sm" }), "gap-1 text-muted-foreground")}
+          >
+            Manage <ArrowRight className="size-4" />
+          </Link>
+        </CardHeader>
+        <CardContent>
+          <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
+            <GamingStat label="Gaming income" value={gbp0.format(gamingMTD.totalIncomePence / 100)} />
+            <GamingStat label="MGD due" value={gbp0.format(gamingMTD.mgdPence / 100)} tone="down" />
+            <GamingStat
+              label="Location share"
+              value={gbp0.format(gamingMTD.locationSharePence / 100)}
+              tone="up"
+            />
+            <GamingStat label="Machines" value={String(gamingMachines.filter((m) => m.active).length)} />
+          </div>
+        </CardContent>
+      </Card>
+    ) : null,
+  }
+
+  const sections: DashboardSection[] = DASHBOARD_SECTIONS.filter(
+    (meta) => nodeById[meta.id] != null,
+  ).map((meta) => ({ ...meta, node: nodeById[meta.id] }))
+
+  return (
+    <>
+      <PageHeader
+        title={`Good afternoon, ${firstName}`}
+        description={
+          activeVenue
+            ? `Here's how ${activeVenue.name} is performing today.`
+            : "Create a venue to get started."
+        }
+      />
+
+      <DashboardGrid sections={sections} initialLayout={dashboardLayout} />
     </>
   )
 }

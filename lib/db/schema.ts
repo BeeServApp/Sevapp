@@ -111,6 +111,9 @@ export const company = pgTable("company", {
   // JSON-encoded arrays of hidden sidebar module hrefs / settings tab ids.
   hiddenModules: text("hiddenModules").notNull().default("[]"),
   hiddenSettingsTabs: text("hiddenSettingsTabs").notNull().default("[]"),
+  // JSON-encoded { order: string[]; hidden: string[] } for the owner's
+  // customizable dashboard (section order + hidden sections).
+  dashboardLayout: text("dashboardLayout").notNull().default("{}"),
   // Stripe subscription / billing state. Pricing is per-location (per venue).
   subscriptionPlan: text("subscriptionPlan"),
   subscriptionStatus: text("subscriptionStatus").notNull().default("none"),
