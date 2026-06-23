@@ -15,6 +15,11 @@ export function WeekNav({ weekStart, className }: { weekStart: string; className
     startTransition(() => router.push(`/staff?week=${week}`))
   }
 
+  function jumpToDate(value: string) {
+    if (!value) return
+    go(weekStartOf(new Date(`${value}T00:00:00`)))
+  }
+
   const isThisWeek = weekStart === weekStartOf()
 
   return (
@@ -43,6 +48,20 @@ export function WeekNav({ weekStart, className }: { weekStart: string; className
           <ChevronRight className="size-4" />
         </Button>
       </div>
+      <label className="relative inline-flex">
+        <span className="sr-only">Jump to a week</span>
+        <Button variant="outline" size="sm" className="pointer-events-none gap-2" tabIndex={-1} aria-hidden="true">
+          <CalendarDays className="size-3.5" />
+          Jump to date
+        </Button>
+        <input
+          type="date"
+          value={weekStart}
+          onChange={(e) => jumpToDate(e.target.value)}
+          aria-label="Jump to a week by date"
+          className="absolute inset-0 cursor-pointer opacity-0"
+        />
+      </label>
       {!isThisWeek && (
         <Button variant="outline" size="sm" onClick={() => go(weekStartOf())}>
           Today
