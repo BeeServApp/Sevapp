@@ -2,7 +2,7 @@
 
 import { useRouter, usePathname, useSearchParams } from "next/navigation"
 import { ChevronLeft, ChevronRight, MapPin, SlidersHorizontal } from "lucide-react"
-import { addWeeks } from "@/lib/rota"
+import { addWeeks, dateForDay } from "@/lib/rota"
 import { cn } from "@/lib/utils"
 
 interface PortalFilterBarProps {
@@ -23,10 +23,8 @@ export function PortalFilterBar({ weekStart, locationLabel = "All", showFilters 
   const pathname = usePathname()
   const params = useSearchParams()
 
-  // Sunday = Monday + 6 days.
-  const end = new Date(`${weekStart}T00:00:00`)
-  end.setDate(end.getDate() + 6)
-  const endISO = end.toISOString().slice(0, 10)
+  // Sunday = Monday + 6 days (timezone-safe via the shared helper).
+  const endISO = dateForDay(weekStart, "Sun")
 
   function goToWeek(offset: number) {
     const next = addWeeks(weekStart, offset)

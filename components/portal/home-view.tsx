@@ -2,7 +2,7 @@
 
 import { useState, useTransition } from "react"
 import { useRouter } from "next/navigation"
-import { Bell, ChevronRight, CalendarClock } from "lucide-react"
+import { ChevronRight, CalendarClock } from "lucide-react"
 import { selfClock } from "@/app/actions/staff"
 import { PortalHeader } from "@/components/portal/portal-header"
 import { PortalFilterBar } from "@/components/portal/portal-filter-bar"
@@ -63,19 +63,7 @@ export function HomeView({ data }: { data: HomeData }) {
 
   return (
     <div className="flex flex-col gap-4">
-      <PortalHeader
-        title={`Hi, ${firstName}`}
-        description={venueName || undefined}
-        action={
-          <button
-            type="button"
-            aria-label="Notifications"
-            className="flex size-9 items-center justify-center rounded-lg border border-border bg-background text-foreground transition-colors hover:bg-muted"
-          >
-            <Bell className="size-4" />
-          </button>
-        }
-      />
+      <PortalHeader title={`Hi, ${firstName}`} description={venueName || undefined} />
 
       {/* Next shift */}
       <Card>
