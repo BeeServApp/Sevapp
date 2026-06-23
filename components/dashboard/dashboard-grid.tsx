@@ -58,39 +58,33 @@ export function DashboardGrid({
   }
 
   function move(id: string, dir: -1 | 1) {
-    setOrder((prev) => {
-      const i = prev.indexOf(id)
-      const j = i + dir
-      if (i < 0 || j < 0 || j >= prev.length) return prev
-      const next = [...prev]
-      ;[next[i], next[j]] = [next[j], next[i]]
-      persist(next, hidden)
-      return next
-    })
+    const i = order.indexOf(id)
+    const j = i + dir
+    if (i < 0 || j < 0 || j >= order.length) return
+    const next = [...order]
+    ;[next[i], next[j]] = [next[j], next[i]]
+    setOrder(next)
+    persist(next, hidden)
   }
 
   function reorderByDrop(targetId: string) {
     if (!dragId || dragId === targetId) return
-    setOrder((prev) => {
-      const from = prev.indexOf(dragId)
-      const to = prev.indexOf(targetId)
-      if (from < 0 || to < 0) return prev
-      const next = [...prev]
-      next.splice(from, 1)
-      next.splice(to, 0, dragId)
-      persist(next, hidden)
-      return next
-    })
+    const from = order.indexOf(dragId)
+    const to = order.indexOf(targetId)
+    if (from < 0 || to < 0) return
+    const next = [...order]
+    next.splice(from, 1)
+    next.splice(to, 0, dragId)
+    setOrder(next)
+    persist(next, hidden)
   }
 
   function toggleHidden(id: string) {
-    setHidden((prev) => {
-      const next = new Set(prev)
-      if (next.has(id)) next.delete(id)
-      else next.add(id)
-      persist(order, next)
-      return next
-    })
+    const next = new Set(hidden)
+    if (next.has(id)) next.delete(id)
+    else next.add(id)
+    setHidden(next)
+    persist(order, next)
   }
 
   function reset() {
