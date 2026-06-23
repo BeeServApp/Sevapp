@@ -23,7 +23,7 @@ import {
   getCrossLocationConflicts,
 } from "@/app/actions/shift-planning"
 import { getHomeData, getRotaData } from "@/app/actions/portal"
-import { getMyProfile } from "@/app/actions/staff"
+import { getMyProfile, getMyLeaveRequests } from "@/app/actions/staff"
 import { getMyAvailability, getMyTimecards } from "@/app/actions/scheduling"
 import { ROTA_DAYS, weekStartOf, addWeeks, dateForDay } from "@/lib/rota"
 import { StaffView } from "@/components/staff-view"
@@ -50,18 +50,20 @@ export default async function StaffPage({
 
   // ── Staff: self-service view (their own shifts, timecards, availability) ────
   if (me.appRole === "staff") {
-    const [home, rota, timecards, profile, availability] = await Promise.all([
+    const [home, rota, timecards, profile, availability, leave] = await Promise.all([
       getHomeData(weekStart),
       getRotaData(weekStart),
       getMyTimecards(weekStart, dateForDay(weekStart, "Sun")),
       getMyProfile(),
       getMyAvailability(),
+      getMyLeaveRequests(),
     ])
     return (
       <StaffPortalView
         home={home}
         rota={rota}
         timecards={timecards}
+        leave={leave}
         weekStart={weekStart}
         me={{
           name: me.name,

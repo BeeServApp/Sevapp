@@ -4,14 +4,16 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs"
 import { HomeView } from "@/components/portal/home-view"
 import { RotaView } from "@/components/portal/rota-view"
 import { TimecardsView } from "@/components/portal/timecards-view"
+import { LeaveView } from "@/components/portal/leave-view"
 import { MeView } from "@/components/portal/me-view"
 import type { HomeData, RotaData } from "@/app/actions/portal"
-import type { DbTimecard, DbAvailability } from "@/lib/db/schema"
+import type { DbTimecard, DbAvailability, DbLeaveRequest } from "@/lib/db/schema"
 
 interface StaffPortalViewProps {
   home: HomeData
   rota: RotaData
   timecards: DbTimecard[]
+  leave: DbLeaveRequest[]
   weekStart: string
   me: {
     name: string
@@ -34,6 +36,7 @@ export function StaffPortalView({
   home,
   rota,
   timecards,
+  leave,
   weekStart,
   me,
   availability,
@@ -42,10 +45,11 @@ export function StaffPortalView({
   return (
     <div className="mx-auto w-full max-w-3xl">
       <Tabs defaultValue="home" className="gap-6">
-        <TabsList className="w-full max-w-md">
+        <TabsList className="w-full max-w-xl">
           <TabsTrigger value="home">Home</TabsTrigger>
           <TabsTrigger value="rota">Rota</TabsTrigger>
           <TabsTrigger value="timecards">Timecards</TabsTrigger>
+          <TabsTrigger value="leave">Leave</TabsTrigger>
           <TabsTrigger value="me">Me</TabsTrigger>
         </TabsList>
 
@@ -64,6 +68,9 @@ export function StaffPortalView({
         </TabsContent>
         <TabsContent value="timecards">
           <TimecardsView weekStart={weekStart} timecards={timecards} />
+        </TabsContent>
+        <TabsContent value="leave">
+          <LeaveView initialLeave={leave} />
         </TabsContent>
         <TabsContent value="me">
           <MeView
