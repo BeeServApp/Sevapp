@@ -4,6 +4,7 @@ import { db } from "@/lib/db"
 import { company } from "@/lib/db/schema"
 import { getAccountId as getUserId } from "@/lib/session"
 import { ensureCompanyRow } from "@/lib/trial"
+import type { DashboardLayout } from "@/lib/dashboard-sections"
 import { eq } from "drizzle-orm"
 import { revalidatePath } from "next/cache"
 
@@ -119,6 +120,38 @@ export async function updateCompany(data: {
     .where(eq(company.userId, userId))
 
   revalidatePath("/", "layout")
+}
+
+export async function getDashboardLayout(): Promise<DashboardLayout> {
+  const userId = await getUserId()
+  const row = await ensureCompanyRow(userId)
+  try {
+    const parsed = JSON.parse(row.dashboardLayout || "{}")
+    return {
+      order: Array.isArray(parsed?.order) ? parsed.order.filter((v: unknown) => typeof v === "string") : [],
+      hidden: Array.isArray(parsed?.hidden) ? parsed.hidden.filter((v: unknown) => typeof v === "string") : [],
+    }
+  } catch {
+    return { order: [], hidden: [] }
+  }
+}
+
+export async function saveDashboardLayout(layout: DashboardLayout) {
+  const userId = await getUserId()
+  await ensureCompany(userId)
+
+  await db
+    .update(company)
+    .set({
+      dashboardLayout: JSON.stringify({
+        order: Array.isArray(layout.order) ? layout.order : [],
+        hidden: Array.isArray(layout.hidden) ? layout.hidden : [],
+      }),
+      updatedAt: new Date(),
+    })
+    .where(eq(company.userId, userId))
+
+  revalidatePath("/dashboard")
 }
 
 export async function updateHiddenTabs(data: {

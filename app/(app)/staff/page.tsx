@@ -22,7 +22,7 @@ import {
   getShiftTasks,
   getCrossLocationConflicts,
 } from "@/app/actions/shift-planning"
-import { getHomeData, getTeamWeekShifts } from "@/app/actions/portal"
+import { getHomeData, getRotaData } from "@/app/actions/portal"
 import { getMyProfile } from "@/app/actions/staff"
 import { getMyAvailability, getMyTimecards } from "@/app/actions/scheduling"
 import { ROTA_DAYS, weekStartOf, addWeeks, dateForDay } from "@/lib/rota"
@@ -52,7 +52,7 @@ export default async function StaffPage({
   if (me.appRole === "staff") {
     const [home, rota, timecards, profile, availability] = await Promise.all([
       getHomeData(weekStart),
-      getTeamWeekShifts(weekStart),
+      getRotaData(weekStart),
       getMyTimecards(weekStart, dateForDay(weekStart, "Sun")),
       getMyProfile(),
       getMyAvailability(),

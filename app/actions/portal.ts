@@ -1,7 +1,8 @@
 "use server"
 
 import { db } from "@/lib/db"
-import { rotaShift, staffMember, clockEvent, tipEntry, takings, venue, timecard } from "@/lib/db/schema"
+import { rotaShift, staffMember, clockEvent, tipEntry, takings, venue, timecard, shiftSwap } from "@/lib/db/schema"
+import type { DbShiftSwap } from "@/lib/db/schema"
 import { getCurrentUser } from "@/lib/session"
 import { and, asc, desc, eq, gte, lte } from "drizzle-orm"
 import { addWeeks, dateForDay, dayLabelOf, shiftHours, weekStartOf } from "@/lib/rota"
@@ -335,4 +336,137 @@ export async function getTeamWeekShifts(weekStartRaw?: string): Promise<{ venueN
     })
 
   return { venueName: v?.name ?? "", shifts }
+}
+
+export interface OpenShift {
+  id: number
+  day: string
+  dateISO: string
+  startTime: string | null
+  endTime: string | null
+  shiftTime: string | null
+  breakMins: number
+  role: string | null
+  color: string | null
+}
+
+export interface RotaData {
+  venueName: string
+  weekStart: string
+  myStaffMemberId: number | null
+  shifts: TeamShift[]
+  openShifts: OpenShift[]
+  mySwaps: DbShiftSwap[]
+  teammates: { id: number; name: string }[]
+}
+
+/**
+ * Everything the staff Rota tab needs in one round trip: published team shifts,
+ * unassigned open shifts staff can claim, the staff member's own pending swap/
+ * drop/claim requests, and the list of teammates available as swap targets.
+ */
+export async function getRotaData(weekStartRaw?: string): Promise<RotaData> {
+  const me = await getCurrentUser()
+  const weekStart = weekStartRaw && /^\d{4}-\d{2}-\d{2}$/.test(weekStartRaw) ? weekStartRaw : weekStartOf()
+  const empty: RotaData = {
+    venueName: "",
+    weekStart,
+    myStaffMemberId: me.staffMemberId,
+    shifts: [],
+    openShifts: [],
+    mySwaps: [],
+    teammates: [],
+  }
+  if (me.staffMemberId == null) return empty
+
+  const [profile] = await db
+    .select()
+    .from(staffMember)
+    .where(and(eq(staffMember.id, me.staffMemberId), eq(staffMember.userId, me.accountId)))
+    .limit(1)
+  if (!profile) return empty
+
+  const [v] = await db
+    .select({ name: venue.name })
+    .from(venue)
+    .where(eq(venue.id, profile.venueId))
+    .limit(1)
+
+  const members = await db
+    .select({ id: staffMember.id, name: staffMember.name })
+    .from(staffMember)
+    .where(and(eq(staffMember.userId, me.accountId), eq(staffMember.venueId, profile.venueId)))
+  const nameById = new Map(members.map((m) => [m.id, m.name]))
+
+  const rows = await db
+    .select()
+    .from(rotaShift)
+    .where(
+      and(
+        eq(rotaShift.userId, me.accountId),
+        eq(rotaShift.venueId, profile.venueId),
+        eq(rotaShift.weekStart, weekStart),
+        eq(rotaShift.status, "published"),
+      ),
+    )
+    .orderBy(asc(rotaShift.id))
+
+  const byDayThenStart = (a: { day: string; startTime: string | null }, b: { day: string; startTime: string | null }) => {
+    const d = (DAY_ORDER[a.day] ?? 9) - (DAY_ORDER[b.day] ?? 9)
+    if (d !== 0) return d
+    return (a.startTime ?? "").localeCompare(b.startTime ?? "")
+  }
+
+  const shifts: TeamShift[] = rows
+    .filter((s) => s.staffMemberId > 0)
+    .map((s) => ({
+      id: s.id,
+      day: s.day,
+      dateISO: dateForDay(weekStart, s.day),
+      startTime: s.startTime,
+      endTime: s.endTime,
+      shiftTime: s.shiftTime,
+      breakMins: s.breakMins,
+      role: s.role,
+      color: s.color,
+      staffMemberId: s.staffMemberId,
+      staffName: nameById.get(s.staffMemberId) ?? "Team member",
+      isMe: s.staffMemberId === me.staffMemberId,
+    }))
+    .sort(byDayThenStart)
+
+  const openShifts: OpenShift[] = rows
+    .filter((s) => s.staffMemberId === 0)
+    .map((s) => ({
+      id: s.id,
+      day: s.day,
+      dateISO: dateForDay(weekStart, s.day),
+      startTime: s.startTime,
+      endTime: s.endTime,
+      shiftTime: s.shiftTime,
+      breakMins: s.breakMins,
+      role: s.role,
+      color: s.color,
+    }))
+    .sort(byDayThenStart)
+
+  const mySwaps: DbShiftSwap[] = await db
+    .select()
+    .from(shiftSwap)
+    .where(and(eq(shiftSwap.userId, me.accountId), eq(shiftSwap.requesterStaffId, me.staffMemberId)))
+    .orderBy(desc(shiftSwap.createdAt))
+
+  const teammates = members
+    .filter((m) => m.id !== me.staffMemberId)
+    .sort((a, b) => a.name.localeCompare(b.name))
+
+  return {
+    venueName: v?.name ?? "",
+    weekStart,
+    myStaffMemberId: me.staffMemberId,
+    shifts,
+    openShifts,
+    mySwaps,
+    teammates,
+  }
 }

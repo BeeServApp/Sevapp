@@ -113,6 +113,9 @@ export const company = pgTable("company", {
   // JSON-encoded arrays of hidden sidebar module hrefs / settings tab ids.
   hiddenModules: text("hiddenModules").notNull().default("[]"),
   hiddenSettingsTabs: text("hiddenSettingsTabs").notNull().default("[]"),
+  // JSON-encoded { order: string[]; hidden: string[] } for the owner's
+  // customizable dashboard (section order + hidden sections).
+  dashboardLayout: text("dashboardLayout").notNull().default("{}"),
   // Stripe subscription / billing state. Pricing is per-location (per venue).
   subscriptionPlan: text("subscriptionPlan"),
   subscriptionStatus: text("subscriptionStatus").notNull().default("none"),
@@ -771,6 +774,8 @@ export const takings = pgTable("takings", {
   foodPence: integer("foodPence").notNull().default(0),
   eventsPence: integer("eventsPence").notNull().default(0),
   retailPence: integer("retailPence").notNull().default(0),
+  // Synced card sales pulled from Square (separate from manual categories).
+  squarePence: integer("squarePence").notNull().default(0),
   createdAt: timestamp("createdAt").notNull().defaultNow(),
 })
 

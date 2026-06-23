@@ -1,7 +1,7 @@
 "use client"
 
 import { useRouter } from "next/navigation"
-import { useTransition } from "react"
+import { useRef, useTransition } from "react"
 import { ChevronLeft, ChevronRight, CalendarDays } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { addWeeks, weekStartOf, weekRangeLabel } from "@/lib/rota"
@@ -10,6 +10,7 @@ import { cn } from "@/lib/utils"
 export function WeekNav({ weekStart, className }: { weekStart: string; className?: string }) {
   const router = useRouter()
   const [isPending, startTransition] = useTransition()
+  const dateRef = useRef<HTMLInputElement>(null)
 
   function go(week: string) {
     startTransition(() => router.push(`/staff?week=${week}`))
@@ -18,6 +19,19 @@ export function WeekNav({ weekStart, className }: { weekStart: string; className
   function jumpToDate(value: string) {
     if (!value) return
     go(weekStartOf(new Date(`${value}T00:00:00`)))
+  }
+
+  function openDatePicker() {
+    const el = dateRef.current
+    if (!el) return
+    // showPicker() is the reliable way to open a native date picker on click.
+    // Fall back to focus()/click() on browsers that don't support it.
+    try {
+      el.showPicker()
+    } catch {
+      el.focus()
+      el.click()
+    }
   }
 
   const isThisWeek = weekStart === weekStartOf()
@@ -48,20 +62,23 @@ export function WeekNav({ weekStart, className }: { weekStart: string; className
           <ChevronRight className="size-4" />
         </Button>
       </div>
-      <label className="relative inline-flex">
-        <span className="sr-only">Jump to a week</span>
-        <Button variant="outline" size="sm" className="pointer-events-none gap-2" tabIndex={-1} aria-hidden="true">
+      <div className="relative inline-flex">
+        <Button variant="outline" size="sm" className="gap-2" onClick={openDatePicker}>
           <CalendarDays className="size-3.5" />
           Jump to date
         </Button>
         <input
+          ref={dateRef}
           type="date"
           value={weekStart}
           onChange={(e) => jumpToDate(e.target.value)}
           aria-label="Jump to a week by date"
-          className="absolute inset-0 cursor-pointer opacity-0"
+          // Kept in the DOM (not display:none) so showPicker() can anchor to it,
+          // but visually hidden and non-interactive on its own.
+          className="pointer-events-none absolute bottom-0 left-0 h-0 w-0 opacity-0"
+          tabIndex={-1}
         />
-      </label>
+      </div>
       {!isThisWeek && (
         <Button variant="outline" size="sm" onClick={() => go(weekStartOf())}>
           Today

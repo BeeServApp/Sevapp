@@ -4,8 +4,9 @@ import { and, eq } from "drizzle-orm"
 import { revalidatePath } from "next/cache"
 import { db } from "@/lib/db"
 import { squareConnection, venue } from "@/lib/db/schema"
-import { getAccountId, requireOwner } from "@/lib/session"
+import { getAccountId, getActiveVenueId, requireOwner } from "@/lib/session"
 import { squareConfigured, squareFetch, getRedirectUri } from "@/lib/square"
+import { syncSquareForVenue, syncSquareForAccount } from "@/lib/square-sync"
 
 // ── Types shared with the UI ────────────────────────────────────────────────
 
@@ -215,4 +216,44 @@ export async function getSquareSales(venueId: number | null): Promise<SquareSale
   } catch (err) {
     return { state: "error", message: err instanceof Error ? err.message : "Square request failed" }
   }
+}
+
+// ── Manual "Sync now" trigger ───────────────────────────────────────────────
+
+export interface SquareSyncSummary {
+  ok: boolean
+  reason?: string
+  days: number
+  totalPence: number
+  venues?: number
+}
+
+/**
+ * Pulls Square card sales into the takings table on demand. `scope: "active"`
+ * syncs the active venue (Dashboard / Financials); `scope: "all"` syncs every
+ * mapped venue (Group dashboard). Revalidates all three surfaces.
+ */
+export async function syncSquareSalesNow(
+  scope: "active" | "all" = "active",
+): Promise<SquareSyncSummary> {
+  const accountId = await getAccountId()
+
+  let summary: SquareSyncSummary
+  if (scope === "all") {
+    const r = await syncSquareForAccount(accountId)
+    summary = { ok: r.venues > 0, days: 0, totalPence: r.totalPence, venues: r.venues }
+  } else {
+    const venueId = await getActiveVenueId(accountId)
+    if (venueId == null) {
+      summary = { ok: false, reason: "no_venue", days: 0, totalPence: 0 }
+    } else {
+      const r = await syncSquareForVenue(accountId, venueId)
+      summary = { ok: r.synced, reason: r.reason, days: r.days, totalPence: r.totalPence }
+    }
+  }
+
+  revalidatePath("/dashboard")
+  revalidatePath("/dashboard/group")
+  revalidatePath("/financials")
+  return summary
 }

@@ -5,12 +5,12 @@ import { HomeView } from "@/components/portal/home-view"
 import { RotaView } from "@/components/portal/rota-view"
 import { TimecardsView } from "@/components/portal/timecards-view"
 import { MeView } from "@/components/portal/me-view"
-import type { HomeData, TeamShift } from "@/app/actions/portal"
+import type { HomeData, RotaData } from "@/app/actions/portal"
 import type { DbTimecard, DbAvailability } from "@/lib/db/schema"
 
 interface StaffPortalViewProps {
   home: HomeData
-  rota: { venueName: string; shifts: TeamShift[] }
+  rota: RotaData
   timecards: DbTimecard[]
   weekStart: string
   me: {
@@ -53,7 +53,14 @@ export function StaffPortalView({
           <HomeView data={home} />
         </TabsContent>
         <TabsContent value="rota">
-          <RotaView weekStart={weekStart} venueName={rota.venueName} shifts={rota.shifts} />
+          <RotaView
+            weekStart={weekStart}
+            venueName={rota.venueName}
+            shifts={rota.shifts}
+            openShifts={rota.openShifts}
+            mySwaps={rota.mySwaps}
+            teammates={rota.teammates}
+          />
         </TabsContent>
         <TabsContent value="timecards">
           <TimecardsView weekStart={weekStart} timecards={timecards} />
