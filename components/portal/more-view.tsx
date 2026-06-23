@@ -3,7 +3,7 @@
 import { useState } from "react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
-import { CalendarCheck, History, LifeBuoy, User, ChevronRight, LogOut } from "lucide-react"
+import { CalendarCheck, CalendarOff, History, LifeBuoy, User, ChevronRight, LogOut } from "lucide-react"
 import { authClient } from "@/lib/auth-client"
 import { PortalHeader } from "@/components/portal/portal-header"
 import { Card, CardContent } from "@/components/ui/card"
@@ -11,6 +11,7 @@ import { buttonVariants } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
 
 const LINKS = [
+  { href: "/portal/leave", label: "Leave requests", icon: CalendarOff },
   { href: "/portal/me", label: "My availability", icon: CalendarCheck },
   { href: "/portal/timecards", label: "Timecards", icon: History },
   { href: "/portal/me", label: "Profile", icon: User },

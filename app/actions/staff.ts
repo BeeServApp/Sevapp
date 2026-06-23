@@ -385,9 +385,95 @@ export async function updateLeaveStatus(id: number, status: "Approved" | "Declin
     .set({ status })
     .where(and(eq(leaveRequest.id, id), eq(leaveRequest.userId, me.accountId)))
     .returning()
+
+  // Notify the staff member who made the request.
+  const [member] = await db
+    .select()
+    .from(staffMember)
+    .where(and(eq(staffMember.id, updated.staffMemberId), eq(staffMember.userId, me.accountId)))
+    .limit(1)
+  if (member?.linkedUserId) {
+    await notify({
+      accountId: me.accountId,
+      recipientUserId: member.linkedUserId,
+      staffMemberId: member.id,
+      kind: "leave",
+      title: `Leave ${status.toLowerCase()}`,
+      body: `${updated.type} leave (${updated.dates}) was ${status.toLowerCase()}.`,
+      href: "/portal/leave",
+      email: member.email,
+    })
+  }
+
   await emitChange(me.accountId, "all")
   revalidatePath("/staff")
   return updated
+}
+
+// ── Staff-facing leave (mobile portal) ─────────────────────────────────────────
+
+/** The logged-in staff member's own leave requests, newest first. */
+export async function getMyLeaveRequests() {
+  const me = await getCurrentUser()
+  if (me.staffMemberId == null) return []
+  return db
+    .select()
+    .from(leaveRequest)
+    .where(and(eq(leaveRequest.userId, me.accountId), eq(leaveRequest.staffMemberId, me.staffMemberId)))
+    .orderBy(desc(leaveRequest.createdAt))
+}
+
+/**
+ * A staff member submits their own leave request. It lands in the same
+ * `leaveRequest` table the owner reviews in Staff & Scheduling → Leave, so the
+ * two sides stay in sync. The owner is notified to approve or decline.
+ */
+export async function createMyLeaveRequest(input: {
+  type: string
+  dates: string
+  days: number
+}) {
+  const me = await getCurrentUser()
+  if (me.staffMemberId == null) throw new Error("Not a staff account")
+
+  const [profile] = await db
+    .select()
+    .from(staffMember)
+    .where(and(eq(staffMember.id, me.staffMemberId), eq(staffMember.userId, me.accountId)))
+    .limit(1)
+  if (!profile) throw new Error("Staff profile not found")
+
+  const days = Number.isFinite(input.days) && input.days > 0 ? Math.round(input.days) : 1
+
+  const [created] = await db
+    .insert(leaveRequest)
+    .values({
+      userId: me.accountId,
+      venueId: profile.venueId,
+      staffMemberId: me.staffMemberId,
+      name: profile.name,
+      type: input.type,
+      dates: input.dates,
+      days,
+      status: "Pending",
+    })
+    .returning()
+
+  // Notify the owner so they can review it.
+  await notify({
+    accountId: me.accountId,
+    recipientUserId: me.accountId,
+    staffMemberId: me.staffMemberId,
+    kind: "leave",
+    title: "Leave requested",
+    body: `${profile.name} requested ${input.type} leave (${input.dates}).`,
+    href: "/staff",
+  })
+
+  await emitChange(me.accountId, "all")
+  revalidatePath("/staff")
+  revalidatePath("/portal/leave")
+  return created
 }
 
 // ── Clock events ─────────────────────────────────────────────────────────────

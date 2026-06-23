@@ -3,6 +3,7 @@ import type { Metadata } from "next"
 import { redirect } from "next/navigation"
 import { getCurrentUser, getSession } from "@/lib/session"
 import { PortalTabBar } from "@/components/portal/portal-tab-bar"
+import { RealtimeProvider } from "@/components/realtime-provider"
 
 export const metadata: Metadata = {
   title: "Beeserv",
@@ -17,11 +18,13 @@ export default async function PortalLayout({ children }: { children: React.React
   if (me.appRole !== "staff") redirect("/dashboard")
 
   return (
-    <div className="min-h-[100dvh] bg-background">
-      <div className="mx-auto flex min-h-[100dvh] w-full max-w-md flex-col bg-background">
-        <main className="flex-1 px-4 pb-28 pt-6">{children}</main>
-        <PortalTabBar />
+    <RealtimeProvider>
+      <div className="min-h-[100dvh] bg-background">
+        <div className="mx-auto flex min-h-[100dvh] w-full max-w-md flex-col bg-background">
+          <main className="flex-1 px-4 pb-28 pt-6">{children}</main>
+          <PortalTabBar />
+        </div>
       </div>
-    </div>
+    </RealtimeProvider>
   )
 }
