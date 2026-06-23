@@ -768,6 +768,8 @@ export const takings = pgTable("takings", {
   foodPence: integer("foodPence").notNull().default(0),
   eventsPence: integer("eventsPence").notNull().default(0),
   retailPence: integer("retailPence").notNull().default(0),
+  // Synced card sales pulled from Square (separate from manual categories).
+  squarePence: integer("squarePence").notNull().default(0),
   createdAt: timestamp("createdAt").notNull().defaultNow(),
 })
 

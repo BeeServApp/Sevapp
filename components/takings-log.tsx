@@ -32,7 +32,7 @@ const gbp = new Intl.NumberFormat("en-GB", {
 })
 
 function total(t: DbTakings) {
-  return (t.wetPence + t.foodPence + t.eventsPence + t.retailPence) / 100
+  return (t.wetPence + t.foodPence + t.eventsPence + t.retailPence + (t.squarePence ?? 0)) / 100
 }
 
 function fmtDate(iso: string) {
@@ -130,6 +130,7 @@ export function TakingsLog({ venueId, initialTakings }: Props) {
                   <TableHead className="text-right">Wet</TableHead>
                   <TableHead className="text-right">Food</TableHead>
                   <TableHead className="text-right">Events</TableHead>
+                  <TableHead className="text-right">Card (Square)</TableHead>
                   <TableHead className="text-right">Total</TableHead>
                   <TableHead className="w-10" />
                 </TableRow>
@@ -148,6 +149,9 @@ export function TakingsLog({ venueId, initialTakings }: Props) {
                     </TableCell>
                     <TableCell className="text-right tabular-nums">
                       {gbp.format(r.eventsPence / 100)}
+                    </TableCell>
+                    <TableCell className="text-right tabular-nums text-muted-foreground">
+                      {gbp.format((r.squarePence ?? 0) / 100)}
                     </TableCell>
                     <TableCell className="text-right font-medium tabular-nums">
                       {gbp.format(total(r))}

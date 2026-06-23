@@ -24,6 +24,7 @@ import { getTakings } from "@/app/actions/takings"
 import { getExpenses } from "@/app/actions/financials"
 import { getGamingMachines } from "@/app/actions/gaming"
 import { getSquareSales, type SquareSales } from "@/app/actions/square"
+import { syncSquareForVenue } from "@/lib/square-sync"
 import { getDashboardLayout } from "@/app/actions/company"
 import { SquareSalesCard } from "@/components/square-sales-card"
 import { DashboardGrid, type DashboardSection } from "@/components/dashboard/dashboard-grid"
@@ -59,6 +60,16 @@ export default async function DashboardPage() {
   const venues = await getVenues()
   const activeVenue = venues.find((v) => v.id === venueId)
   const firstName = (session?.user?.name || "there").split(" ")[0]
+
+  // Pull the latest Square card sales into takings first so every figure below
+  // (and on the group dashboard / financials) reflects Square. Fail soft.
+  if (venueId) {
+    try {
+      await syncSquareForVenue(userId, venueId)
+    } catch {
+      // Square downtime must never break the dashboard.
+    }
+  }
 
   const [tasks, events, takings, expenses, gamingMachines] = venueId
     ? await Promise.all([

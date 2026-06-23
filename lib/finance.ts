@@ -11,6 +11,7 @@ export const SALES_CATEGORIES = [
   { key: "foodPence", label: "Food", fill: "var(--chart-2)" },
   { key: "eventsPence", label: "Events", fill: "var(--chart-4)" },
   { key: "retailPence", label: "Retail", fill: "var(--chart-3)" },
+  { key: "squarePence", label: "Card sales (Square)", fill: "var(--chart-5)" },
 ] as const
 
 const EXPENSE_FILLS = [
@@ -22,7 +23,8 @@ const EXPENSE_FILLS = [
 ]
 
 export function takingsTotalPence(t: DbTakings) {
-  return t.wetPence + t.foodPence + t.eventsPence + t.retailPence
+  // Square card sales are summed on top of the manually-logged categories.
+  return t.wetPence + t.foodPence + t.eventsPence + t.retailPence + (t.squarePence ?? 0)
 }
 
 /** Local YYYY-MM-DD for a Date (timezone-safe). */
