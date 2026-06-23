@@ -25,6 +25,10 @@ export const MODULES: ModuleDef[] = [
 // hidden from the sidebar and blocked at the route level.
 export const STAFF_ALLOWED_PATHS = ["/staff", "/tasks"]
 
+// Settings tabs a staff account may open. Staff manage only their own profile
+// and personal preferences — never company, venues, team, billing, etc.
+export const STAFF_ALLOWED_SETTINGS_TABS = ["account", "preferences"]
+
 export function isPathAllowedForRole(pathname: string, appRole: "owner" | "staff") {
   if (appRole === "owner") return true
   return STAFF_ALLOWED_PATHS.some((p) => pathname === p || pathname.startsWith(`${p}/`))

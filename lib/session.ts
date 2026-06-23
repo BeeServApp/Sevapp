@@ -3,6 +3,7 @@ import "server-only"
 import { auth } from "@/lib/auth"
 import { db } from "@/lib/db"
 import { business, staffMember, user, venue } from "@/lib/db/schema"
+import { ensureSeeded } from "@/lib/seed"
 import { asc, eq } from "drizzle-orm"
 import { cookies, headers } from "next/headers"
 import { redirect } from "next/navigation"
@@ -105,7 +106,7 @@ export async function requireOwner(): Promise<CurrentUser> {
  */
 export async function guardOwnerPage(): Promise<CurrentUser> {
   const me = await getCurrentUser()
-  if (me.appRole !== "owner") redirect("/portal/home")
+  if (me.appRole !== "owner") redirect("/staff")
   return me
 }
 
@@ -125,6 +126,14 @@ export async function getActiveVenueId(accountId: string): Promise<number | null
       .where(eq(staffMember.id, me.staffMemberId))
       .limit(1)
     if (sm) return sm.venueId
+  }
+
+  // Guarantee the owner's demo data exists before resolving a venue. Pages render
+  // in parallel with the layout, so relying on the layout alone to seed creates a
+  // race where a page can query venues before seeding finishes. ensureSeeded is
+  // idempotent (it no-ops once a venue exists), so this is cheap on later calls.
+  if (me?.appRole === "owner") {
+    await ensureSeeded(me.id, me.name, me.email)
   }
 
   const venues = await db
