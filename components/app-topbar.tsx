@@ -3,7 +3,18 @@
 import { useState } from "react"
 import Link from "next/link"
 import { useRouter, usePathname } from "next/navigation"
-import { Search, Menu, ChevronDown, MapPin, Check, Plus, Settings, LogOut, Building2 } from "lucide-react"
+import {
+  Search,
+  Menu,
+  ChevronDown,
+  MapPin,
+  Check,
+  Plus,
+  Settings,
+  LogOut,
+  Building2,
+  ShieldCheck,
+} from "lucide-react"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
@@ -19,6 +30,7 @@ import {
 import { AppSidebar } from "@/components/app-sidebar"
 import { NotificationCenter } from "@/components/notification-center"
 import { useVenue } from "@/components/venue-provider"
+import { BusinessSwitcher } from "@/components/business-switcher"
 import { authClient } from "@/lib/auth-client"
 
 function initials(name: string) {
@@ -37,7 +49,7 @@ export function AppTopbar() {
   const [mobileOpen, setMobileOpen] = useState(false)
   const router = useRouter()
   const pathname = usePathname()
-  const { venues, activeVenue, user, switchVenue, appRole } = useVenue()
+  const { venues, activeVenue, user, switchVenue, appRole, businesses, isSuperAdmin } = useVenue()
 
   const isOwner = appRole === "owner"
   const isGroupView = pathname === "/dashboard/group"
@@ -60,6 +72,14 @@ export function AppTopbar() {
       >
         <Menu className="size-5" />
       </Button>
+
+      {/* Business switcher (one login can own several businesses) */}
+      {isOwner && businesses.length > 0 && (
+        <>
+          <BusinessSwitcher businesses={businesses} />
+          <div className="hidden h-8 w-px bg-border sm:block" aria-hidden="true" />
+        </>
+      )}
 
       {/* Venue switcher */}
       <DropdownMenu>
@@ -148,6 +168,12 @@ export function AppTopbar() {
               <Settings className="size-4" />
               Settings
             </DropdownMenuItem>
+            {isSuperAdmin && (
+              <DropdownMenuItem render={<Link href="/admin" />}>
+                <ShieldCheck className="size-4" />
+                Admin console
+              </DropdownMenuItem>
+            )}
             <DropdownMenuSeparator />
             <DropdownMenuItem variant="destructive" onClick={handleSignOut}>
               <LogOut className="size-4" />
