@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react"
 import Image from "next/image"
-import { Package, PoundSterling, Layers, CalendarClock, MoreVertical, Pencil, Trash2, Download, Coins, Wrench } from "lucide-react"
+import { Package, PoundSterling, Layers, CalendarClock, MoreVertical, Pencil, Trash2, Download, Coins, Wrench, ArrowRightLeft } from "lucide-react"
 import * as XLSX from "xlsx"
 import { PageHeader } from "@/components/page-header"
 import { AssetDialog } from "@/components/add-asset-dialog"
@@ -36,6 +36,7 @@ import {
 } from "@/components/ui/alert-dialog"
 import { deleteAsset } from "@/app/actions/assets"
 import { MaintenanceLogDialog } from "@/components/maintenance-log-dialog"
+import { TransferAssetDialog, type TransferVenue } from "@/components/transfer-asset-dialog"
 import type { AssetCondition, MaintenanceRecord, ViewAsset } from "@/lib/asset-types"
 import { cn } from "@/lib/utils"
 
@@ -99,10 +100,14 @@ function AssetActions({
   onEdit,
   onDelete,
   onLog,
+  onTransfer,
+  canTransfer,
 }: {
   onEdit: () => void
   onDelete: () => void
   onLog: () => void
+  onTransfer: () => void
+  canTransfer: boolean
 }) {
   return (
     <DropdownMenu>
@@ -121,6 +126,11 @@ function AssetActions({
         <DropdownMenuItem onClick={onEdit}>
           <Pencil className="size-4" /> Edit
         </DropdownMenuItem>
+        {canTransfer && (
+          <DropdownMenuItem onClick={onTransfer}>
+            <ArrowRightLeft className="size-4" /> Transfer to venue
+          </DropdownMenuItem>
+        )}
         <DropdownMenuItem variant="destructive" onClick={onDelete}>
           <Trash2 className="size-4" /> Remove
         </DropdownMenuItem>
@@ -151,15 +161,27 @@ export function AssetsView({
   initialAssets,
   initialMaintenance,
   venueId,
+  venues,
 }: {
   initialAssets: ViewAsset[]
   initialMaintenance: MaintenanceRecord[]
   venueId: number
+  venues: TransferVenue[]
 }) {
   const [assets, setAssets] = useState<ViewAsset[]>(initialAssets)
   const [maintenance, setMaintenance] = useState<MaintenanceRecord[]>(initialMaintenance)
   const [editing, setEditing] = useState<ViewAsset | null>(null)
   const [logging, setLogging] = useState<ViewAsset | null>(null)
+  const [transferring, setTransferring] = useState<ViewAsset | null>(null)
+
+  // Transferring is only possible when the account has more than one venue.
+  const canTransfer = venues.length > 1
+
+  // When an asset is transferred away, drop it (and its maintenance) from view.
+  function handleTransferred(assetDbId: number) {
+    setAssets((prev) => prev.filter((a) => a.dbId !== assetDbId))
+    setMaintenance((prev) => prev.filter((r) => r.assetId !== assetDbId))
+  }
 
   const maintenanceByAsset = useMemo(() => {
     const map = new Map<number, MaintenanceRecord[]>()
@@ -389,6 +411,8 @@ export function AssetsView({
                           onEdit={() => setEditing(a)}
                           onDelete={() => setDeleting(a)}
                           onLog={() => setLogging(a)}
+                          onTransfer={() => setTransferring(a)}
+                          canTransfer={canTransfer}
                         />
                       </div>
                     </div>
@@ -484,6 +508,8 @@ export function AssetsView({
                           onEdit={() => setEditing(a)}
                           onDelete={() => setDeleting(a)}
                           onLog={() => setLogging(a)}
+                          onTransfer={() => setTransferring(a)}
+                          canTransfer={canTransfer}
                         />
                       </TableCell>
                     </TableRow>
@@ -513,6 +539,18 @@ export function AssetsView({
           open={!!logging}
           onOpenChange={(o) => !o && setLogging(null)}
           onChange={(next) => handleMaintenanceChange(logging.dbId, next)}
+        />
+      )}
+
+      {/* Transfer dialog (controlled) */}
+      {transferring && (
+        <TransferAssetDialog
+          asset={transferring}
+          currentVenueId={venueId}
+          venues={venues}
+          open={!!transferring}
+          onOpenChange={(o) => !o && setTransferring(null)}
+          onTransferred={handleTransferred}
         />
       )}
 

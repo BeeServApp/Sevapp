@@ -1,7 +1,7 @@
 "use server"
 
 import { db } from "@/lib/db"
-import { asset, maintenance } from "@/lib/db/schema"
+import { asset, gamingMachine, maintenance, venue } from "@/lib/db/schema"
 import { getUserId } from "@/lib/session"
 import { and, asc, desc, eq, isNotNull } from "drizzle-orm"
 import { revalidatePath } from "next/cache"
@@ -102,6 +102,55 @@ export async function deleteAsset(id: number) {
   const userId = await getUserId()
   await db.delete(asset).where(and(eq(asset.id, id), eq(asset.userId, userId)))
   revalidatePath("/assets")
+}
+
+/**
+ * Moves an asset to another venue on the same account, taking its linked data
+ * with it. Maintenance records follow the asset; any gaming-machine link is
+ * cleared because the machine itself stays registered at its original venue.
+ */
+export async function transferAsset(id: number, targetVenueId: number) {
+  const userId = await getUserId()
+
+  // Verify the asset belongs to this user and capture its current venue.
+  const [current] = await db
+    .select({ id: asset.id, venueId: asset.venueId })
+    .from(asset)
+    .where(and(eq(asset.id, id), eq(asset.userId, userId)))
+    .limit(1)
+  if (!current) throw new Error("Asset not found")
+  if (current.venueId === targetVenueId) throw new Error("Asset is already at this venue")
+
+  // Verify the destination venue belongs to this user.
+  const [destination] = await db
+    .select({ id: venue.id })
+    .from(venue)
+    .where(and(eq(venue.id, targetVenueId), eq(venue.userId, userId)))
+    .limit(1)
+  if (!destination) throw new Error("Destination venue not found")
+
+  await db.transaction(async (tx) => {
+    await tx
+      .update(asset)
+      .set({ venueId: targetVenueId })
+      .where(and(eq(asset.id, id), eq(asset.userId, userId)))
+
+    // Maintenance history moves with the asset.
+    await tx
+      .update(maintenance)
+      .set({ venueId: targetVenueId })
+      .where(and(eq(maintenance.assetId, id), eq(maintenance.userId, userId)))
+
+    // The gaming machine stays at its venue, so drop the now cross-venue link.
+    await tx
+      .update(gamingMachine)
+      .set({ assetId: null })
+      .where(and(eq(gamingMachine.assetId, id), eq(gamingMachine.userId, userId)))
+  })
+
+  revalidatePath("/assets")
+  revalidatePath("/operations")
+  revalidatePath("/financials")
 }
 
 /* --------------------------- Maintenance log ---------------------------- */

@@ -3,6 +3,7 @@ import { AssetsView } from "@/components/assets-view"
 import { getActiveVenueId, getSession } from "@/lib/session"
 import { getAssets, getAssetMaintenance } from "@/app/actions/assets"
 import { getGamingMachines } from "@/app/actions/gaming"
+import { getVenues } from "@/app/actions/venues"
 import type {
   AssetCategory,
   AssetCondition,
@@ -25,11 +26,13 @@ export default async function AssetsPage() {
     )
   }
 
-  const [rows, machines, maintenanceRows] = await Promise.all([
+  const [rows, machines, maintenanceRows, venueRows] = await Promise.all([
     getAssets(venueId),
     getGamingMachines(venueId),
     getAssetMaintenance(venueId),
+    getVenues(),
   ])
+  const venues = venueRows.map((v) => ({ id: v.id, name: v.name }))
   const linkedAssetIds = new Set(
     machines.map((m) => m.assetId).filter((id): id is number => id != null),
   )
@@ -68,6 +71,7 @@ export default async function AssetsPage() {
       initialAssets={assets}
       initialMaintenance={maintenance}
       venueId={venueId}
+      venues={venues}
     />
   )
 }
