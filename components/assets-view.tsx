@@ -101,13 +101,11 @@ function AssetActions({
   onDelete,
   onLog,
   onTransfer,
-  canTransfer,
 }: {
   onEdit: () => void
   onDelete: () => void
   onLog: () => void
   onTransfer: () => void
-  canTransfer: boolean
 }) {
   return (
     <DropdownMenu>
@@ -126,11 +124,9 @@ function AssetActions({
         <DropdownMenuItem onClick={onEdit}>
           <Pencil className="size-4" /> Edit
         </DropdownMenuItem>
-        {canTransfer && (
-          <DropdownMenuItem onClick={onTransfer}>
-            <ArrowRightLeft className="size-4" /> Transfer to venue
-          </DropdownMenuItem>
-        )}
+        <DropdownMenuItem onClick={onTransfer}>
+          <ArrowRightLeft className="size-4" /> Transfer to venue
+        </DropdownMenuItem>
         <DropdownMenuItem variant="destructive" onClick={onDelete}>
           <Trash2 className="size-4" /> Remove
         </DropdownMenuItem>
@@ -173,9 +169,6 @@ export function AssetsView({
   const [editing, setEditing] = useState<ViewAsset | null>(null)
   const [logging, setLogging] = useState<ViewAsset | null>(null)
   const [transferring, setTransferring] = useState<ViewAsset | null>(null)
-
-  // Transferring is only possible when the account has more than one venue.
-  const canTransfer = venues.length > 1
 
   // When an asset is transferred away, drop it (and its maintenance) from view.
   function handleTransferred(assetDbId: number) {
@@ -412,7 +405,6 @@ export function AssetsView({
                           onDelete={() => setDeleting(a)}
                           onLog={() => setLogging(a)}
                           onTransfer={() => setTransferring(a)}
-                          canTransfer={canTransfer}
                         />
                       </div>
                     </div>
@@ -509,7 +501,6 @@ export function AssetsView({
                           onDelete={() => setDeleting(a)}
                           onLog={() => setLogging(a)}
                           onTransfer={() => setTransferring(a)}
-                          canTransfer={canTransfer}
                         />
                       </TableCell>
                     </TableRow>
