@@ -31,11 +31,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   const company = await getCompany()
   const activeVenueId = await getActiveVenueId(me.accountId)
 
-  // Staff are locked to scheduling + tasks; hide every other module.
-  const hiddenModules =
-    me.appRole === "staff"
-      ? ["/operations", "/assets", "/financials", "/compliance"]
-      : company.hiddenModules
+  const hiddenModules = company.hiddenModules
 
   return (
     <RealtimeProvider>
