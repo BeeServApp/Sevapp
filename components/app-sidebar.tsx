@@ -36,10 +36,11 @@ export function AppSidebar({ onNavigate }: { onNavigate?: () => void }) {
   const { hiddenModules, appRole } = useVenue()
   const isStaff = appRole === "staff"
 
-  // Staff are limited to Staff & Scheduling and Task Management. Owners see the
-  // Dashboard plus every module they haven't hidden.
+  // Staff are limited to Staff & Scheduling and Task Management, minus any they
+  // have personally hidden. Owners see the Dashboard plus every module they
+  // haven't hidden company-wide.
   const moduleItems = MODULES.filter((m) => {
-    if (isStaff) return STAFF_ALLOWED_PATHS.includes(m.href)
+    if (isStaff) return STAFF_ALLOWED_PATHS.includes(m.href) && !hiddenModules.includes(m.href)
     return !hiddenModules.includes(m.href)
   }).map((m) => ({
     href: m.href,

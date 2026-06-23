@@ -22,8 +22,12 @@ import {
   getShiftTasks,
   getCrossLocationConflicts,
 } from "@/app/actions/shift-planning"
-import { ROTA_DAYS, weekStartOf, addWeeks } from "@/lib/rota"
+import { getHomeData, getTeamWeekShifts } from "@/app/actions/portal"
+import { getMyProfile } from "@/app/actions/staff"
+import { getMyAvailability, getMyTimecards } from "@/app/actions/scheduling"
+import { ROTA_DAYS, weekStartOf, addWeeks, dateForDay } from "@/lib/rota"
 import { StaffView } from "@/components/staff-view"
+import { StaffPortalView } from "@/components/staff-portal-view"
 
 export const metadata: Metadata = {
   title: "Staff & Scheduling — Tapsheet",
@@ -44,8 +48,35 @@ export default async function StaffPage({
   const weekStart = normalizeWeek(sp.week)
   const weekEnd = addWeeks(weekStart, 1)
 
-  // Staff and owners both use this sidebar-based Staff & Scheduling view. The
-  // venue is resolved from the staff member's own record for staff accounts.
+  // ── Staff: self-service view (their own shifts, timecards, availability) ────
+  if (me.appRole === "staff") {
+    const [home, rota, timecards, profile, availability] = await Promise.all([
+      getHomeData(weekStart),
+      getTeamWeekShifts(weekStart),
+      getMyTimecards(weekStart, dateForDay(weekStart, "Sun")),
+      getMyProfile(),
+      getMyAvailability(),
+    ])
+    return (
+      <StaffPortalView
+        home={home}
+        rota={rota}
+        timecards={timecards}
+        weekStart={weekStart}
+        me={{
+          name: me.name,
+          email: me.email,
+          role: profile?.role ?? null,
+          venueId: profile?.venueId ?? 0,
+          staffMemberId: me.staffMemberId,
+        }}
+        availability={availability}
+        rotaDays={[...ROTA_DAYS]}
+      />
+    )
+  }
+
+  // ── Owner: full scheduling management console ───────────────────────────────
   const venueId = await getActiveVenueId(me.accountId)
 
   if (!venueId) {

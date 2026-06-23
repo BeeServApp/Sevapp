@@ -6,6 +6,7 @@ import { getCompany } from "@/app/actions/company"
 import { getMembers } from "@/app/actions/members"
 import { getBillingState, syncSubscriptionFromCheckout } from "@/app/actions/billing"
 import { getSquareConnection, listSquareLocations } from "@/app/actions/square"
+import { getMyPreferences } from "@/app/actions/preferences"
 import { SETTINGS_TABS, STAFF_ALLOWED_SETTINGS_TABS } from "@/lib/nav-config"
 
 export default async function SettingsPage({
@@ -29,13 +30,14 @@ export default async function SettingsPage({
   if (me.appRole === "staff") {
     const staffDefault =
       tab && STAFF_ALLOWED_SETTINGS_TABS.includes(tab) ? tab : "account"
-    const company = await getCompany()
+    const [company, prefs] = await Promise.all([getCompany(), getMyPreferences()])
     return (
       <SettingsView
         user={{ name: me.name, email: me.email }}
         company={company}
         defaultTab={staffDefault}
         allowedTabIds={STAFF_ALLOWED_SETTINGS_TABS}
+        personalPreferences={{ hiddenModules: prefs.hiddenModules }}
       />
     )
   }

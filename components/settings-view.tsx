@@ -7,6 +7,7 @@ import { CompanySettings } from "@/components/settings/company-settings"
 import { VenuesSettings } from "@/components/settings/venues-settings"
 import { TeamSettings, type TeamMember } from "@/components/settings/team-settings"
 import { PreferencesSettings } from "@/components/settings/preferences-settings"
+import { StaffPreferencesSettings } from "@/components/settings/staff-preferences-settings"
 import { BillingSettings } from "@/components/settings/billing-settings"
 import { IntegrationsSettings, type IntegrationVenue } from "@/components/settings/integrations-settings"
 import { SETTINGS_TABS } from "@/lib/nav-config"
@@ -33,6 +34,7 @@ export function SettingsView({
   billing,
   square,
   allowedTabIds,
+  personalPreferences,
 }: {
   user: { name: string; email: string }
   company: CompanyData
@@ -45,6 +47,9 @@ export function SettingsView({
   square?: SquareSettingsData
   /** When provided, restricts the visible tabs to this set (e.g. staff users). */
   allowedTabIds?: string[]
+  /** When provided (staff), the Preferences tab manages personal, per-user
+   * settings instead of the owner's company-wide configuration. */
+  personalPreferences?: { hiddenModules: string[] }
 }) {
   // A tab is shown if it is not lockable (core) or not in the hidden list, and —
   // when an allow-list is provided (staff) — only if it is explicitly allowed.
@@ -111,10 +116,14 @@ export function SettingsView({
         )}
         {visibleIds.has("preferences") && (
           <TabsContent value="preferences">
-            <PreferencesSettings
-              hiddenModules={company.hiddenModules}
-              hiddenSettingsTabs={company.hiddenSettingsTabs}
-            />
+            {personalPreferences ? (
+              <StaffPreferencesSettings hiddenModules={personalPreferences.hiddenModules} />
+            ) : (
+              <PreferencesSettings
+                hiddenModules={company.hiddenModules}
+                hiddenSettingsTabs={company.hiddenSettingsTabs}
+              />
+            )}
           </TabsContent>
         )}
       </Tabs>
