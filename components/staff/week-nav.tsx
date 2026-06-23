@@ -1,37 +1,34 @@
 "use client"
 
 import { useRouter } from "next/navigation"
-import { useRef, useTransition } from "react"
+import { useState, useTransition } from "react"
 import { ChevronLeft, ChevronRight, CalendarDays } from "lucide-react"
 import { Button } from "@/components/ui/button"
+import { Calendar } from "@/components/ui/calendar"
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { addWeeks, weekStartOf, weekRangeLabel } from "@/lib/rota"
 import { cn } from "@/lib/utils"
+
+/** Parse a yyyy-mm-dd week start into a local-noon Date (timezone-safe). */
+function weekStartToDate(weekStart: string): Date {
+  const [y, m, d] = weekStart.split("-").map(Number)
+  return new Date(y, (m ?? 1) - 1, d ?? 1, 12, 0, 0, 0)
+}
 
 export function WeekNav({ weekStart, className }: { weekStart: string; className?: string }) {
   const router = useRouter()
   const [isPending, startTransition] = useTransition()
-  const dateRef = useRef<HTMLInputElement>(null)
+  const [pickerOpen, setPickerOpen] = useState(false)
 
   function go(week: string) {
     startTransition(() => router.push(`/staff?week=${week}`))
   }
 
-  function jumpToDate(value: string) {
-    if (!value) return
-    go(weekStartOf(new Date(`${value}T00:00:00`)))
-  }
-
-  function openDatePicker() {
-    const el = dateRef.current
-    if (!el) return
-    // showPicker() is the reliable way to open a native date picker on click.
-    // Fall back to focus()/click() on browsers that don't support it.
-    try {
-      el.showPicker()
-    } catch {
-      el.focus()
-      el.click()
-    }
+  function jumpToDate(date: Date | undefined) {
+    if (!date) return
+    setPickerOpen(false)
+    // weekStartOf snaps the chosen day to that week's Monday using local time.
+    go(weekStartOf(date))
   }
 
   const isThisWeek = weekStart === weekStartOf()
@@ -62,23 +59,22 @@ export function WeekNav({ weekStart, className }: { weekStart: string; className
           <ChevronRight className="size-4" />
         </Button>
       </div>
-      <div className="relative inline-flex">
-        <Button variant="outline" size="sm" className="gap-2" onClick={openDatePicker}>
+      <Popover open={pickerOpen} onOpenChange={setPickerOpen}>
+        <PopoverTrigger render={<Button variant="outline" size="sm" className="gap-2" />}>
           <CalendarDays className="size-3.5" />
           Jump to date
-        </Button>
-        <input
-          ref={dateRef}
-          type="date"
-          value={weekStart}
-          onChange={(e) => jumpToDate(e.target.value)}
-          aria-label="Jump to a week by date"
-          // Kept in the DOM (not display:none) so showPicker() can anchor to it,
-          // but visually hidden and non-interactive on its own.
-          className="pointer-events-none absolute bottom-0 left-0 h-0 w-0 opacity-0"
-          tabIndex={-1}
-        />
-      </div>
+        </PopoverTrigger>
+        <PopoverContent className="w-auto p-0" align="start">
+          <Calendar
+            mode="single"
+            selected={weekStartToDate(weekStart)}
+            defaultMonth={weekStartToDate(weekStart)}
+            onSelect={jumpToDate}
+            weekStartsOn={1}
+            autoFocus
+          />
+        </PopoverContent>
+      </Popover>
       {!isThisWeek && (
         <Button variant="outline" size="sm" onClick={() => go(weekStartOf())}>
           Today
