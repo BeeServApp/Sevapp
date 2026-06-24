@@ -40,7 +40,7 @@ function CardShell({
           </div>
           <div>
             <CardTitle>Square sales</CardTitle>
-            <p className="mt-0.5 text-sm text-muted-foreground">Live takings from Square, last 7 days</p>
+            <p className="mt-0.5 text-sm text-muted-foreground">Live takings from Square, last 30 days</p>
           </div>
         </div>
         <div className="flex items-center gap-2">
@@ -139,15 +139,15 @@ export function SquareSalesCard({ sales }: { sales: SquareSales }) {
       <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
         <Stat label="Today" value={formatMoney(sales.todayPence, sales.currency)} />
         <Stat label="Today's txns" value={String(sales.todayCount)} />
-        <Stat label="Last 7 days" value={formatMoney(sales.weekPence, sales.currency)} />
-        <Stat label="7-day txns" value={String(sales.weekCount)} />
+        <Stat label="Last 30 days" value={formatMoney(sales.periodPence, sales.currency)} />
+        <Stat label="30-day txns" value={String(sales.periodCount)} />
       </div>
 
       <div className="mt-4">
         <p className="mb-2 text-xs font-medium text-muted-foreground">Recent transactions</p>
         {sales.recent.length === 0 ? (
           <p className="rounded-lg border border-border py-6 text-center text-sm text-muted-foreground">
-            No transactions in the last 7 days.
+            No transactions in the last 30 days.
           </p>
         ) : (
           <ul className="flex flex-col divide-y divide-border rounded-lg border border-border">

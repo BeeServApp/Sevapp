@@ -8,13 +8,12 @@ import { cn } from "@/lib/utils"
 import { RevenueChart, SalesMixChart } from "@/components/charts"
 import { GroupVenueRow } from "@/components/group-venue-row"
 import type { Kpi } from "@/lib/mock-data"
-import { getUserId, guardOwnerPage } from "@/lib/session"
+import { guardOwnerPage } from "@/lib/session"
 import { getVenues } from "@/app/actions/venues"
 import { getTasks } from "@/app/actions/operations"
 import { getTakings } from "@/app/actions/takings"
 import { getExpenses } from "@/app/actions/financials"
 import { getSquareConnection } from "@/app/actions/square"
-import { syncSquareForAccount } from "@/lib/square-sync"
 import { SquareSyncButton } from "@/components/square-sync-button"
 import {
   gbp0,
@@ -33,15 +32,7 @@ function pctDelta(curr: number, prev: number) {
 
 export default async function GroupDashboardPage() {
   await guardOwnerPage()
-  const userId = await getUserId()
   const venues = await getVenues()
-
-  // Sync Square card sales for every mapped venue before aggregating. Fail soft.
-  try {
-    await syncSquareForAccount(userId)
-  } catch {
-    // Square downtime must never break the group dashboard.
-  }
 
   const squareConn = await getSquareConnection()
 

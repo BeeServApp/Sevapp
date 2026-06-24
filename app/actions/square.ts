@@ -40,9 +40,9 @@ export type SquareSales =
       state: "ok"
       locationName: string | null
       todayPence: number
-      weekPence: number
+      periodPence: number
       todayCount: number
-      weekCount: number
+      periodCount: number
       currency: string
       recent: SquareTransaction[]
     }
@@ -141,12 +141,12 @@ export async function getSquareSales(venueId: number | null): Promise<SquareSale
     .limit(1)
   if (!v?.squareLocationId) return { state: "not_mapped" }
 
-  // 7-day rolling window (inclusive of today), matching the dashboard chart.
+  // 30-day rolling window (inclusive of today).
   const now = new Date()
   const todayBegin = new Date(now)
   todayBegin.setHours(0, 0, 0, 0)
-  const weekBegin = new Date(todayBegin)
-  weekBegin.setDate(weekBegin.getDate() - 6)
+  const periodBegin = new Date(todayBegin)
+  periodBegin.setDate(periodBegin.getDate() - 29)
 
   try {
     const payments: SquarePayment[] = []
@@ -155,7 +155,7 @@ export async function getSquareSales(venueId: number | null): Promise<SquareSale
     do {
       const params = new URLSearchParams({
         location_id: v.squareLocationId,
-        begin_time: weekBegin.toISOString(),
+        begin_time: periodBegin.toISOString(),
         sort_order: "DESC",
         limit: "100",
       })
@@ -167,7 +167,7 @@ export async function getSquareSales(venueId: number | null): Promise<SquareSale
       payments.push(...(data.payments ?? []))
       cursor = data.cursor
       pages += 1
-    } while (cursor && pages < 5)
+    } while (cursor && pages < 20)
 
     const counts = (p: SquarePayment) => {
       const s = (p.status ?? "").toUpperCase()
@@ -175,9 +175,9 @@ export async function getSquareSales(venueId: number | null): Promise<SquareSale
     }
 
     let todayPence = 0
-    let weekPence = 0
+    let periodPence = 0
     let todayCount = 0
-    let weekCount = 0
+    let periodCount = 0
     let currency = "GBP"
     const recent: SquareTransaction[] = []
 
@@ -186,13 +186,13 @@ export async function getSquareSales(venueId: number | null): Promise<SquareSale
       const amount = p.amount_money?.amount ?? 0
       currency = p.amount_money?.currency ?? currency
       const created = p.created_at ? new Date(p.created_at) : null
-      weekPence += amount
-      weekCount += 1
+      periodPence += amount
+      periodCount += 1
       if (created && created >= todayBegin) {
         todayPence += amount
         todayCount += 1
       }
-      if (recent.length < 6) {
+      if (recent.length < 10) {
         recent.push({
           id: p.id,
           amountPence: amount,
@@ -207,9 +207,9 @@ export async function getSquareSales(venueId: number | null): Promise<SquareSale
       state: "ok",
       locationName: null,
       todayPence,
-      weekPence,
+      periodPence,
       todayCount,
-      weekCount,
+      periodCount,
       currency,
       recent,
     }
