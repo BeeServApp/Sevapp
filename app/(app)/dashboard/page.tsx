@@ -23,10 +23,8 @@ import { getTasks, getEvents } from "@/app/actions/operations"
 import { getTakings } from "@/app/actions/takings"
 import { getExpenses } from "@/app/actions/financials"
 import { getGamingMachines } from "@/app/actions/gaming"
-import { getSquareSales, type SquareSales } from "@/app/actions/square"
-import { syncSquareForVenue } from "@/lib/square-sync"
 import { getDashboardLayout } from "@/app/actions/company"
-import { SquareSalesCard } from "@/components/square-sales-card"
+import { SquareSalesSection } from "@/components/square-sales-section"
 import { DashboardGrid, type DashboardSection } from "@/components/dashboard/dashboard-grid"
 import { DASHBOARD_SECTIONS } from "@/lib/dashboard-sections"
 import { sumEntries, entriesForMonth } from "@/lib/gaming"
@@ -61,16 +59,6 @@ export default async function DashboardPage() {
   const activeVenue = venues.find((v) => v.id === venueId)
   const firstName = (session?.user?.name || "there").split(" ")[0]
 
-  // Pull the latest Square card sales into takings first so every figure below
-  // (and on the group dashboard / financials) reflects Square. Fail soft.
-  if (venueId) {
-    try {
-      await syncSquareForVenue(userId, venueId)
-    } catch {
-      // Square downtime must never break the dashboard.
-    }
-  }
-
   const [tasks, events, takings, expenses, gamingMachines] = venueId
     ? await Promise.all([
         getTasks(venueId),
@@ -82,15 +70,6 @@ export default async function DashboardPage() {
     : [[], [], [], [], []]
 
   const dashboardLayout = await getDashboardLayout()
-
-  // Square sales for the active venue. Fail soft so Square downtime never
-  // breaks the dashboard.
-  let squareSales: SquareSales = { state: "not_connected" }
-  try {
-    squareSales = await getSquareSales(venueId)
-  } catch {
-    squareSales = { state: "error", message: "Square request failed" }
-  }
 
   // --- KPIs ----------------------------------------------------------------
   const weekRevenue = revenuePenceForWeek(takings, 0)
@@ -219,7 +198,7 @@ export default async function DashboardPage() {
         </CardContent>
       </Card>
     ),
-    square: venueId ? <SquareSalesCard sales={squareSales} /> : null,
+    square: venueId ? <SquareSalesSection accountId={userId} venueId={venueId} /> : null,
     quickLinks: (
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
         {quickLinks.map((link) => {
