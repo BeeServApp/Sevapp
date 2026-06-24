@@ -16,8 +16,8 @@ import { getTakings } from "@/app/actions/takings"
 import { getGamingMachines } from "@/app/actions/gaming"
 import { getAssets } from "@/app/actions/assets"
 import { getSquareConnection } from "@/app/actions/square"
-import { syncSquareForVenue } from "@/lib/square-sync"
 import { SquareSyncButton } from "@/components/square-sync-button"
+import { SquareBackgroundSync } from "@/components/square-background-sync"
 import {
   gbp0,
   profitSeries,
@@ -48,15 +48,6 @@ export default async function FinancialsPage({
   const { tab } = await searchParams
   const userId = await getUserId()
   const venueId = await getActiveVenueId(userId)
-
-  // Sync Square card sales into takings before computing the P&L. Fail soft.
-  if (venueId) {
-    try {
-      await syncSquareForVenue(userId, venueId)
-    } catch {
-      // Square downtime must never break Financials.
-    }
-  }
 
   const squareConn = await getSquareConnection()
   const [expenses, takings, gamingMachines, assets] = venueId
@@ -164,6 +155,9 @@ export default async function FinancialsPage({
 
   return (
     <>
+      {venueId && squareConn.connected && (
+        <SquareBackgroundSync accountId={userId} venueId={venueId} />
+      )}
       <PageHeader
         title="Financials"
         description="P&L tracking, revenue targets, expenses and real-time spending insights."
@@ -236,7 +230,7 @@ export default async function FinancialsPage({
 
           <div className="mt-4 grid grid-cols-1 gap-4 lg:grid-cols-3">
             {venueId ? (
-              <TakingsLog venueId={venueId} initialTakings={takings} />
+              <TakingsLog key={venueId} venueId={venueId} initialTakings={takings} />
             ) : (
               <Card className="lg:col-span-2">
                 <CardHeader>
@@ -275,7 +269,7 @@ export default async function FinancialsPage({
 
           <div className="mt-4 grid grid-cols-1 gap-4 lg:grid-cols-3">
             {venueId ? (
-              <FinancialsExpenses venueId={venueId} initialExpenses={expenses} />
+              <FinancialsExpenses key={venueId} venueId={venueId} initialExpenses={expenses} />
             ) : (
               <Card>
                 <CardHeader>
