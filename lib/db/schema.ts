@@ -855,6 +855,24 @@ export const gamingEntry = pgTable("gaming_entry", {
   createdAt: timestamp("createdAt").notNull().defaultNow(),
 })
 
+// --- Budgets / targets -----------------------------------------------------
+
+// Per-venue performance targets used for the traffic-light system. All money
+// values are stored in pence; percentages are whole numbers (e.g. 70 = 70%).
+export const budget = pgTable("budget", {
+  id: serial("id").primaryKey(),
+  userId: text("userId").notNull(),
+  venueId: integer("venueId").notNull(),
+  weeklySalesPence: integer("weeklySalesPence"),
+  monthlySalesPence: integer("monthlySalesPence"),
+  labourPctTarget: integer("labourPctTarget"),
+  gpPctTarget: integer("gpPctTarget"),
+  createdAt: timestamp("createdAt").notNull().defaultNow(),
+  updatedAt: timestamp("updatedAt").notNull().defaultNow(),
+})
+
+export type DbBudget = typeof budget.$inferSelect
+
 export type Venue = typeof venue.$inferSelect
 export type Company = typeof company.$inferSelect
 export type Member = typeof member.$inferSelect
