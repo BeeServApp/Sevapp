@@ -16,15 +16,23 @@ import { getTakings } from "@/app/actions/takings"
 import { getGamingMachines } from "@/app/actions/gaming"
 import { getAssets } from "@/app/actions/assets"
 import { getSquareConnection } from "@/app/actions/square"
+import { getVenues } from "@/app/actions/venues"
+import { getBudget } from "@/app/actions/budget"
 import { SquareSyncButton } from "@/components/square-sync-button"
 import { SquareBackgroundSync } from "@/components/square-background-sync"
+import { BudgetDialog } from "@/components/budget-dialog"
+import { TargetStatusDot } from "@/components/target-status-dot"
+import { Target } from "lucide-react"
+import { evaluateTarget, statusLabel, type TargetStatus } from "@/lib/budget"
 import {
   gbp0,
   profitSeries,
   expenseBreakdown as computeExpenseBreakdown,
   revenueByCategoryMTD,
   revenuePenceForMonth,
+  revenuePenceForWeek,
   expensePenceForMonth,
+  expensePenceForMonthByCategory,
   thisMonthKey,
   lastMonthKey,
 } from "@/lib/finance"
@@ -50,16 +58,19 @@ export default async function FinancialsPage({
   const venueId = await getActiveVenueId(userId)
 
   const squareConn = await getSquareConnection()
-  const [expenses, takings, gamingMachines, assets] = venueId
+  const [expenses, takings, gamingMachines, assets, venues, venueBudget] = venueId
     ? await Promise.all([
         getExpenses(venueId),
         getTakings(venueId),
         getGamingMachines(venueId),
         getAssets(venueId),
+        getVenues(),
+        getBudget(venueId),
       ])
-    : [[], [], [], []]
+    : [[], [], [], [], [], null]
 
   const assetOptions = assets.map((a) => ({ id: a.id, name: a.name }))
+  const activeVenue = venues.find((v) => v.id === venueId)
 
   const mk = thisMonthKey()
   const lmk = lastMonthKey()
@@ -70,6 +81,66 @@ export default async function FinancialsPage({
   const netProfit = revenueMTD - expensesMTD
   const marginPct = revenueMTD > 0 ? (netProfit / revenueMTD) * 100 : null
   const revDelta = pctDelta(revenueMTD, revenueLM)
+
+  // --- Targets / traffic lights -------------------------------------------
+  const weekRevenue = revenuePenceForWeek(takings, 0)
+  const stockMonth = expensePenceForMonthByCategory(expenses, mk, "Stock")
+  const labourMonth = expensePenceForMonthByCategory(expenses, mk, "Staff")
+  const gpPct = revenueMTD > 0 ? ((revenueMTD - stockMonth) / revenueMTD) * 100 : null
+  const labourPctActual = revenueMTD > 0 ? (labourMonth / revenueMTD) * 100 : null
+
+  const targetRows: {
+    label: string
+    actual: string
+    target: string
+    status: TargetStatus | null
+  }[] = [
+    {
+      label: "Weekly sales",
+      actual: takings.length > 0 ? gbp0.format(weekRevenue / 100) : "—",
+      target:
+        venueBudget?.weeklySalesPence != null
+          ? gbp0.format(venueBudget.weeklySalesPence / 100)
+          : "Not set",
+      status:
+        takings.length > 0
+          ? evaluateTarget(weekRevenue, venueBudget?.weeklySalesPence, "higher")
+          : null,
+    },
+    {
+      label: "Monthly sales",
+      actual: takings.length > 0 ? gbp0.format(revenueMTD / 100) : "—",
+      target:
+        venueBudget?.monthlySalesPence != null
+          ? gbp0.format(venueBudget.monthlySalesPence / 100)
+          : "Not set",
+      status:
+        takings.length > 0
+          ? evaluateTarget(revenueMTD, venueBudget?.monthlySalesPence, "higher")
+          : null,
+    },
+    {
+      label: "Gross profit",
+      actual: gpPct !== null ? `${gpPct.toFixed(1)}%` : "—",
+      target: venueBudget?.gpPctTarget != null ? `${venueBudget.gpPctTarget}%` : "Not set",
+      status: evaluateTarget(gpPct, venueBudget?.gpPctTarget, "higher"),
+    },
+    {
+      label: "Labour cost",
+      actual: labourPctActual !== null ? `${labourPctActual.toFixed(1)}%` : "—",
+      target: venueBudget?.labourPctTarget != null ? `${venueBudget.labourPctTarget}%` : "Not set",
+      status: evaluateTarget(labourPctActual, venueBudget?.labourPctTarget, "lower"),
+    },
+  ]
+
+  const monthlySalesStatus =
+    takings.length > 0
+      ? evaluateTarget(revenueMTD, venueBudget?.monthlySalesPence, "higher")
+      : null
+  const monthlySalesHint =
+    venueBudget?.monthlySalesPence != null
+      ? `Target ${gbp0.format(venueBudget.monthlySalesPence / 100)}`
+      : undefined
 
   const daysLogged = takings.filter((t) => t.dateISO.slice(0, 7) === mk).length
   const avgDaily = daysLogged > 0 ? revenueMTD / daysLogged : 0
@@ -164,6 +235,18 @@ export default async function FinancialsPage({
         actions={
           <div className="flex items-center gap-2">
             {squareConn.connected && <SquareSyncButton scope="active" />}
+            {venueId && (
+              <BudgetDialog
+                venueId={venueId}
+                venueName={activeVenue?.name ?? "this venue"}
+                budget={venueBudget}
+                trigger={
+                  <Button variant="outline" className="gap-1.5">
+                    <Target className="size-4" /> Set targets
+                  </Button>
+                }
+              />
+            )}
             <Button variant="outline" className="gap-1.5">
               <Download className="size-4" /> Export
             </Button>
@@ -180,9 +263,60 @@ export default async function FinancialsPage({
         <TabsContent value="overview" className="mt-4">
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
             {kpis.map((kpi) => (
-              <StatCard key={kpi.label} kpi={kpi} />
+              <StatCard
+                key={kpi.label}
+                kpi={kpi}
+                status={kpi.label === "Revenue (MTD)" ? monthlySalesStatus : undefined}
+                targetHint={kpi.label === "Revenue (MTD)" ? monthlySalesHint : undefined}
+              />
             ))}
           </div>
+
+          {venueId && (
+            <Card className="mt-4">
+              <CardHeader className="flex-row items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <div className="flex size-8 items-center justify-center rounded-md bg-primary/10 text-primary">
+                    <Target className="size-4" />
+                  </div>
+                  <div>
+                    <CardTitle>Performance targets</CardTitle>
+                    <p className="mt-0.5 text-sm text-muted-foreground">
+                      Traffic lights against your budget
+                    </p>
+                  </div>
+                </div>
+                <BudgetDialog
+                  venueId={venueId}
+                  venueName={activeVenue?.name ?? "this venue"}
+                  budget={venueBudget}
+                  trigger={
+                    <Button variant="ghost" size="sm" className="text-muted-foreground">
+                      Edit targets
+                    </Button>
+                  }
+                />
+              </CardHeader>
+              <CardContent>
+                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
+                  {targetRows.map((row) => (
+                    <div key={row.label} className="rounded-lg border border-border p-3">
+                      <div className="flex items-center justify-between gap-2">
+                        <p className="text-sm font-medium text-muted-foreground">{row.label}</p>
+                        {row.status ? <TargetStatusDot status={row.status} /> : null}
+                      </div>
+                      <p className="mt-1.5 text-xl font-semibold tabular-nums text-foreground">
+                        {row.actual}
+                      </p>
+                      <p className="mt-1 text-xs text-muted-foreground">
+                        {row.status ? `${statusLabel(row.status)} · ` : ""}Target {row.target}
+                      </p>
+                    </div>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
+          )}
 
           <div className="mt-4 grid grid-cols-1 gap-4 lg:grid-cols-3">
             <Card className="lg:col-span-2">

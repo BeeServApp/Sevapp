@@ -24,6 +24,8 @@ import { getTakings } from "@/app/actions/takings"
 import { getExpenses } from "@/app/actions/financials"
 import { getGamingMachines } from "@/app/actions/gaming"
 import { getDashboardLayout } from "@/app/actions/company"
+import { getBudget } from "@/app/actions/budget"
+import { evaluateTarget, type TargetStatus } from "@/lib/budget"
 import { SquareSalesSection } from "@/components/square-sales-section"
 import { DashboardGrid, type DashboardSection } from "@/components/dashboard/dashboard-grid"
 import { DASHBOARD_SECTIONS } from "@/lib/dashboard-sections"
@@ -70,6 +72,7 @@ export default async function DashboardPage() {
     : [[], [], [], [], []]
 
   const dashboardLayout = await getDashboardLayout()
+  const venueBudget = venueId ? await getBudget(venueId) : null
 
   // --- KPIs ----------------------------------------------------------------
   const weekRevenue = revenuePenceForWeek(takings, 0)
@@ -82,6 +85,31 @@ export default async function DashboardPage() {
   const labourMonth = expensePenceForMonthByCategory(expenses, mk, "Staff")
   const gpPct = monthRevenue > 0 ? ((monthRevenue - stockMonth) / monthRevenue) * 100 : null
   const labourPct = monthRevenue > 0 ? (labourMonth / monthRevenue) * 100 : null
+
+  // --- Target traffic lights ----------------------------------------------
+  const revenueStatus: TargetStatus | null = hasTakings
+    ? evaluateTarget(weekRevenue, venueBudget?.weeklySalesPence, "higher")
+    : null
+  const gpStatus: TargetStatus | null = evaluateTarget(gpPct, venueBudget?.gpPctTarget, "higher")
+  const labourStatus: TargetStatus | null = evaluateTarget(
+    labourPct,
+    venueBudget?.labourPctTarget,
+    "lower",
+  )
+  const weeklyTargetHint =
+    venueBudget?.weeklySalesPence != null
+      ? `Target ${gbp0.format(venueBudget.weeklySalesPence / 100)}`
+      : undefined
+  const gpTargetHint =
+    venueBudget?.gpPctTarget != null ? `Target ${venueBudget.gpPctTarget}%` : undefined
+  const labourTargetHint =
+    venueBudget?.labourPctTarget != null ? `Target ${venueBudget.labourPctTarget}%` : undefined
+
+  const kpiTargets: Record<string, { status: TargetStatus | null; hint?: string }> = {
+    "Net revenue (wk)": { status: revenueStatus, hint: weeklyTargetHint },
+    "Gross profit": { status: gpStatus, hint: gpTargetHint },
+    "Labour cost": { status: labourStatus, hint: labourTargetHint },
+  }
 
   const openTasks = tasks.filter((t) => !t.done)
   const dueToday = openTasks.filter((t) => (t.due ?? "").toLowerCase() === "today").length
@@ -139,9 +167,17 @@ export default async function DashboardPage() {
   const nodeById: Record<string, ReactNode> = {
     kpis: (
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        {kpis.map((kpi) => (
-          <StatCard key={kpi.label} kpi={kpi} />
-        ))}
+        {kpis.map((kpi) => {
+          const meta = kpiTargets[kpi.label]
+          return (
+            <StatCard
+              key={kpi.label}
+              kpi={kpi}
+              status={meta?.status}
+              targetHint={meta?.hint}
+            />
+          )
+        })}
       </div>
     ),
     revenue: (
