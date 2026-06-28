@@ -86,6 +86,8 @@ export default async function DashboardPage() {
   const gpPct = monthRevenue > 0 ? ((monthRevenue - stockMonth) / monthRevenue) * 100 : null
   const labourPct = monthRevenue > 0 ? (labourMonth / monthRevenue) * 100 : null
 
+  const hasTakings = takings.length > 0
+
   // --- Target traffic lights ----------------------------------------------
   const revenueStatus: TargetStatus | null = hasTakings
     ? evaluateTarget(weekRevenue, venueBudget?.weeklySalesPence, "higher")
@@ -113,8 +115,6 @@ export default async function DashboardPage() {
 
   const openTasks = tasks.filter((t) => !t.done)
   const dueToday = openTasks.filter((t) => (t.due ?? "").toLowerCase() === "today").length
-
-  const hasTakings = takings.length > 0
 
   const kpis: Kpi[] = [
     {
