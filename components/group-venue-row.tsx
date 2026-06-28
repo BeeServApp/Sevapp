@@ -4,6 +4,8 @@ import { useRouter } from "next/navigation"
 import { MapPin, ArrowRight } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { useVenue } from "@/components/venue-provider"
+import { TargetStatusDot } from "@/components/target-status-dot"
+import type { TargetStatus } from "@/lib/budget"
 
 export function GroupVenueRow({
   id,
@@ -13,6 +15,8 @@ export function GroupVenueRow({
   monthRevenue,
   gpPct,
   openTasks,
+  weekStatus,
+  gpStatus,
 }: {
   id: number
   name: string
@@ -21,6 +25,8 @@ export function GroupVenueRow({
   monthRevenue: string
   gpPct: string
   openTasks: number
+  weekStatus?: TargetStatus | null
+  gpStatus?: TargetStatus | null
 }) {
   const router = useRouter()
   const { switchVenue } = useVenue()
@@ -43,9 +49,19 @@ export function GroupVenueRow({
           </div>
         </div>
       </td>
-      <td className="py-3 text-right font-medium tabular-nums text-foreground">{weekRevenue}</td>
+      <td className="py-3 text-right font-medium tabular-nums text-foreground">
+        <span className="inline-flex items-center justify-end gap-1.5">
+          {weekStatus ? <TargetStatusDot status={weekStatus} /> : null}
+          {weekRevenue}
+        </span>
+      </td>
       <td className="py-3 text-right tabular-nums text-muted-foreground">{monthRevenue}</td>
-      <td className="py-3 text-right tabular-nums text-muted-foreground">{gpPct}</td>
+      <td className="py-3 text-right tabular-nums text-muted-foreground">
+        <span className="inline-flex items-center justify-end gap-1.5">
+          {gpStatus ? <TargetStatusDot status={gpStatus} /> : null}
+          {gpPct}
+        </span>
+      </td>
       <td className="py-3 text-right tabular-nums text-muted-foreground">{openTasks}</td>
       <td className="py-3 text-right">
         <Button variant="ghost" size="sm" className="gap-1" onClick={openVenue}>

@@ -14,6 +14,8 @@ import { getTasks } from "@/app/actions/operations"
 import { getTakings } from "@/app/actions/takings"
 import { getExpenses } from "@/app/actions/financials"
 import { getSquareConnection } from "@/app/actions/square"
+import { getBudget } from "@/app/actions/budget"
+import { evaluateTarget, type TargetStatus } from "@/lib/budget"
 import { SquareSyncButton } from "@/components/square-sync-button"
 import {
   gbp0,
@@ -39,12 +41,13 @@ export default async function GroupDashboardPage() {
   // Pull each venue's data in parallel, then aggregate across the group.
   const perVenue = await Promise.all(
     venues.map(async (v) => {
-      const [takings, expenses, tasks] = await Promise.all([
+      const [takings, expenses, tasks, budget] = await Promise.all([
         getTakings(v.id),
         getExpenses(v.id),
         getTasks(v.id),
+        getBudget(v.id),
       ])
-      return { venue: v, takings, expenses, tasks }
+      return { venue: v, takings, expenses, tasks, budget }
     }),
   )
 
@@ -121,6 +124,11 @@ export default async function GroupDashboardPage() {
       const vStock = expensePenceForMonthByCategory(d.expenses, mk, "Stock")
       const vGp = vMonth > 0 ? ((vMonth - vStock) / vMonth) * 100 : null
       const vOpenTasks = d.tasks.filter((t) => !t.done).length
+      const hasData = d.takings.length > 0
+      const weekStatus: TargetStatus | null = hasData
+        ? evaluateTarget(vWeek, d.budget?.weeklySalesPence, "higher")
+        : null
+      const gpStatus = evaluateTarget(vGp, d.budget?.gpPctTarget, "higher")
       return {
         id: d.venue.id,
         name: d.venue.name,
@@ -129,6 +137,8 @@ export default async function GroupDashboardPage() {
         monthRevenue: vMonth,
         gpPct: vGp,
         openTasks: vOpenTasks,
+        weekStatus,
+        gpStatus,
       }
     })
     .sort((a, b) => b.weekRevenue - a.weekRevenue)
@@ -254,6 +264,8 @@ export default async function GroupDashboardPage() {
                         monthRevenue={gbp0.format(row.monthRevenue / 100)}
                         gpPct={row.gpPct !== null ? `${row.gpPct.toFixed(1)}%` : "—"}
                         openTasks={row.openTasks}
+                        weekStatus={row.weekStatus}
+                        gpStatus={row.gpStatus}
                       />
                     ))}
                   </tbody>
