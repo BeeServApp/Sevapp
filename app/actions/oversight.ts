@@ -3,8 +3,9 @@
 import { revalidatePath } from "next/cache"
 import { and, asc, desc, eq } from "drizzle-orm"
 import { db } from "@/lib/db"
-import { meeting, meetingAction, meterReading, opsDocument } from "@/lib/db/schema"
+import { meeting, meetingAction, meterReading, opsDocument, staffMember, venue } from "@/lib/db/schema"
 import { getAccountId } from "@/lib/session"
+import { notify } from "@/app/actions/notifications"
 
 export type MeetingWithActions = typeof meeting.$inferSelect & {
   actions: (typeof meetingAction.$inferSelect)[]
@@ -56,9 +57,27 @@ export async function createMeeting(input: {
   scheduledDate?: string
   createdBy?: string
   notes?: string
+  /** Optional staff member (with a linked login) to co-assign the meeting to. */
+  assignedStaffMemberId?: number | null
   actions?: { title: string; assignee?: string; dueDate?: string }[]
 }) {
   const userId = await getAccountId()
+
+  // Resolve the assignee's login so the meeting can surface on their calendar.
+  let assignedStaffMemberId: number | null = null
+  let assignedUserId: string | null = null
+  if (input.assignedStaffMemberId) {
+    const [sm] = await db
+      .select()
+      .from(staffMember)
+      .where(and(eq(staffMember.id, input.assignedStaffMemberId), eq(staffMember.userId, userId)))
+      .limit(1)
+    if (sm) {
+      assignedStaffMemberId = sm.id
+      assignedUserId = sm.linkedUserId ?? null
+    }
+  }
+
   const [created] = await db
     .insert(meeting)
     .values({
@@ -68,6 +87,8 @@ export async function createMeeting(input: {
       scheduledDate: input.scheduledDate || null,
       createdBy: input.createdBy || null,
       notes: input.notes || null,
+      assignedStaffMemberId,
+      assignedUserId,
       status: "Pending",
     })
     .returning()
@@ -86,7 +107,34 @@ export async function createMeeting(input: {
     )
   }
 
+  // Notify the assignee (if they have a login) so it pops up in their bell +
+  // calendar. Never notify the person creating their own meeting.
+  if (assignedUserId) {
+    const [sm] = await db
+      .select({ email: staffMember.email })
+      .from(staffMember)
+      .where(eq(staffMember.id, assignedStaffMemberId as number))
+      .limit(1)
+    const [v] = await db
+      .select({ name: venue.name })
+      .from(venue)
+      .where(eq(venue.id, input.venueId))
+      .limit(1)
+    const when = input.scheduledDate ? ` on ${input.scheduledDate}` : ""
+    await notify({
+      accountId: userId,
+      recipientUserId: assignedUserId,
+      staffMemberId: assignedStaffMemberId,
+      kind: "meeting",
+      title: `You've been assigned to "${input.title}"`,
+      body: `${v?.name ? `${v.name} — ` : ""}Meeting${when}. View it on your calendar.`,
+      href: "/calendar",
+      email: sm?.email ?? null,
+    })
+  }
+
   revalidatePath("/tasks")
+  revalidatePath("/calendar")
   return created
 }
 

@@ -299,7 +299,7 @@ export function TasksView({
         </TabsContent>
 
         <TabsContent value="meetings" className="mt-5">
-          <MeetingsPanel venueId={venueId} initialMeetings={initialMeetings} />
+          <MeetingsPanel venueId={venueId} initialMeetings={initialMeetings} staff={staff} />
         </TabsContent>
 
         <TabsContent value="meters" className="mt-5">

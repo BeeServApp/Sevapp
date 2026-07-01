@@ -4,6 +4,7 @@ import { getActiveVenueId, getCurrentUser, getSession } from "@/lib/session"
 import { getVenues } from "@/app/actions/venues"
 import { getCompany } from "@/app/actions/company"
 import { getMembers } from "@/app/actions/members"
+import { getManagerAccess } from "@/app/actions/manager-access"
 import { getBillingState, syncSubscriptionFromCheckout } from "@/app/actions/billing"
 import { getSquareConnection, listSquareLocations } from "@/app/actions/square"
 import { getMyPreferences } from "@/app/actions/preferences"
@@ -61,6 +62,7 @@ export default async function SettingsPage({
   const activeVenueId = await getActiveVenueId(session.user.id)
   const activeVenue = venues.find((v) => v.id === activeVenueId) ?? venues[0] ?? null
   const members = activeVenueId ? await getMembers(activeVenueId) : []
+  const managerAccess = await getManagerAccess()
 
   return (
     <SettingsView
@@ -94,6 +96,7 @@ export default async function SettingsPage({
         status: m.status,
       }))}
       activeVenueName={activeVenue?.name ?? "this venue"}
+      managerAccess={managerAccess}
       defaultTab={defaultTab}
       billing={billing}
       square={{

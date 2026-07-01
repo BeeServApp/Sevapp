@@ -31,6 +31,7 @@ export interface SessionUser {
 }
 
 type AppRole = "owner" | "staff"
+type ManagerRole = "manager" | "area_manager" | null
 
 interface VenueContextValue {
   venues: VenueSummary[]
@@ -38,6 +39,7 @@ interface VenueContextValue {
   user: SessionUser
   hiddenModules: string[]
   appRole: AppRole
+  managerRole: ManagerRole
   businesses: BusinessSummary[]
   isSuperAdmin: boolean
   switching: boolean
@@ -52,6 +54,7 @@ export function VenueProvider({
   user,
   hiddenModules = [],
   appRole = "owner",
+  managerRole = null,
   businesses = [],
   isSuperAdmin = false,
   children,
@@ -61,6 +64,7 @@ export function VenueProvider({
   user: SessionUser
   hiddenModules?: string[]
   appRole?: AppRole
+  managerRole?: ManagerRole
   businesses?: BusinessSummary[]
   isSuperAdmin?: boolean
   children: ReactNode
@@ -86,6 +90,7 @@ export function VenueProvider({
         user,
         hiddenModules,
         appRole,
+        managerRole,
         businesses,
         isSuperAdmin,
         switching,

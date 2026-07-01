@@ -28,6 +28,13 @@ import {
 } from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Textarea } from "@/components/ui/textarea"
 import { cn } from "@/lib/utils"
@@ -39,7 +46,7 @@ import {
   updateMeetingActionStatus,
   type MeetingWithActions,
 } from "@/app/actions/oversight"
-import type { DbMeetingAction } from "@/lib/db/schema"
+import type { DbMeetingAction, DbStaffMember } from "@/lib/db/schema"
 
 function statusTone(status: string) {
   switch (status) {
@@ -66,9 +73,11 @@ function fmtDate(iso?: string | null) {
 export function MeetingsPanel({
   venueId,
   initialMeetings,
+  staff,
 }: {
   venueId: number
   initialMeetings: MeetingWithActions[]
+  staff: DbStaffMember[]
 }) {
   const [meetings, setMeetings] = useState<MeetingWithActions[]>(initialMeetings)
 
@@ -115,7 +124,11 @@ export function MeetingsPanel({
       </div>
 
       <div className="flex justify-end">
-        <CreateMeetingDialog venueId={venueId} onCreated={(m) => setMeetings((prev) => [m, ...prev])} />
+        <CreateMeetingDialog
+          venueId={venueId}
+          staff={staff}
+          onCreated={(m) => setMeetings((prev) => [m, ...prev])}
+        />
       </div>
 
       <Tabs defaultValue="meetings">
@@ -387,11 +400,15 @@ function ActionRow({
 
 type DraftAction = { title: string; assignee: string; dueDate: string }
 
+const NO_ASSIGNEE = "none"
+
 function CreateMeetingDialog({
   venueId,
+  staff,
   onCreated,
 }: {
   venueId: number
+  staff: DbStaffMember[]
   onCreated: (m: MeetingWithActions) => void
 }) {
   const [open, setOpen] = useState(false)
@@ -401,13 +418,19 @@ function CreateMeetingDialog({
   const [scheduledDate, setScheduledDate] = useState("")
   const [createdBy, setCreatedBy] = useState("")
   const [notes, setNotes] = useState("")
+  const [assignedStaffId, setAssignedStaffId] = useState<string>(NO_ASSIGNEE)
   const [actions, setActions] = useState<DraftAction[]>([{ title: "", assignee: "", dueDate: "" }])
+
+  // Only staff members with a linked login can be co-assigned (so it can pop up
+  // on their calendar + notifications).
+  const assignable = useMemo(() => staff.filter((s) => s.linkedUserId), [staff])
 
   function reset() {
     setTitle("")
     setScheduledDate("")
     setCreatedBy("")
     setNotes("")
+    setAssignedStaffId(NO_ASSIGNEE)
     setActions([{ title: "", assignee: "", dueDate: "" }])
     setError(null)
   }
@@ -432,6 +455,8 @@ function CreateMeetingDialog({
           scheduledDate: scheduledDate || undefined,
           createdBy: createdBy.trim() || undefined,
           notes: notes.trim() || undefined,
+          assignedStaffMemberId:
+            assignedStaffId === NO_ASSIGNEE ? null : Number(assignedStaffId),
           actions: cleanActions,
         })
         onCreated({
@@ -503,6 +528,33 @@ function CreateMeetingDialog({
               />
             </div>
           </div>
+          <div className="flex flex-col gap-2">
+            <Label htmlFor="m-assignee">Assign to</Label>
+            <Select value={assignedStaffId} onValueChange={(v) => setAssignedStaffId(v ?? NO_ASSIGNEE)}>
+              <SelectTrigger id="m-assignee">
+                <SelectValue placeholder="No one (unassigned)" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value={NO_ASSIGNEE}>No one (unassigned)</SelectItem>
+                {assignable.map((s) => (
+                  <SelectItem key={s.id} value={String(s.id)}>
+                    {s.name}
+                    {s.role ? ` — ${s.role}` : ""}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            {assignable.length === 0 ? (
+              <p className="text-xs text-muted-foreground">
+                No team members with a login yet. Invite staff so you can co-assign meetings to them.
+              </p>
+            ) : (
+              <p className="text-xs text-muted-foreground">
+                The meeting will appear on their calendar and they&apos;ll get a notification.
+              </p>
+            )}
+          </div>
+
           <div className="flex flex-col gap-2">
             <Label htmlFor="m-notes">Meeting notes</Label>
             <Textarea

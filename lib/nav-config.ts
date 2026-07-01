@@ -8,10 +8,17 @@ export interface ModuleDef {
   description: string
 }
 
+// The Calendar lives in the Workspace section (not a toggleable module) because
+// it aggregates every venue the user can see and is available to managers too.
+export const CALENDAR_ITEM = {
+  href: "/calendar",
+  label: "Calendar",
+  description: "Events, tasks, meetings and bookings across your venues.",
+} as const
+
 // Toggleable sidebar modules. The Dashboard is intentionally omitted because it
 // is the workspace home and cannot be hidden.
 export const MODULES: ModuleDef[] = [
-  { href: "/calendar", label: "Calendar", description: "Events, tasks and bookings on one schedule." },
   { href: "/operations", label: "Operations", description: "Orders, suppliers, events and maintenance." },
   { href: "/tasks", label: "Task Management", description: "Checklists, corrective actions and audits." },
   { href: "/assets", label: "Asset Tracking", description: "Equipment register and lifecycle." },
@@ -31,9 +38,19 @@ export const STAFF_ALLOWED_PATHS = ["/staff", "/tasks", "/training"]
 // and personal preferences — never company, venues, team, billing, etc.
 export const STAFF_ALLOWED_SETTINGS_TABS = ["account", "preferences"]
 
-export function isPathAllowedForRole(pathname: string, appRole: "owner" | "staff") {
+export type ManagerRole = "manager" | "area_manager" | null
+
+export function isPathAllowedForRole(
+  pathname: string,
+  appRole: "owner" | "staff",
+  managerRole: ManagerRole = null,
+) {
   if (appRole === "owner") return true
-  return STAFF_ALLOWED_PATHS.some((p) => pathname === p || pathname.startsWith(`${p}/`))
+  // Managers and area managers additionally get the workspace Calendar.
+  const allowed = managerRole
+    ? [...STAFF_ALLOWED_PATHS, CALENDAR_ITEM.href]
+    : STAFF_ALLOWED_PATHS
+  return allowed.some((p) => pathname === p || pathname.startsWith(`${p}/`))
 }
 
 export interface SettingsTabDef {
