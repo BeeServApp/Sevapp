@@ -44,6 +44,15 @@ export async function getCurrentUser(): Promise<CurrentUser> {
   if (!session?.user) throw new Error("Unauthorized")
 
   const [row] = await db.select().from(user).where(eq(user.id, session.user.id)).limit(1)
+
+  // Deactivated accounts are treated as logged out. Revoke any lingering
+  // sessions so they can't keep operating on a cached cookie.
+  if (row?.disabledAt) {
+    const ctx = await auth.$context
+    await ctx.internalAdapter.deleteUserSessions(session.user.id).catch(() => {})
+    throw new Error("Unauthorized")
+  }
+
   const appRole: AppRole = row?.appRole === "staff" ? "staff" : "owner"
 
   // Staff always read their owner's data. Owners read the data of their

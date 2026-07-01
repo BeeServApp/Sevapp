@@ -3,7 +3,9 @@
 import { auth } from "@/lib/auth"
 import { db } from "@/lib/db"
 import { business, company, user, venue } from "@/lib/db/schema"
+import * as schema from "@/lib/db/schema"
 import { requireSuperAdmin } from "@/lib/admin"
+import { isSuperAdminEmail } from "@/lib/admin"
 import { getTier } from "@/lib/pricing"
 import { asc, eq, inArray } from "drizzle-orm"
 import { revalidatePath } from "next/cache"
@@ -19,6 +21,8 @@ export interface AdminAccount {
   subscriptionStatus: string | null
   subscriptionPlan: string | null
   mrrPence: number
+  /** ISO timestamp when the account was deactivated, or null if active. */
+  disabledAt: string | null
 }
 
 export interface AdminMetrics {
@@ -116,6 +120,7 @@ export async function listAccounts(): Promise<AdminAccount[]> {
       subscriptionStatus: status,
       subscriptionPlan: plan,
       mrrPence,
+      disabledAt: u.disabledAt ? u.disabledAt.toISOString() : null,
     }
   })
 }
@@ -186,6 +191,7 @@ export interface AdminAccountDetail {
   email: string
   appRole: string
   createdAt: string
+  disabledAt: string | null
   subscriptionStatus: string | null
   subscriptionPlan: string | null
   subscriptionQuantity: number | null
@@ -223,6 +229,7 @@ export async function getAccountDetail(userId: string): Promise<AdminAccountDeta
     email: target.email,
     appRole: target.appRole,
     createdAt: target.createdAt.toISOString(),
+    disabledAt: target.disabledAt ? target.disabledAt.toISOString() : null,
     subscriptionStatus: c?.subscriptionStatus ?? null,
     subscriptionPlan: c?.subscriptionPlan ?? null,
     subscriptionQuantity: c?.subscriptionQuantity ?? null,
@@ -378,6 +385,163 @@ export async function adminSetPassword(formData: FormData): Promise<{ ok: true }
 
   // Force re-login everywhere with the new credentials.
   await ctx.internalAdapter.deleteUserSessions(userId)
+
+  revalidatePath("/admin")
+  return { ok: true }
+}
+
+/**
+ * Deactivates an account: marks it disabled and revokes all its sessions so
+ * the user is logged out immediately and blocked from signing back in.
+ */
+export async function adminDeactivateAccount(formData: FormData): Promise<{ ok: true }> {
+  const admin = await requireSuperAdmin()
+
+  const userId = String(formData.get("userId") ?? "")
+  if (!userId) throw new Error("Missing account")
+
+  const [target] = await db.select().from(user).where(eq(user.id, userId)).limit(1)
+  if (!target) throw new Error("Account not found")
+  if (target.id === admin.id) throw new Error("You can't deactivate your own account")
+  if (isSuperAdminEmail(target.email)) throw new Error("You can't deactivate a super admin account")
+
+  await db.update(user).set({ disabledAt: new Date(), updatedAt: new Date() }).where(eq(user.id, userId))
+
+  // Immediately log them out everywhere.
+  const ctx = await auth.$context
+  await ctx.internalAdapter.deleteUserSessions(userId)
+
+  revalidatePath("/admin")
+  return { ok: true }
+}
+
+/** Reactivates a previously deactivated account so it can sign in again. */
+export async function adminReactivateAccount(formData: FormData): Promise<{ ok: true }> {
+  await requireSuperAdmin()
+
+  const userId = String(formData.get("userId") ?? "")
+  if (!userId) throw new Error("Missing account")
+
+  const [target] = await db.select().from(user).where(eq(user.id, userId)).limit(1)
+  if (!target) throw new Error("Account not found")
+
+  await db.update(user).set({ disabledAt: null, updatedAt: new Date() }).where(eq(user.id, userId))
+
+  revalidatePath("/admin")
+  return { ok: true }
+}
+
+// Every app table is scoped by a `userId` column that equals a business scope.
+// Deleting an account wipes all rows across these tables for its scopes.
+const USER_SCOPED_TABLES = [
+  schema.venue,
+  schema.company,
+  schema.member,
+  schema.asset,
+  schema.order,
+  schema.supplier,
+  schema.maintenance,
+  schema.venueEvent,
+  schema.calendarEvent,
+  schema.task,
+  schema.complianceCheck,
+  schema.certificate,
+  schema.document,
+  schema.staffMember,
+  schema.rotaShift,
+  schema.scheduledPublish,
+  schema.staffInvite,
+  schema.notification,
+  schema.leaveRequest,
+  schema.clockEvent,
+  schema.schedulingSettings,
+  schema.availability,
+  schema.shiftSwap,
+  schema.timecard,
+  schema.tipEntry,
+  schema.shiftPattern,
+  schema.rotaTemplate,
+  schema.rotaTemplateShift,
+  schema.shiftTask,
+  schema.taskCheck,
+  schema.taskCheckItem,
+  schema.correctiveAction,
+  schema.meeting,
+  schema.meetingAction,
+  schema.meterReading,
+  schema.opsDocument,
+  schema.safetyRecord,
+  schema.riskAssessment,
+  schema.riskHazard,
+  schema.staffPolicy,
+  schema.policyAck,
+  schema.dailyChecklist,
+  schema.dailyChecklistRun,
+  schema.audit,
+  schema.foodCheck,
+  schema.foodCheckLog,
+  schema.foodPolicy,
+  schema.expense,
+  schema.takings,
+  schema.gamingMachine,
+  schema.gamingEntry,
+  schema.budget,
+  schema.onboarding,
+  schema.hrDocument,
+  schema.onboardingTask,
+] as const
+
+// Tables keyed by `accountId` (the login) rather than a data scope.
+const ACCOUNT_SCOPED_TABLES = [schema.squareConnection, schema.accountEvent] as const
+
+/**
+ * Permanently deletes a customer/member account and ALL of their data across
+ * every scope they own (venues, staff, schedules, compliance, billing, etc.),
+ * plus any staff sub-logins linked to them. This is irreversible.
+ */
+export async function adminDeleteAccount(formData: FormData): Promise<{ ok: true }> {
+  const admin = await requireSuperAdmin()
+
+  const userId = String(formData.get("userId") ?? "")
+  if (!userId) throw new Error("Missing account")
+
+  const [target] = await db.select().from(user).where(eq(user.id, userId)).limit(1)
+  if (!target) throw new Error("Account not found")
+  if (target.id === admin.id) throw new Error("You can't delete your own account")
+  if (isSuperAdminEmail(target.email)) throw new Error("You can't delete a super admin account")
+
+  // All data scopes this login controls (its own id + any businesses it owns).
+  const scopes = await ownerScopeIds(userId)
+
+  // Wipe every user-scoped table for all of this account's scopes.
+  for (const table of USER_SCOPED_TABLES) {
+    await db.delete(table).where(inArray((table as typeof schema.venue).userId, scopes))
+  }
+
+  // Wipe integration/event tables keyed by the login id.
+  for (const table of ACCOUNT_SCOPED_TABLES) {
+    await db.delete(table).where(inArray((table as typeof schema.accountEvent).accountId, scopes))
+  }
+
+  // Notifications the login received directly (as a staff recipient).
+  await db.delete(schema.notification).where(eq(schema.notification.recipientUserId, userId))
+
+  // Remove business rows this login owns.
+  await db.delete(business).where(eq(business.ownerUserId, userId))
+
+  const ctx = await auth.$context
+
+  // Find and delete any staff sub-logins linked to this owner.
+  const staffLogins = await db.select({ id: user.id }).from(user).where(eq(user.ownerId, userId))
+  for (const s of staffLogins) {
+    await ctx.internalAdapter.deleteUserSessions(s.id).catch(() => {})
+    await db.delete(user).where(eq(user.id, s.id))
+  }
+
+  // Finally revoke sessions and delete the account itself. Better Auth's
+  // session/account tables cascade off the user row's foreign key.
+  await ctx.internalAdapter.deleteUserSessions(userId).catch(() => {})
+  await db.delete(user).where(eq(user.id, userId))
 
   revalidatePath("/admin")
   return { ok: true }

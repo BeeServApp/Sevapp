@@ -1,7 +1,20 @@
 "use client"
 
 import { useState, useTransition } from "react"
-import { Banknote, Building2, KeyRound, Loader2, Search, Settings2, Users } from "lucide-react"
+import { useRouter } from "next/navigation"
+import {
+  Ban,
+  Banknote,
+  Building2,
+  KeyRound,
+  Loader2,
+  Power,
+  Search,
+  Settings2,
+  ShieldAlert,
+  Trash2,
+  Users,
+} from "lucide-react"
 import {
   Table,
   TableBody,
@@ -33,6 +46,9 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog"
 import {
+  adminDeactivateAccount,
+  adminDeleteAccount,
+  adminReactivateAccount,
   adminSetPassword,
   adminUpdateAccount,
   adminUpdateSubscription,
@@ -92,6 +108,7 @@ export function AdminConsole({
   accounts: AdminAccount[]
   metrics: AdminMetrics
 }) {
+  const router = useRouter()
   const [query, setQuery] = useState("")
   const [done, setDone] = useState<string | null>(null)
 
@@ -220,8 +237,18 @@ export function AdminConsole({
                 </TableRow>
               ) : (
                 filtered.map((a) => (
-                  <TableRow key={a.id}>
-                    <TableCell className="font-medium text-foreground">{a.name}</TableCell>
+                  <TableRow key={a.id} className={a.disabledAt ? "opacity-60" : undefined}>
+                    <TableCell className="font-medium text-foreground">
+                      <div className="flex items-center gap-2">
+                        <span>{a.name}</span>
+                        {a.disabledAt && (
+                          <Badge variant="destructive" className="gap-1">
+                            <Ban className="size-3" />
+                            Deactivated
+                          </Badge>
+                        )}
+                      </div>
+                    </TableCell>
                     <TableCell className="text-muted-foreground">{a.email}</TableCell>
                     <TableCell>
                       <Badge variant={a.appRole === "owner" ? "default" : "secondary"}>
@@ -270,6 +297,14 @@ export function AdminConsole({
           if (updated) setDetail(updated)
           flash(message)
         }}
+        onChanged={(message, closeDialog) => {
+          flash(message)
+          router.refresh()
+          if (closeDialog) {
+            setManageId(null)
+            setDetail(null)
+          }
+        }}
       />
     </div>
   )
@@ -281,12 +316,14 @@ function ManageDialog({
   detail,
   onClose,
   onSaved,
+  onChanged,
 }: {
   open: boolean
   loading: boolean
   detail: AdminAccountDetail | null
   onClose: () => void
   onSaved: (message: string, updated?: AdminAccountDetail) => void
+  onChanged: (message: string, closeDialog?: boolean) => void
 }) {
   return (
     <Dialog open={open} onOpenChange={(o) => !o && onClose()}>
@@ -310,6 +347,7 @@ function ManageDialog({
               <TabsTrigger value="account">Account</TabsTrigger>
               <TabsTrigger value="venues">Venues ({detail.venues.length})</TabsTrigger>
               <TabsTrigger value="security">Security</TabsTrigger>
+              <TabsTrigger value="danger">Danger</TabsTrigger>
             </TabsList>
 
             <TabsContent value="account" className="pt-4">
@@ -322,6 +360,10 @@ function ManageDialog({
 
             <TabsContent value="security" className="pt-4">
               <PasswordForm detail={detail} onSaved={onSaved} />
+            </TabsContent>
+
+            <TabsContent value="danger" className="pt-4">
+              <DangerPanel detail={detail} onChanged={onChanged} />
             </TabsContent>
           </Tabs>
         )}
@@ -735,6 +777,146 @@ function PasswordForm({
           {pending ? "Updating…" : "Update password"}
         </Button>
       </DialogFooter>
+    </div>
+  )
+}
+
+function DangerPanel({
+  detail,
+  onChanged,
+}: {
+  detail: AdminAccountDetail
+  onChanged: (message: string, closeDialog?: boolean) => void
+}) {
+  const isDeactivated = detail.disabledAt !== null
+  const [error, setError] = useState<string | null>(null)
+  const [pending, startTransition] = useTransition()
+  const [confirmOpen, setConfirmOpen] = useState(false)
+  const [confirmText, setConfirmText] = useState("")
+
+  function toggleActive() {
+    setError(null)
+    startTransition(async () => {
+      try {
+        const fd = new FormData()
+        fd.set("userId", detail.id)
+        if (isDeactivated) {
+          await adminReactivateAccount(fd)
+          onChanged(`${detail.name} has been reactivated.`, true)
+        } else {
+          await adminDeactivateAccount(fd)
+          onChanged(`${detail.name} has been deactivated and signed out.`, true)
+        }
+      } catch (e) {
+        setError(e instanceof Error ? e.message : "Failed to update account status.")
+      }
+    })
+  }
+
+  function remove() {
+    setError(null)
+    startTransition(async () => {
+      try {
+        const fd = new FormData()
+        fd.set("userId", detail.id)
+        await adminDeleteAccount(fd)
+        setConfirmOpen(false)
+        onChanged(`${detail.name} and all their data have been permanently deleted.`, true)
+      } catch (e) {
+        setError(e instanceof Error ? e.message : "Failed to delete account.")
+      }
+    })
+  }
+
+  return (
+    <div className="grid gap-5">
+      {/* Deactivate / reactivate */}
+      <div className="rounded-lg border border-border p-4">
+        <div className="flex items-start justify-between gap-4">
+          <div className="min-w-0">
+            <p className="font-medium text-foreground">
+              {isDeactivated ? "Reactivate account" : "Deactivate account"}
+            </p>
+            <p className="mt-1 text-sm text-muted-foreground">
+              {isDeactivated
+                ? "Restore access so this member can sign in again. Their data is unchanged."
+                : "Immediately sign this member out and block them from signing in. No data is deleted, and you can reactivate them at any time."}
+            </p>
+          </div>
+          <Button variant="outline" onClick={toggleActive} disabled={pending} className="shrink-0">
+            <Power className="size-4" />
+            {isDeactivated ? "Reactivate" : "Deactivate"}
+          </Button>
+        </div>
+      </div>
+
+      {/* Permanent delete */}
+      <div className="rounded-lg border border-destructive/40 bg-destructive/5 p-4">
+        <div className="flex items-start justify-between gap-4">
+          <div className="min-w-0">
+            <p className="flex items-center gap-2 font-medium text-foreground">
+              <ShieldAlert className="size-4 text-destructive" />
+              Remove account
+            </p>
+            <p className="mt-1 text-sm text-muted-foreground">
+              Permanently delete {detail.name} and{" "}
+              <span className="font-medium text-foreground">all of their data</span>
+              {detail.appRole === "owner"
+                ? " — every venue, staff record, schedule, compliance log and billing state."
+                : "."}{" "}
+              This cannot be undone.
+            </p>
+          </div>
+          <Button
+            variant="destructive"
+            onClick={() => {
+              setConfirmText("")
+              setError(null)
+              setConfirmOpen(true)
+            }}
+            disabled={pending}
+            className="shrink-0"
+          >
+            <Trash2 className="size-4" />
+            Remove
+          </Button>
+        </div>
+      </div>
+
+      {error && <p className="text-sm text-destructive">{error}</p>}
+
+      <Dialog open={confirmOpen} onOpenChange={(o) => !pending && setConfirmOpen(o)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Permanently delete {detail.name}?</DialogTitle>
+            <DialogDescription>
+              This deletes the account and every record tied to it. This action is irreversible. Type{" "}
+              <span className="font-mono font-semibold text-foreground">DELETE</span> to confirm.
+            </DialogDescription>
+          </DialogHeader>
+          <Input
+            value={confirmText}
+            onChange={(e) => setConfirmText(e.target.value)}
+            placeholder="DELETE"
+            autoComplete="off"
+            aria-label="Type DELETE to confirm"
+          />
+          {error && <p className="text-sm text-destructive">{error}</p>}
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setConfirmOpen(false)} disabled={pending}>
+              Cancel
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={remove}
+              disabled={pending || confirmText !== "DELETE"}
+            >
+              <Trash2 className="size-4" />
+              {pending ? "Deleting…" : "Permanently delete"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }
