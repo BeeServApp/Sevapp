@@ -605,7 +605,7 @@ function DocumentsCard({
             </div>
             <div className="flex flex-col gap-1.5">
               <Label>Category</Label>
-              <Select value={form.category} onValueChange={(v) => setForm((f) => ({ ...f, category: v }))}>
+              <Select value={form.category} onValueChange={(v) => setForm((f) => ({ ...f, category: v ?? "other" }))}>
                 <SelectTrigger>
                   <SelectValue />
                 </SelectTrigger>

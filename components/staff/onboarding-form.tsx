@@ -332,7 +332,7 @@ export function OnboardingForm({
             {!niValid && <p className="mt-1 text-xs text-destructive">Format: 2 letters, 6 digits, 1 letter.</p>}
           </Field>
           <Field label="Document type">
-            <Select value={form.rightToWorkType} disabled={disabled} onValueChange={(v) => set("rightToWorkType", v)}>
+            <Select value={form.rightToWorkType} disabled={disabled} onValueChange={(v) => set("rightToWorkType", v ?? "")}>
               <SelectTrigger>
                 <SelectValue placeholder="Select…" />
               </SelectTrigger>
@@ -386,7 +386,7 @@ export function OnboardingForm({
         </div>
         <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2">
           <Field label="Student loan plan">
-            <Select value={form.studentLoanPlan} disabled={disabled} onValueChange={(v) => set("studentLoanPlan", v)}>
+            <Select value={form.studentLoanPlan} disabled={disabled} onValueChange={(v) => set("studentLoanPlan", v ?? "none")}>
               <SelectTrigger>
                 <SelectValue />
               </SelectTrigger>
@@ -482,7 +482,7 @@ export function OnboardingForm({
                 <Input type="date" value={form.startDate} disabled={disabled} onChange={(e) => set("startDate", e.target.value)} />
               </Field>
               <Field label="Pay type">
-                <Select value={form.payType} disabled={disabled} onValueChange={(v) => set("payType", v)}>
+                <Select value={form.payType} disabled={disabled} onValueChange={(v) => set("payType", v ?? "hourly")}>
                   <SelectTrigger>
                     <SelectValue />
                   </SelectTrigger>
