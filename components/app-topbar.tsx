@@ -4,7 +4,6 @@ import { useState } from "react"
 import Link from "next/link"
 import { useRouter, usePathname } from "next/navigation"
 import {
-  Search,
   Menu,
   ChevronDown,
   MapPin,
@@ -15,8 +14,8 @@ import {
   Building2,
   ShieldCheck,
 } from "lucide-react"
-import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
+import { GlobalSearch } from "@/components/global-search"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import {
   DropdownMenu,
@@ -135,10 +134,7 @@ export function AppTopbar() {
         </DropdownMenuContent>
       </DropdownMenu>
 
-      <div className="relative ml-auto hidden max-w-xs flex-1 md:block lg:max-w-sm">
-        <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
-        <Input placeholder="Search orders, staff, tasks..." className="bg-background pl-9" />
-      </div>
+      <GlobalSearch className="ml-auto hidden max-w-xs flex-1 md:block lg:max-w-sm" />
 
       <div className="ml-auto flex items-center gap-2 md:ml-0">
         <NotificationCenter />
