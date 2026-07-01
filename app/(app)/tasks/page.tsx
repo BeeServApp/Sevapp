@@ -5,6 +5,7 @@ import { TasksView } from "@/components/tasks-view"
 import { getActiveVenueId, getSession } from "@/lib/session"
 import { getTaskChecks, getCorrectiveActions } from "@/app/actions/tasks"
 import { getStaffMembers } from "@/app/actions/staff"
+import { getMeetings, getMeterReadings, getDocuments } from "@/app/actions/oversight"
 
 export const metadata: Metadata = {
   title: "Task Management — Beeserv",
@@ -23,10 +24,13 @@ export default async function TasksPage() {
     )
   }
 
-  const [tasks, actions, staff] = await Promise.all([
+  const [tasks, actions, staff, meetings, meterReadings, documents] = await Promise.all([
     getTaskChecks(venueId),
     getCorrectiveActions(venueId),
     getStaffMembers(venueId),
+    getMeetings(venueId),
+    getMeterReadings(venueId),
+    getDocuments(venueId),
   ])
 
   return (
@@ -35,6 +39,9 @@ export default async function TasksPage() {
       initialTasks={tasks}
       initialActions={actions}
       staff={staff}
+      initialMeetings={meetings}
+      initialMeterReadings={meterReadings}
+      initialDocuments={documents}
     />
   )
 }
