@@ -1,8 +1,8 @@
 "use client"
 
 import type React from "react"
-import { useMemo, useState } from "react"
-import { useRouter } from "next/navigation"
+import { useEffect, useMemo, useState } from "react"
+import { useRouter, useSearchParams } from "next/navigation"
 import {
   Plus,
   Truck,
@@ -695,8 +695,23 @@ export function OperationsView({
   tasks: DbTask[]
 }) {
   const router = useRouter()
-  const [tab, setTab] = useState("orders")
+  const searchParams = useSearchParams()
+  const initialTab = ["orders", "suppliers", "maintenance", "events", "tasks"].includes(
+    searchParams.get("tab") ?? "",
+  )
+    ? (searchParams.get("tab") as string)
+    : "orders"
+  const [tab, setTab] = useState(initialTab)
   const [busyId, setBusyId] = useState<string | null>(null)
+
+  // Keep the active tab in sync with the ?tab= param so deep links (e.g. from
+  // global search) switch tabs even when already on this page.
+  const tabParam = searchParams.get("tab")
+  useEffect(() => {
+    if (tabParam && ["orders", "suppliers", "maintenance", "events", "tasks"].includes(tabParam)) {
+      setTab(tabParam)
+    }
+  }, [tabParam])
   const [editingSupplier, setEditingSupplier] = useState<DbSupplier | null>(null)
   const [deleting, setDeleting] = useState<{ kind: string; id: number; label: string } | null>(null)
   const [removing, setRemoving] = useState(false)
