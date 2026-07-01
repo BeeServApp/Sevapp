@@ -1,4 +1,4 @@
-import { Download, TrendingUp, TrendingDown, Lightbulb } from "lucide-react"
+import { TrendingUp, TrendingDown, Lightbulb } from "lucide-react"
 import { PageHeader } from "@/components/page-header"
 import { StatCard } from "@/components/stat-card"
 import { Button } from "@/components/ui/button"
@@ -21,6 +21,7 @@ import { getBudget } from "@/app/actions/budget"
 import { SquareSyncButton } from "@/components/square-sync-button"
 import { SquareBackgroundSync } from "@/components/square-background-sync"
 import { BudgetDialog } from "@/components/budget-dialog"
+import { ExportFinancialsButton, type FinancialsReport } from "@/components/export-financials-button"
 import { TargetStatusDot } from "@/components/target-status-dot"
 import { Target } from "lucide-react"
 import { evaluateTarget, statusLabel, type TargetStatus } from "@/lib/budget"
@@ -243,6 +244,38 @@ export default async function FinancialsPage({
     })
   }
 
+  const periodLabel = new Date(`${mk}-01T00:00:00`).toLocaleDateString("en-GB", {
+    month: "long",
+    year: "numeric",
+  })
+
+  const report: FinancialsReport = {
+    venueName: activeVenue?.name ?? "All venues",
+    periodLabel,
+    kpis: kpis.map((k) => ({ label: k.label, value: k.value, detail: k.delta })),
+    targets: targetRows.map((t) => ({
+      label: t.label,
+      actual: t.actual,
+      target: t.target,
+      status: t.status ? statusLabel(t.status) : "—",
+    })),
+    pl: plData.map((p) => ({
+      month: p.month,
+      revenue: gbp0.format(p.revenue),
+      costs: gbp0.format(p.costs),
+      profit: gbp0.format(p.revenue - p.costs),
+    })),
+    expenseMix: expenseMix.map((e) => ({ category: e.category, share: `${e.value}%` })),
+    expenses: expenses.map((e) => ({
+      category: e.category,
+      vendor: e.vendor,
+      date: e.date,
+      amount: gbp0.format(e.amountPence / 100),
+      status: e.status,
+    })),
+    insights: insights.map((i) => i.text),
+  }
+
   const defaultTab = tab === "gaming" ? "gaming" : "overview"
 
   return (
@@ -268,9 +301,7 @@ export default async function FinancialsPage({
                 }
               />
             )}
-            <Button variant="outline" className="gap-1.5">
-              <Download className="size-4" /> Export
-            </Button>
+            <ExportFinancialsButton report={report} />
           </div>
         }
       />
