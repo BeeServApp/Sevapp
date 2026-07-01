@@ -16,6 +16,9 @@ export const user = pgTable("user", {
   staffMemberId: integer("staffMemberId"),
   // Per-user personal preferences as JSON (e.g. staff's own hidden sidebar modules).
   preferences: text("preferences").notNull().default("{}"),
+  // When set, the account is deactivated: existing sessions are revoked and the
+  // user is blocked from signing in until an admin reactivates them.
+  disabledAt: timestamp("disabledAt"),
   createdAt: timestamp("createdAt").notNull().defaultNow(),
   updatedAt: timestamp("updatedAt").notNull().defaultNow(),
 })
