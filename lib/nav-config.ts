@@ -19,12 +19,13 @@ export const MODULES: ModuleDef[] = [
   { href: "/staff", label: "HR", description: "Onboarding, rotas, leave, documents and time tracking." },
   { href: "/compliance", label: "Compliance", description: "Certificates, checks and documents." },
   { href: "/food", label: "Food Safety", description: "HACCP checks, policies and food hygiene." },
+  { href: "/training", label: "Training", description: "Video and document courses assigned to your team." },
 ]
 
 // Modules a staff (non-owner) account is allowed to see. Staff get a focused
 // experience: their schedule and the tasks assigned to them. Everything else is
 // hidden from the sidebar and blocked at the route level.
-export const STAFF_ALLOWED_PATHS = ["/staff", "/tasks"]
+export const STAFF_ALLOWED_PATHS = ["/staff", "/tasks", "/training"]
 
 // Settings tabs a staff account may open. Staff manage only their own profile
 // and personal preferences — never company, venues, team, billing, etc.
