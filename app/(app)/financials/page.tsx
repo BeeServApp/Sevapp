@@ -33,6 +33,7 @@ import {
   revenuePenceForWeek,
   expensePenceForMonth,
   expensePenceForMonthByCategory,
+  gamingIncomePenceForMonth,
   thisMonthKey,
   lastMonthKey,
 } from "@/lib/finance"
@@ -75,19 +76,28 @@ export default async function FinancialsPage({
   const mk = thisMonthKey()
   const lmk = lastMonthKey()
 
-  const revenueMTD = revenuePenceForMonth(takings, mk)
-  const revenueLM = revenuePenceForMonth(takings, lmk)
+  // Sales (takings) vs. gaming machine income — combined for headline figures.
+  const gamingEntries = gamingMachines.flatMap((m) => m.entries)
+  const machineIncomeMTD = gamingIncomePenceForMonth(gamingEntries, mk)
+  const machineIncomeLM = gamingIncomePenceForMonth(gamingEntries, lmk)
+
+  const salesMTD = revenuePenceForMonth(takings, mk)
+  const salesLM = revenuePenceForMonth(takings, lmk)
+  // Overall revenue includes the venue's share of gaming machine income.
+  const revenueMTD = salesMTD + machineIncomeMTD
+  const revenueLM = salesLM + machineIncomeLM
   const expensesMTD = expensePenceForMonth(expenses, mk)
   const netProfit = revenueMTD - expensesMTD
   const marginPct = revenueMTD > 0 ? (netProfit / revenueMTD) * 100 : null
   const revDelta = pctDelta(revenueMTD, revenueLM)
 
   // --- Targets / traffic lights -------------------------------------------
+  // GP / labour / sales targets stay measured against sales (takings) only.
   const weekRevenue = revenuePenceForWeek(takings, 0)
   const stockMonth = expensePenceForMonthByCategory(expenses, mk, "Stock")
   const labourMonth = expensePenceForMonthByCategory(expenses, mk, "Staff")
-  const gpPct = revenueMTD > 0 ? ((revenueMTD - stockMonth) / revenueMTD) * 100 : null
-  const labourPctActual = revenueMTD > 0 ? (labourMonth / revenueMTD) * 100 : null
+  const gpPct = salesMTD > 0 ? ((salesMTD - stockMonth) / salesMTD) * 100 : null
+  const labourPctActual = salesMTD > 0 ? (labourMonth / salesMTD) * 100 : null
 
   const targetRows: {
     label: string
@@ -109,14 +119,14 @@ export default async function FinancialsPage({
     },
     {
       label: "Monthly sales",
-      actual: takings.length > 0 ? gbp0.format(revenueMTD / 100) : "—",
+      actual: takings.length > 0 ? gbp0.format(salesMTD / 100) : "—",
       target:
         venueBudget?.monthlySalesPence != null
           ? gbp0.format(venueBudget.monthlySalesPence / 100)
           : "Not set",
       status:
         takings.length > 0
-          ? evaluateTarget(revenueMTD, venueBudget?.monthlySalesPence, "higher")
+          ? evaluateTarget(salesMTD, venueBudget?.monthlySalesPence, "higher")
           : null,
     },
     {
@@ -135,7 +145,7 @@ export default async function FinancialsPage({
 
   const monthlySalesStatus =
     takings.length > 0
-      ? evaluateTarget(revenueMTD, venueBudget?.monthlySalesPence, "higher")
+      ? evaluateTarget(salesMTD, venueBudget?.monthlySalesPence, "higher")
       : null
   const monthlySalesHint =
     venueBudget?.monthlySalesPence != null
@@ -143,23 +153,25 @@ export default async function FinancialsPage({
       : undefined
 
   const daysLogged = takings.filter((t) => t.dateISO.slice(0, 7) === mk).length
-  const avgDaily = daysLogged > 0 ? revenueMTD / daysLogged : 0
+  const avgDaily = daysLogged > 0 ? salesMTD / daysLogged : 0
 
+  const hasMachineIncome = machineIncomeMTD > 0
   const hasTakings = takings.length > 0
   const hasExpenses = expenses.length > 0
-  const hasAny = hasTakings || hasExpenses
+  const hasRevenue = hasTakings || hasMachineIncome
+  const hasAny = hasRevenue || hasExpenses
 
   const kpis: Kpi[] = [
     {
       label: "Revenue (MTD)",
-      value: hasTakings ? gbp0.format(revenueMTD / 100) : "—",
-      delta: hasTakings
+      value: hasRevenue ? gbp0.format(revenueMTD / 100) : "—",
+      delta: hasRevenue
         ? revDelta !== null
           ? `${revDelta >= 0 ? "+" : ""}${revDelta.toFixed(1)}%`
           : "New"
         : "No data yet",
-      trend: hasTakings && revDelta !== null ? (revDelta >= 0 ? "up" : "down") : "flat",
-      hint: hasTakings ? "vs last month" : "log takings",
+      trend: hasRevenue && revDelta !== null ? (revDelta >= 0 ? "up" : "down") : "flat",
+      hint: hasMachineIncome ? "incl. machine income" : hasTakings ? "vs last month" : "log takings",
     },
     {
       label: "Net profit (MTD)",
@@ -184,7 +196,7 @@ export default async function FinancialsPage({
     },
   ]
 
-  const plData = profitSeries(takings, expenses, 6)
+  const plData = profitSeries(takings, expenses, 6, gamingEntries)
   const expenseMix = computeExpenseBreakdown(expenses)
   const revByCat = revenueByCategoryMTD(takings)
   const maxCat = Math.max(...revByCat.map((c) => c.pounds), 1)
@@ -197,6 +209,15 @@ export default async function FinancialsPage({
       text: `Revenue is ${Math.abs(revDelta).toFixed(1)}% ${
         revDelta >= 0 ? "up" : "down"
       } versus last month.`,
+    })
+  }
+  if (hasMachineIncome) {
+    const machineShare = revenueMTD > 0 ? (machineIncomeMTD / revenueMTD) * 100 : 0
+    insights.push({
+      tone: "up",
+      text: `Gaming machines contributed ${gbp0.format(machineIncomeMTD / 100)} (${machineShare.toFixed(
+        1,
+      )}% of revenue) this month.`,
     })
   }
   if (hasExpenses && expenseMix.length > 0) {
@@ -255,10 +276,12 @@ export default async function FinancialsPage({
       />
 
       <Tabs defaultValue={defaultTab} className="mt-2">
-        <TabsList>
-          <TabsTrigger value="overview">Overview</TabsTrigger>
-          <TabsTrigger value="gaming">Gaming machines</TabsTrigger>
-        </TabsList>
+        <div className="-mx-1 overflow-x-auto px-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+          <TabsList className="w-max">
+            <TabsTrigger value="overview">Overview</TabsTrigger>
+            <TabsTrigger value="gaming">Gaming machines</TabsTrigger>
+          </TabsList>
+        </div>
 
         <TabsContent value="overview" className="mt-4">
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">

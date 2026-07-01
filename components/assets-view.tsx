@@ -305,70 +305,71 @@ export function AssetsView({
         }
       />
 
-      {/* Summary dashboard */}
-      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-        {summary.map((s) => {
-          const Icon = s.icon
-          return (
-            <Card key={s.label} className="gap-0 p-5">
-              <Icon className="size-4 text-muted-foreground" />
-              <p className="mt-2 text-2xl font-semibold tracking-tight text-foreground">{s.value}</p>
-              <p className="text-xs text-muted-foreground">{s.label}</p>
-              {s.sub && <p className="mt-0.5 text-xs text-muted-foreground/80">{s.sub}</p>}
-            </Card>
-          )
-        })}
-      </div>
-
-      {/* Value by category */}
-      {activeAssets.length > 0 && (
-        <Card className="mt-4">
-          <CardHeader>
-            <CardTitle>Fittings value by category</CardTitle>
-            <p className="mt-1 text-sm text-muted-foreground">
-              Total replacement value across {activeAssets.length} active assets
-            </p>
-          </CardHeader>
-          <CardContent>
-            <div className="flex h-3 w-full overflow-hidden rounded-full bg-muted">
-              {categoryValues.map((c, i) => (
-                <div
-                  key={c.category}
-                  style={{
-                    width: `${(c.value / totalValue) * 100}%`,
-                    backgroundColor: categoryColors[i % categoryColors.length],
-                  }}
-                  title={`${c.category}: ${gbp.format(c.value)}`}
-                />
-              ))}
-            </div>
-            <ul className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
-              {categoryValues.map((c, i) => (
-                <li key={c.category} className="flex items-center gap-2 text-sm">
-                  <span
-                    className="size-2.5 shrink-0 rounded-full"
-                    style={{ backgroundColor: categoryColors[i % categoryColors.length] }}
-                  />
-                  <div className="min-w-0">
-                    <p className="truncate text-muted-foreground">{c.category}</p>
-                    <p className="font-medium text-foreground tabular-nums">{gbp.format(c.value)}</p>
-                  </div>
-                </li>
-              ))}
-            </ul>
-          </CardContent>
-        </Card>
-      )}
-
       {/* Asset register */}
-      <Tabs defaultValue="gallery" className="mt-6">
-        <TabsList>
-          <TabsTrigger value="gallery">Gallery</TabsTrigger>
-          <TabsTrigger value="register">Register</TabsTrigger>
-        </TabsList>
+      <Tabs defaultValue="gallery" className="mt-2">
+        <div className="-mx-1 overflow-x-auto px-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+          <TabsList className="w-max">
+            <TabsTrigger value="gallery">Gallery</TabsTrigger>
+            <TabsTrigger value="register">Register</TabsTrigger>
+          </TabsList>
+        </div>
 
         {/* Gallery view with photos */}
-        <TabsContent value="gallery">
+        <TabsContent value="gallery" className="mt-4 flex flex-col gap-4">
+          {/* Summary dashboard */}
+          <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+            {summary.map((s) => {
+              const Icon = s.icon
+              return (
+                <Card key={s.label} className="gap-0 p-5">
+                  <Icon className="size-4 text-muted-foreground" />
+                  <p className="mt-2 text-2xl font-semibold tracking-tight text-foreground">{s.value}</p>
+                  <p className="text-xs text-muted-foreground">{s.label}</p>
+                  {s.sub && <p className="mt-0.5 text-xs text-muted-foreground/80">{s.sub}</p>}
+                </Card>
+              )
+            })}
+          </div>
+
+          {/* Value by category */}
+          {activeAssets.length > 0 && (
+            <Card>
+              <CardHeader>
+                <CardTitle>Fittings value by category</CardTitle>
+                <p className="mt-1 text-sm text-muted-foreground">
+                  Total replacement value across {activeAssets.length} active assets
+                </p>
+              </CardHeader>
+              <CardContent>
+                <div className="flex h-3 w-full overflow-hidden rounded-full bg-muted">
+                  {categoryValues.map((c, i) => (
+                    <div
+                      key={c.category}
+                      style={{
+                        width: `${(c.value / totalValue) * 100}%`,
+                        backgroundColor: categoryColors[i % categoryColors.length],
+                      }}
+                      title={`${c.category}: ${gbp.format(c.value)}`}
+                    />
+                  ))}
+                </div>
+                <ul className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
+                  {categoryValues.map((c, i) => (
+                    <li key={c.category} className="flex items-center gap-2 text-sm">
+                      <span
+                        className="size-2.5 shrink-0 rounded-full"
+                        style={{ backgroundColor: categoryColors[i % categoryColors.length] }}
+                      />
+                      <div className="min-w-0">
+                        <p className="truncate text-muted-foreground">{c.category}</p>
+                        <p className="font-medium text-foreground tabular-nums">{gbp.format(c.value)}</p>
+                      </div>
+                    </li>
+                  ))}
+                </ul>
+              </CardContent>
+            </Card>
+          )}
           {assets.length === 0 ? (
             <Card className="p-10 text-center text-sm text-muted-foreground">
               No assets yet. Use “Add asset” to register your first fitting.

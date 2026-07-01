@@ -45,11 +45,13 @@ export function FoodHub({
       />
 
       <Tabs value={activeTab} onValueChange={(v) => setTab(v ?? "overview")}>
-        <TabsList className="flex-wrap">
-          <TabsTrigger value="overview">Overview</TabsTrigger>
-          <TabsTrigger value="checks">HACCP checks</TabsTrigger>
-          <TabsTrigger value="policies">Documents</TabsTrigger>
-        </TabsList>
+        <div className="-mx-1 overflow-x-auto px-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+          <TabsList className="w-max">
+            <TabsTrigger value="overview">Overview</TabsTrigger>
+            <TabsTrigger value="checks">HACCP checks</TabsTrigger>
+            <TabsTrigger value="policies">Documents</TabsTrigger>
+          </TabsList>
+        </div>
 
         <TabsContent value="overview" className="mt-4">
           <FoodOverview score={score} alerts={alerts} onJumpToTab={setTab} />

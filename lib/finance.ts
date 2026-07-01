@@ -1,4 +1,4 @@
-import type { DbTakings, DbExpense } from "@/lib/db/schema"
+import type { DbTakings, DbExpense, DbGamingEntry } from "@/lib/db/schema"
 
 export const gbp0 = new Intl.NumberFormat("en-GB", {
   style: "currency",
@@ -91,18 +91,32 @@ export function lastNMonths(n: number) {
   return out
 }
 
-/** Monthly revenue vs costs for the last `n` months (£). */
-export function profitSeries(takings: DbTakings[], expenses: DbExpense[], n = 6) {
+/** Monthly revenue vs costs for the last `n` months (£). Machine (gaming)
+ *  income is folded into the revenue line so the P&L reflects overall finances. */
+export function profitSeries(
+  takings: DbTakings[],
+  expenses: DbExpense[],
+  n = 6,
+  gamingEntries: DbGamingEntry[] = [],
+) {
   const months = lastNMonths(n)
   return months.map((m) => {
     const revenue = takings
       .filter((t) => t.dateISO.slice(0, 7) === m.key)
       .reduce((s, t) => s + takingsTotalPence(t), 0)
+    const gaming = gamingIncomePenceForMonth(gamingEntries, m.key)
     const costs = expenses
       .filter((e) => monthKeyOf(new Date(e.createdAt)) === m.key)
       .reduce((s, e) => s + e.amountPence, 0)
-    return { month: m.label, revenue: revenue / 100, costs: costs / 100 }
+    return { month: m.label, revenue: (revenue + gaming) / 100, costs: costs / 100 }
   })
+}
+
+/** Venue's share of gaming machine income (pence) within a given month key. */
+export function gamingIncomePenceForMonth(entries: DbGamingEntry[], monthKey: string) {
+  return entries
+    .filter((e) => e.collectionDateISO.slice(0, 7) === monthKey)
+    .reduce((s, e) => s + e.locationSharePence, 0)
 }
 
 /** Expense share by category (percentage). */

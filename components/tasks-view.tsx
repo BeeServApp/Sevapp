@@ -141,51 +141,53 @@ export function TasksView({ venueId, initialTasks, initialActions, staff }: Prop
         }
       />
 
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <KpiTile label="Active tasks" value={String(stats.total)} icon={ListChecks} tone="text-chart-3" />
-        <KpiTile label="Completed" value={String(stats.completed)} icon={CheckCircle2} tone="text-chart-2" />
-        <KpiTile label="Overdue" value={String(stats.overdue)} icon={Clock} tone="text-destructive" />
-        <KpiTile label="Open actions" value={String(stats.openActions)} icon={AlertTriangle} tone="text-chart-4" />
-      </div>
-
-      <Card>
-        <CardHeader className="flex-row items-center justify-between gap-3 space-y-0">
-          <div>
-            <CardTitle className="text-base">Completion rate</CardTitle>
-            <p className="mt-1 text-sm text-muted-foreground">
-              {stats.completed} of {stats.total} tasks completed today
-            </p>
-          </div>
-          <span className="text-2xl font-semibold tracking-tight">{stats.rate}%</span>
-        </CardHeader>
-        <CardContent>
-          <Progress value={stats.rate} />
-        </CardContent>
-      </Card>
-
       <Tabs defaultValue="tasks" className="w-full">
-        <TabsList>
-          <TabsTrigger value="tasks">Tasks &amp; Checklists</TabsTrigger>
-          <TabsTrigger value="recurring">
-            Recurring
-            {templates.length > 0 && (
-              <Badge variant="outline" className="ml-2 border-transparent bg-muted text-muted-foreground">
-                {templates.length}
-              </Badge>
-            )}
-          </TabsTrigger>
-          <TabsTrigger value="actions">
-            Corrective Actions
-            {stats.openActions > 0 && (
-              <Badge variant="outline" className="ml-2 border-transparent bg-destructive/12 text-destructive">
-                {stats.openActions}
-              </Badge>
-            )}
-          </TabsTrigger>
-        </TabsList>
+        <div className="-mx-1 overflow-x-auto px-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+          <TabsList className="w-max">
+            <TabsTrigger value="tasks">Tasks &amp; Checklists</TabsTrigger>
+            <TabsTrigger value="recurring">
+              Recurring
+              {templates.length > 0 && (
+                <Badge variant="outline" className="ml-2 border-transparent bg-muted text-muted-foreground">
+                  {templates.length}
+                </Badge>
+              )}
+            </TabsTrigger>
+            <TabsTrigger value="actions">
+              Corrective Actions
+              {stats.openActions > 0 && (
+                <Badge variant="outline" className="ml-2 border-transparent bg-destructive/12 text-destructive">
+                  {stats.openActions}
+                </Badge>
+              )}
+            </TabsTrigger>
+          </TabsList>
+        </div>
 
-        <TabsContent value="tasks" className="mt-5">
-          <div className="mb-4 flex flex-wrap items-center gap-2">
+        <TabsContent value="tasks" className="mt-5 flex flex-col gap-6">
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+            <KpiTile label="Active tasks" value={String(stats.total)} icon={ListChecks} tone="text-chart-3" />
+            <KpiTile label="Completed" value={String(stats.completed)} icon={CheckCircle2} tone="text-chart-2" />
+            <KpiTile label="Overdue" value={String(stats.overdue)} icon={Clock} tone="text-destructive" />
+            <KpiTile label="Open actions" value={String(stats.openActions)} icon={AlertTriangle} tone="text-chart-4" />
+          </div>
+
+          <Card>
+            <CardHeader className="flex-row items-center justify-between gap-3 space-y-0">
+              <div>
+                <CardTitle className="text-base">Completion rate</CardTitle>
+                <p className="mt-1 text-sm text-muted-foreground">
+                  {stats.completed} of {stats.total} tasks completed today
+                </p>
+              </div>
+              <span className="text-2xl font-semibold tracking-tight">{stats.rate}%</span>
+            </CardHeader>
+            <CardContent>
+              <Progress value={stats.rate} />
+            </CardContent>
+          </Card>
+
+          <div className="flex flex-wrap items-center gap-2">
             {["All", "Pending", "In progress", "Completed", "Overdue"].map((s) => (
               <Button
                 key={s}

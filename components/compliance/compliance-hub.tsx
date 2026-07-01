@@ -89,18 +89,20 @@ export function ComplianceHub({
       />
 
       <Tabs value={activeTab} onValueChange={(v) => setTab(v ?? "overview")}>
-        <TabsList className="flex-wrap">
-          <TabsTrigger value="overview">Overview</TabsTrigger>
-          <TabsTrigger value="checklists">Daily checklists</TabsTrigger>
-          <TabsTrigger value="fire">Fire safety</TabsTrigger>
-          <TabsTrigger value="hs">H&amp;S</TabsTrigger>
-          <TabsTrigger value="licensing">Licensing</TabsTrigger>
-          <TabsTrigger value="property">Property</TabsTrigger>
-          <TabsTrigger value="risk">Risk assessments</TabsTrigger>
-          <TabsTrigger value="policies">Policies</TabsTrigger>
-          <TabsTrigger value="audits">Audits &amp; actions</TabsTrigger>
-          <TabsTrigger value="records">Certificates &amp; docs</TabsTrigger>
-        </TabsList>
+        <div className="-mx-1 overflow-x-auto px-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+          <TabsList className="w-max">
+            <TabsTrigger value="overview">Overview</TabsTrigger>
+            <TabsTrigger value="checklists">Daily checklists</TabsTrigger>
+            <TabsTrigger value="fire">Fire safety</TabsTrigger>
+            <TabsTrigger value="hs">H&amp;S</TabsTrigger>
+            <TabsTrigger value="licensing">Licensing</TabsTrigger>
+            <TabsTrigger value="property">Property</TabsTrigger>
+            <TabsTrigger value="risk">Risk assessments</TabsTrigger>
+            <TabsTrigger value="policies">Policies</TabsTrigger>
+            <TabsTrigger value="audits">Audits &amp; actions</TabsTrigger>
+            <TabsTrigger value="records">Certificates &amp; docs</TabsTrigger>
+          </TabsList>
+        </div>
 
         <TabsContent value="overview" className="mt-4">
           <ComplianceOverview
