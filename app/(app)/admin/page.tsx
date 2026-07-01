@@ -1,7 +1,7 @@
 import type { Metadata } from "next"
 import { notFound } from "next/navigation"
 import { getSuperAdmin } from "@/lib/admin"
-import { listAccounts } from "@/app/actions/admin"
+import { getAdminMetrics, listAccounts } from "@/app/actions/admin"
 import { AdminConsole } from "@/components/admin/admin-console"
 
 export const metadata: Metadata = {
@@ -13,17 +13,17 @@ export default async function AdminPage() {
   // Hide the route entirely from anyone who isn't the super admin.
   if (!admin) notFound()
 
-  const accounts = await listAccounts()
+  const [accounts, metrics] = await Promise.all([listAccounts(), getAdminMetrics()])
 
   return (
     <div className="space-y-6">
       <div>
         <h1 className="text-2xl font-semibold text-foreground text-balance">Admin console</h1>
         <p className="text-sm text-muted-foreground">
-          Signed in as super admin ({admin.email}). Manage every account and reset passwords.
+          Signed in as super admin ({admin.email}). Track revenue and manage every customer, venue and account.
         </p>
       </div>
-      <AdminConsole accounts={accounts} />
+      <AdminConsole accounts={accounts} metrics={metrics} />
     </div>
   )
 }

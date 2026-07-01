@@ -774,30 +774,31 @@ export function OperationsView({
         actions={headerAction}
       />
 
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
-        {summary.map((s) => {
-          const Icon = s.icon
-          return (
-            <Card key={s.label} className="gap-0 p-4">
-              <Icon className="size-4 text-muted-foreground" />
-              <p className="mt-2 text-2xl font-semibold text-foreground">{s.value}</p>
-              <p className="text-xs text-muted-foreground">{s.label}</p>
-            </Card>
-          )
-        })}
-      </div>
-
-      <Tabs value={tab} onValueChange={(v) => v && setTab(v)} className="mt-6">
-        <TabsList className="flex-wrap">
-          <TabsTrigger value="orders">Orders</TabsTrigger>
-          <TabsTrigger value="suppliers">Suppliers</TabsTrigger>
-          <TabsTrigger value="maintenance">Maintenance</TabsTrigger>
-          <TabsTrigger value="events">Events</TabsTrigger>
-          <TabsTrigger value="tasks">Tasks</TabsTrigger>
-        </TabsList>
+      <Tabs value={tab} onValueChange={(v) => v && setTab(v)} className="mt-2">
+        <div className="-mx-1 overflow-x-auto px-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+          <TabsList className="w-max">
+            <TabsTrigger value="orders">Orders</TabsTrigger>
+            <TabsTrigger value="suppliers">Suppliers</TabsTrigger>
+            <TabsTrigger value="maintenance">Maintenance</TabsTrigger>
+            <TabsTrigger value="events">Events</TabsTrigger>
+            <TabsTrigger value="tasks">Tasks</TabsTrigger>
+          </TabsList>
+        </div>
 
         {/* Orders */}
-        <TabsContent value="orders">
+        <TabsContent value="orders" className="mt-4 flex flex-col gap-4">
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
+            {summary.map((s) => {
+              const Icon = s.icon
+              return (
+                <Card key={s.label} className="gap-0 p-4">
+                  <Icon className="size-4 text-muted-foreground" />
+                  <p className="mt-2 text-2xl font-semibold text-foreground">{s.value}</p>
+                  <p className="text-xs text-muted-foreground">{s.label}</p>
+                </Card>
+              )
+            })}
+          </div>
           <Card>
             <CardContent className="p-0">
               {orders.length === 0 ? (
