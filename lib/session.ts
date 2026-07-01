@@ -4,7 +4,7 @@ import { auth } from "@/lib/auth"
 import { db } from "@/lib/db"
 import { business, staffMember, user, venue } from "@/lib/db/schema"
 import { ensureSeeded } from "@/lib/seed"
-import { asc, eq } from "drizzle-orm"
+import { and, asc, eq, or } from "drizzle-orm"
 import { cookies, headers } from "next/headers"
 import { redirect } from "next/navigation"
 
@@ -120,6 +120,28 @@ export async function guardOwnerPage(): Promise<CurrentUser> {
 }
 
 /**
+ * The venue ids a staff member is assigned to. A staff login is linked to one
+ * or more staff_member rows (via linkedUserId) within their owner's account;
+ * each row pins a venue. Owners are not restricted, so this returns [].
+ */
+export async function getAssignedVenueIds(me: CurrentUser): Promise<number[]> {
+  if (me.appRole !== "staff") return []
+  const rows = await db
+    .select({ venueId: staffMember.venueId })
+    .from(staffMember)
+    .where(
+      and(
+        eq(staffMember.userId, me.accountId),
+        or(
+          eq(staffMember.linkedUserId, me.id),
+          me.staffMemberId != null ? eq(staffMember.id, me.staffMemberId) : undefined,
+        ),
+      ),
+    )
+  return Array.from(new Set(rows.map((r) => r.venueId)))
+}
+
+/**
  * Resolves the active venue id. For staff this is the venue of their linked
  * staff record. For owners it comes from the cookie, falling back to their
  * first venue. Returns null when there are no venues.
@@ -127,14 +149,27 @@ export async function guardOwnerPage(): Promise<CurrentUser> {
 export async function getActiveVenueId(accountId: string): Promise<number | null> {
   const me = await getCurrentUser().catch(() => null)
 
-  // Staff are pinned to the venue of their staff record.
-  if (me?.appRole === "staff" && me.staffMemberId != null) {
-    const [sm] = await db
-      .select({ venueId: staffMember.venueId })
-      .from(staffMember)
-      .where(eq(staffMember.id, me.staffMemberId))
-      .limit(1)
-    if (sm) return sm.venueId
+  // Staff can only see the venues they're assigned to (linked staff records).
+  // They may switch between them; the cookie is honored when it points to an
+  // assigned venue, otherwise we fall back to their pinned staff-record venue.
+  if (me?.appRole === "staff") {
+    const assigned = await getAssignedVenueIds(me)
+    if (assigned.length > 0) {
+      const cookieStore = await cookies()
+      const raw = cookieStore.get(ACTIVE_VENUE_COOKIE)?.value
+      const wanted = raw ? Number.parseInt(raw, 10) : Number.NaN
+      if (assigned.includes(wanted)) return wanted
+
+      if (me.staffMemberId != null) {
+        const [sm] = await db
+          .select({ venueId: staffMember.venueId })
+          .from(staffMember)
+          .where(eq(staffMember.id, me.staffMemberId))
+          .limit(1)
+        if (sm && assigned.includes(sm.venueId)) return sm.venueId
+      }
+      return assigned[0]
+    }
   }
 
   // Guarantee the owner's demo data exists before resolving a venue. Pages render

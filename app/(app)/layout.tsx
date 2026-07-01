@@ -6,7 +6,7 @@ import { VenueProvider } from "@/components/venue-provider"
 import { RealtimeProvider } from "@/components/realtime-provider"
 import { db } from "@/lib/db"
 import { venue as venueTable } from "@/lib/db/schema"
-import { getActiveVenueId, getCurrentUser, getSession } from "@/lib/session"
+import { getActiveVenueId, getAssignedVenueIds, getCurrentUser, getSession } from "@/lib/session"
 import { ensureSeeded } from "@/lib/seed"
 import { getCompany } from "@/app/actions/company"
 import { getMyBusinesses } from "@/app/actions/business"
@@ -27,11 +27,17 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   }
 
   // Venues are always scoped to the owning account (accountId).
-  const venues = await db
+  let venues = await db
     .select()
     .from(venueTable)
     .where(eq(venueTable.userId, me.accountId))
     .orderBy(asc(venueTable.id))
+
+  // Staff only see venues they're assigned to. Owners see every account venue.
+  if (me.appRole === "staff") {
+    const allowedVenueIds = new Set(await getAssignedVenueIds(me))
+    venues = venues.filter((v) => allowedVenueIds.has(v.id))
+  }
   const company = await getCompany()
   const activeVenueId = await getActiveVenueId(me.accountId)
 
