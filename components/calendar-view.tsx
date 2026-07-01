@@ -5,6 +5,7 @@ import { useMemo, useState } from "react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
 import {
+  Building2,
   CalendarDays,
   CalendarClock,
   ChevronLeft,
@@ -141,6 +142,13 @@ interface CalItem {
   linkId: number | null
   href: string | null
   source: DbCalendarEvent | null
+  venueId: number
+  assignedToMe?: boolean
+}
+
+interface WorkspaceVenue {
+  id: number
+  name: string
 }
 
 interface DatedCheck {
@@ -150,6 +158,7 @@ interface DatedCheck {
   dueTime: string | null
   status: string
   priority: string
+  venueId: number
 }
 interface DatedAction {
   id: number
@@ -157,12 +166,15 @@ interface DatedAction {
   dueDate: string
   status: string
   priority: string
+  venueId: number
 }
 interface DatedMeeting {
   id: number
   title: string
   scheduledDate: string
   status: string
+  venueId: number
+  assignedToMe?: boolean
 }
 interface DatedMaintenance {
   id: number
@@ -171,10 +183,12 @@ interface DatedMaintenance {
   status: string
   priority: string
   assetId: number | null
+  venueId: number
 }
 
 export function CalendarView({
   venueId,
+  venues,
   initialEvents,
   datedChecks,
   datedActions,
@@ -183,6 +197,7 @@ export function CalendarView({
   linkable,
 }: {
   venueId: number
+  venues: WorkspaceVenue[]
   initialEvents: DbCalendarEvent[]
   datedChecks: DatedCheck[]
   datedActions: DatedAction[]
@@ -190,6 +205,15 @@ export function CalendarView({
   datedMaintenance: DatedMaintenance[]
   linkable: LinkableItems
 }) {
+  const venueNameById = useMemo(
+    () => new Map(venues.map((v) => [v.id, v.name] as const)),
+    [venues],
+  )
+  const multiVenue = venues.length > 1
+  // Which venues are currently shown. Defaults to all accessible venues.
+  const [activeVenues, setActiveVenues] = useState<Set<number>>(
+    () => new Set(venues.map((v) => v.id)),
+  )
   const today = toISO(new Date())
   const [viewDate, setViewDate] = useState(() => new Date())
   const [mode, setMode] = useState<"month" | "agenda">("month")
@@ -226,6 +250,7 @@ export function CalendarView({
             ? "/operations"
             : null,
         source: e,
+        venueId: e.venueId,
       })
     }
     for (const c of datedChecks) {
@@ -246,6 +271,7 @@ export function CalendarView({
         linkId: c.id,
         href: "/tasks",
         source: null,
+        venueId: c.venueId,
       })
     }
     for (const a of datedActions) {
@@ -266,6 +292,7 @@ export function CalendarView({
         linkId: a.id,
         href: "/tasks",
         source: null,
+        venueId: a.venueId,
       })
     }
     for (const m of datedMeetings) {
@@ -286,6 +313,8 @@ export function CalendarView({
         linkId: m.id,
         href: "/tasks",
         source: null,
+        venueId: m.venueId,
+        assignedToMe: m.assignedToMe,
       })
     }
     for (const m of datedMaintenance) {
@@ -306,14 +335,15 @@ export function CalendarView({
         linkId: m.id,
         href: "/assets",
         source: null,
+        venueId: m.venueId,
       })
     }
     return out
   }, [initialEvents, datedChecks, datedActions, datedMeetings, datedMaintenance])
 
   const visibleItems = useMemo(
-    () => items.filter((i) => activeTypes.has(i.type)),
-    [items, activeTypes],
+    () => items.filter((i) => activeTypes.has(i.type) && activeVenues.has(i.venueId)),
+    [items, activeTypes, activeVenues],
   )
 
   const byDate = useMemo(() => {
@@ -365,6 +395,14 @@ export function CalendarView({
       const next = new Set(prev)
       if (next.has(type)) next.delete(type)
       else next.add(type)
+      return next
+    })
+  }
+  function toggleVenue(id: number) {
+    setActiveVenues((prev) => {
+      const next = new Set(prev)
+      if (next.has(id)) next.delete(id)
+      else next.add(id)
       return next
     })
   }
@@ -439,6 +477,34 @@ export function CalendarView({
           )
         })}
       </div>
+
+      {/* Venue filter (only when the user can see more than one venue) */}
+      {multiVenue && (
+        <div className="mb-4 flex flex-wrap items-center gap-2">
+          <span className="inline-flex items-center gap-1.5 text-xs font-medium text-muted-foreground">
+            <Building2 className="size-3.5" /> Venues
+          </span>
+          {venues.map((v) => {
+            const active = activeVenues.has(v.id)
+            return (
+              <button
+                key={v.id}
+                type="button"
+                onClick={() => toggleVenue(v.id)}
+                className={cn(
+                  "inline-flex items-center gap-2 rounded-full border px-3 py-1 text-xs font-medium transition-colors",
+                  active
+                    ? "border-border bg-card text-foreground"
+                    : "border-transparent bg-muted text-muted-foreground",
+                )}
+                aria-pressed={active}
+              >
+                {v.name}
+              </button>
+            )
+          })}
+        </div>
+      )}
 
       {mode === "month" ? (
         <div className="grid gap-4 lg:grid-cols-[1fr_320px]">
@@ -545,6 +611,7 @@ export function CalendarView({
                     <DayItemRow
                       key={it.key}
                       item={it}
+                      venueName={multiVenue ? venueNameById.get(it.venueId) : undefined}
                       onEdit={() => it.source && openEdit(it.source)}
                       onDelete={() => it.source && setPendingDelete(it.source)}
                     />
@@ -576,6 +643,7 @@ export function CalendarView({
                         <DayItemRow
                           key={it.key}
                           item={it}
+                          venueName={multiVenue ? venueNameById.get(it.venueId) : undefined}
                           onEdit={() => it.source && openEdit(it.source)}
                           onDelete={() => it.source && setPendingDelete(it.source)}
                         />
@@ -621,10 +689,12 @@ export function CalendarView({
 
 function DayItemRow({
   item,
+  venueName,
   onEdit,
   onDelete,
 }: {
   item: CalItem
+  venueName?: string
   onEdit: () => void
   onDelete: () => void
 }) {
@@ -633,12 +703,22 @@ function DayItemRow({
     <li className="flex items-start gap-2 rounded-md border border-border bg-card p-2.5">
       <span className={cn("mt-1 size-2.5 shrink-0 rounded-full", COLOR_DOT[item.color])} />
       <div className="min-w-0 flex-1">
-        <div className="flex items-center gap-1.5">
+        <div className="flex flex-wrap items-center gap-1.5">
           <p className="truncate text-sm font-medium text-foreground">{item.title}</p>
           {item.linkType && <Link2 className="size-3 shrink-0 text-muted-foreground" />}
+          {item.assignedToMe && (
+            <span className="rounded-full bg-primary/10 px-1.5 py-0.5 text-[10px] font-medium text-primary">
+              Assigned to you
+            </span>
+          )}
         </div>
         <div className="mt-0.5 flex flex-wrap items-center gap-x-3 gap-y-0.5 text-xs text-muted-foreground">
           <span>{TYPE_META[item.type]?.label ?? item.type}</span>
+          {venueName && (
+            <span className="inline-flex items-center gap-1">
+              <Building2 className="size-3" /> {venueName}
+            </span>
+          )}
           {!item.allDay && item.time && (
             <span className="inline-flex items-center gap-1">
               <Clock className="size-3" /> {item.time}

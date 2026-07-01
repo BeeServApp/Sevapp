@@ -2,9 +2,9 @@ import "server-only"
 
 import { auth } from "@/lib/auth"
 import { db } from "@/lib/db"
-import { business, staffMember, user, venue } from "@/lib/db/schema"
+import { business, staffMember, user, venue, venueAccess } from "@/lib/db/schema"
 import { ensureSeeded } from "@/lib/seed"
-import { asc, eq } from "drizzle-orm"
+import { and, asc, eq, inArray } from "drizzle-orm"
 import { cookies, headers } from "next/headers"
 import { redirect } from "next/navigation"
 
@@ -12,12 +12,16 @@ export const ACTIVE_VENUE_COOKIE = "tapsheet_active_venue"
 export const ACTIVE_BUSINESS_COOKIE = "tapsheet_active_business"
 
 export type AppRole = "owner" | "staff"
+/** Elevated role for staff logins. Null for owners and plain staff. */
+export type ManagerRole = "manager" | "area_manager" | null
 
 export interface CurrentUser {
   id: string
   name: string
   email: string
   appRole: AppRole
+  /** Elevated staff role: "manager" (single venue) or "area_manager" (many). */
+  managerRole: ManagerRole
   /** The user id whose data this account reads/writes (self for owners, owner for staff). */
   accountId: string
   /** Linked staff_member.id for staff accounts, else null. */
@@ -54,6 +58,11 @@ export async function getCurrentUser(): Promise<CurrentUser> {
   }
 
   const appRole: AppRole = row?.appRole === "staff" ? "staff" : "owner"
+  // Manager roles only apply to staff logins.
+  const managerRole: ManagerRole =
+    appRole === "staff" && (row?.managerRole === "manager" || row?.managerRole === "area_manager")
+      ? row.managerRole
+      : null
 
   // Staff always read their owner's data. Owners read the data of their
   // currently-active business (one login can own several businesses).
@@ -67,9 +76,68 @@ export async function getCurrentUser(): Promise<CurrentUser> {
     name: row?.name ?? session.user.name,
     email: row?.email ?? session.user.email,
     appRole,
+    managerRole,
     accountId,
     staffMemberId: row?.staffMemberId ?? null,
   }
+}
+
+/**
+ * The set of venue ids the given user may see across the account.
+ * - Owners: every venue in the account.
+ * - Area managers: the venues explicitly assigned in venue_access.
+ * - Managers / plain staff: the single venue of their linked staff record.
+ */
+export async function getAccessibleVenueIds(me: CurrentUser): Promise<number[]> {
+  // Owners see all venues in their active business scope.
+  if (me.appRole === "owner") {
+    const rows = await db
+      .select({ id: venue.id })
+      .from(venue)
+      .where(eq(venue.userId, me.accountId))
+      .orderBy(asc(venue.id))
+    return rows.map((r) => r.id)
+  }
+
+  // Area managers see the venues explicitly granted to them.
+  if (me.managerRole === "area_manager") {
+    const rows = await db
+      .select({ venueId: venueAccess.venueId })
+      .from(venueAccess)
+      .where(and(eq(venueAccess.userId, me.accountId), eq(venueAccess.memberUserId, me.id)))
+    const ids = rows.map((r) => r.venueId)
+    // Fall back to their staff venue if no explicit grants exist yet.
+    if (ids.length > 0) {
+      // Only keep venues that still belong to the account.
+      const valid = await db
+        .select({ id: venue.id })
+        .from(venue)
+        .where(and(eq(venue.userId, me.accountId), inArray(venue.id, ids)))
+      return valid.map((r) => r.id)
+    }
+  }
+
+  // Managers and plain staff are pinned to their staff record's venue.
+  if (me.staffMemberId != null) {
+    const [sm] = await db
+      .select({ venueId: staffMember.venueId })
+      .from(staffMember)
+      .where(eq(staffMember.id, me.staffMemberId))
+      .limit(1)
+    if (sm) return [sm.venueId]
+  }
+  return []
+}
+
+/**
+ * Guard for the workspace calendar. Owners, managers and area managers may
+ * view it; plain staff are redirected to their schedule.
+ */
+export async function guardCalendarPage(): Promise<CurrentUser> {
+  const me = await getCurrentUser()
+  if (me.appRole === "owner") return me
+  if (me.managerRole === "manager" || me.managerRole === "area_manager") return me
+  redirect("/staff")
 }
 
 /**

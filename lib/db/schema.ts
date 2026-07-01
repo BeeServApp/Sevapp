@@ -11,6 +11,9 @@ export const user = pgTable("user", {
   image: text("image"),
   // App-level role: "owner" (full access) or "staff" (scheduling + tasks only).
   appRole: text("appRole").notNull().default("owner"),
+  // Optional elevated role for staff logins: "manager" (single venue) or
+  // "area_manager" (spans the venues listed in venueAccess). Null for plain staff/owner.
+  managerRole: text("managerRole"),
   // For staff accounts: the owner whose data this user reads, and the linked staff record.
   ownerId: text("ownerId"),
   staffMemberId: integer("staffMemberId"),
@@ -89,6 +92,17 @@ export const venue = pgTable("venue", {
   // Square integration: the mapped Square location id for this venue (if any).
   // The human-readable name is resolved live from the Square API.
   squareLocationId: text("squareLocationId"),
+  createdAt: timestamp("createdAt").notNull().defaultNow(),
+})
+
+// Maps a member login (memberUserId) to the venues they can access. Used for
+// area managers who cover a subset of the owner's venues. `userId` is the data
+// scope (owner) the rows belong to, for per-account scoping.
+export const venueAccess = pgTable("venue_access", {
+  id: serial("id").primaryKey(),
+  userId: text("userId").notNull(),
+  memberUserId: text("memberUserId").notNull(),
+  venueId: integer("venueId").notNull(),
   createdAt: timestamp("createdAt").notNull().defaultNow(),
 })
 
@@ -653,6 +667,11 @@ export const meeting = pgTable("meeting", {
   title: text("title").notNull(),
   scheduledDate: text("scheduledDate"),
   createdBy: text("createdBy"),
+  // Optional co-assignment: a manager/staff login (assignedUserId) and/or the
+  // linked staff record (assignedStaffMemberId). Assigned meetings appear on the
+  // assignee's calendar and raise a notification.
+  assignedUserId: text("assignedUserId"),
+  assignedStaffMemberId: integer("assignedStaffMemberId"),
   // "Pending" | "Held" | "Completed" | "Actions Overdue" | "Review Overdue"
   status: text("status").notNull().default("Pending"),
   notes: text("notes"),

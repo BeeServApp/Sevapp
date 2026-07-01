@@ -19,7 +19,7 @@ import {
   type LucideIcon,
 } from "lucide-react"
 import { cn } from "@/lib/utils"
-import { MODULES, STAFF_ALLOWED_PATHS } from "@/lib/nav-config"
+import { CALENDAR_ITEM, MODULES, STAFF_ALLOWED_PATHS } from "@/lib/nav-config"
 import { useVenue } from "@/components/venue-provider"
 
 const moduleIcons: Record<string, LucideIcon> = {
@@ -35,8 +35,13 @@ const moduleIcons: Record<string, LucideIcon> = {
 
 export function AppSidebar({ onNavigate }: { onNavigate?: () => void }) {
   const pathname = usePathname()
-  const { hiddenModules, appRole } = useVenue()
+  const { hiddenModules, appRole, managerRole } = useVenue()
   const isStaff = appRole === "staff"
+  // Managers and area managers get the workspace Calendar even though they are
+  // staff logins.
+  const canSeeCalendar = !isStaff || managerRole != null
+
+  const calendarItem = { href: CALENDAR_ITEM.href, label: CALENDAR_ITEM.label, icon: CalendarDays }
 
   // Staff are limited to Staff & Scheduling and Task Management, minus any they
   // have personally hidden. Owners see the Dashboard plus every module they
@@ -51,15 +56,17 @@ export function AppSidebar({ onNavigate }: { onNavigate?: () => void }) {
   }))
 
   const sections = isStaff
-    ? moduleItems.length > 0
-      ? [{ label: "Modules", items: moduleItems }]
-      : []
+    ? [
+        ...(canSeeCalendar ? [{ label: "Workspace", items: [calendarItem] }] : []),
+        ...(moduleItems.length > 0 ? [{ label: "Modules", items: moduleItems }] : []),
+      ]
     : [
         {
           label: "Workspace",
           items: [
             { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
             { href: "/dashboard/group", label: "Group overview", icon: Building2 },
+            calendarItem,
           ],
         },
         ...(moduleItems.length > 0 ? [{ label: "Modules", items: moduleItems }] : []),
