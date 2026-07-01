@@ -35,7 +35,7 @@ export default async function TrainingPage() {
   let modules = await getModulesWithDetails()
   // First-run: populate a starter catalogue so the platform feels live.
   if (modules.length === 0) {
-    await seedStarterTraining()
+    await seedStarterTraining(false)
     modules = await getModulesWithDetails()
   }
   const staff = await getStaffForAssignment()

@@ -263,6 +263,18 @@ function ModuleCard({
         <p className="text-sm text-muted-foreground line-clamp-3">{module.description}</p>
       ) : null}
 
+      {module.assignments.length > 0 ? (
+        <div className="flex flex-wrap gap-1.5">
+          {module.assignments.map((a) => (
+            <Badge key={a.id} variant="outline" className="w-fit text-xs font-normal">
+              {a.staffMemberId
+                ? staff.find((s) => s.id === a.staffMemberId)?.name ?? "Staff member"
+                : AUDIENCES.find((x) => x.value === a.audience)?.label ?? a.audience}
+            </Badge>
+          ))}
+        </div>
+      ) : null}
+
       <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-muted-foreground">
         <span className="flex items-center gap-1">
           <PlayCircle className="size-3.5" />

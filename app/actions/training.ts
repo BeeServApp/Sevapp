@@ -381,8 +381,12 @@ export async function toggleLesson(lessonId: number, moduleId: number, completed
 
 /* -------------------------------- Seeding --------------------------------- */
 
-/** Seeds a starter catalogue so the platform feels live on first open. */
-export async function seedStarterTraining() {
+/**
+ * Seeds a starter catalogue so the platform feels live on first open.
+ * `revalidate` is false when called during a page render (revalidatePath is
+ * unsupported mid-render); the caller re-fetches instead.
+ */
+export async function seedStarterTraining(revalidate = true) {
   await requireOwner()
   const userId = await getAccountId()
 
@@ -419,7 +423,7 @@ export async function seedStarterTraining() {
     )
   }
 
-  revalidatePath(TRAINING_PATH)
+  if (revalidate) revalidatePath(TRAINING_PATH)
 }
 
 type StarterLesson = {
