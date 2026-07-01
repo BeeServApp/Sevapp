@@ -10,6 +10,7 @@ import {
   getSuppliers,
   getTasks,
 } from "@/app/actions/operations"
+import { getAssets } from "@/app/actions/assets"
 
 export const metadata: Metadata = {
   title: "Operations — Tapsheet",
@@ -29,13 +30,18 @@ export default async function OperationsPage() {
     )
   }
 
-  const [orders, suppliers, maintenance, events, tasks] = await Promise.all([
+  const [orders, suppliers, maintenance, events, tasks, assets] = await Promise.all([
     getOrders(venueId),
     getSuppliers(venueId),
     getMaintenance(venueId),
     getEvents(venueId),
     getTasks(venueId),
+    getAssets(venueId),
   ])
+
+  const assetOptions = assets
+    .filter((a) => !a.disposalDate)
+    .map((a) => ({ id: a.id, assetNumber: a.assetNumber, name: a.name }))
 
   return (
     <OperationsView
@@ -45,6 +51,7 @@ export default async function OperationsPage() {
       maintenance={maintenance}
       events={events}
       tasks={tasks}
+      assetOptions={assetOptions}
     />
   )
 }

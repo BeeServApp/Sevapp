@@ -65,12 +65,13 @@ import { cn } from "@/lib/utils"
 
 const TYPE_META: Record<string, { label: string; defaultColor: ColorKey }> = {
   event: { label: "Event", defaultColor: "blue" },
+  meeting: { label: "Meeting", defaultColor: "amber" },
   task: { label: "Task", defaultColor: "gold" },
   booking: { label: "Booking", defaultColor: "amber" },
   maintenance: { label: "Maintenance", defaultColor: "red" },
   reminder: { label: "Reminder", defaultColor: "slate" },
 }
-const TYPE_ORDER = ["event", "task", "booking", "maintenance", "reminder"] as const
+const TYPE_ORDER = ["event", "meeting", "task", "booking", "maintenance", "reminder"] as const
 
 type ColorKey = "blue" | "amber" | "gold" | "red" | "slate"
 const COLOR_DOT: Record<ColorKey, string> = {
@@ -125,7 +126,7 @@ function prettyDate(iso: string) {
 
 interface CalItem {
   key: string
-  kind: "calendar" | "taskCheck" | "correctiveAction"
+  kind: "calendar" | "taskCheck" | "correctiveAction" | "meeting" | "maintenance"
   refId: number
   title: string
   date: string
@@ -157,18 +158,36 @@ interface DatedAction {
   status: string
   priority: string
 }
+interface DatedMeeting {
+  id: number
+  title: string
+  scheduledDate: string
+  status: string
+}
+interface DatedMaintenance {
+  id: number
+  title: string
+  scheduledDate: string
+  status: string
+  priority: string
+  assetId: number | null
+}
 
 export function CalendarView({
   venueId,
   initialEvents,
   datedChecks,
   datedActions,
+  datedMeetings,
+  datedMaintenance,
   linkable,
 }: {
   venueId: number
   initialEvents: DbCalendarEvent[]
   datedChecks: DatedCheck[]
   datedActions: DatedAction[]
+  datedMeetings: DatedMeeting[]
+  datedMaintenance: DatedMaintenance[]
   linkable: LinkableItems
 }) {
   const today = toISO(new Date())
@@ -249,8 +268,48 @@ export function CalendarView({
         source: null,
       })
     }
+    for (const m of datedMeetings) {
+      out.push({
+        key: `mtg-${m.id}`,
+        kind: "meeting",
+        refId: m.id,
+        title: m.title,
+        date: m.scheduledDate,
+        time: null,
+        allDay: true,
+        type: "meeting",
+        color: "amber",
+        status: m.status,
+        description: null,
+        location: null,
+        linkType: "meeting",
+        linkId: m.id,
+        href: "/tasks",
+        source: null,
+      })
+    }
+    for (const m of datedMaintenance) {
+      out.push({
+        key: `mnt-${m.id}`,
+        kind: "maintenance",
+        refId: m.id,
+        title: m.title,
+        date: m.scheduledDate,
+        time: null,
+        allDay: true,
+        type: "maintenance",
+        color: "red",
+        status: m.status,
+        description: null,
+        location: null,
+        linkType: "maintenance",
+        linkId: m.id,
+        href: "/assets",
+        source: null,
+      })
+    }
     return out
-  }, [initialEvents, datedChecks, datedActions])
+  }, [initialEvents, datedChecks, datedActions, datedMeetings, datedMaintenance])
 
   const visibleItems = useMemo(
     () => items.filter((i) => activeTypes.has(i.type)),

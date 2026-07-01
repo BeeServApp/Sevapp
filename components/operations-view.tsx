@@ -13,6 +13,7 @@ import {
   MoreVertical,
   Pencil,
   Trash2,
+  Link2,
 } from "lucide-react"
 
 import { PageHeader } from "@/components/page-header"
@@ -90,6 +91,12 @@ import type {
 } from "@/lib/db/schema"
 import { cn } from "@/lib/utils"
 
+export interface AssetOption {
+  id: number
+  assetNumber: string
+  name: string
+}
+
 const gbp = new Intl.NumberFormat("en-GB", { style: "currency", currency: "GBP" })
 
 const priorityClasses: Record<string, string> = {
@@ -106,6 +113,20 @@ const termOptions = ["Net 7", "Net 14", "Net 30", "Net 60", "On delivery"]
 
 function pounds(pence: number) {
   return gbp.format(pence / 100)
+}
+
+// Renders a stored date, formatting ISO (YYYY-MM-DD) values for display and
+// passing through any legacy free-text dates unchanged.
+function formatMaybeIso(value: string | null | undefined): string {
+  if (!value) return "—"
+  if (/^\d{4}-\d{2}-\d{2}$/.test(value)) {
+    return new Date(`${value}T00:00:00`).toLocaleDateString("en-GB", {
+      day: "2-digit",
+      month: "short",
+      year: "numeric",
+    })
+  }
+  return value
 }
 
 function RowActions({
@@ -383,29 +404,61 @@ function SupplierDialog({
 
 /* --------------------------- Maintenance dialog --------------------------- */
 
-function MaintenanceDialog({ venueId }: { venueId: number }) {
+const CUSTOM_ASSET = "__custom__"
+
+function MaintenanceDialog({
+  venueId,
+  assetOptions,
+}: {
+  venueId: number
+  assetOptions: AssetOption[]
+}) {
   const router = useRouter()
   const [open, setOpen] = useState(false)
-  const [assetName, setAssetName] = useState("")
+  // Either the id of a registered asset (as a string) or CUSTOM_ASSET for free text.
+  const [assetChoice, setAssetChoice] = useState<string>(
+    assetOptions.length > 0 ? String(assetOptions[0].id) : CUSTOM_ASSET,
+  )
+  const [customAsset, setCustomAsset] = useState("")
   const [issue, setIssue] = useState("")
   const [priority, setPriority] = useState("Medium")
   const [assignee, setAssignee] = useState("")
   const [status, setStatus] = useState("Open")
+  const [date, setDate] = useState("")
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
+  const isCustom = assetChoice === CUSTOM_ASSET
+  const selectedAsset = isCustom ? null : assetOptions.find((a) => String(a.id) === assetChoice)
+
+  function reset() {
+    setAssetChoice(assetOptions.length > 0 ? String(assetOptions[0].id) : CUSTOM_ASSET)
+    setCustomAsset("")
+    setIssue("")
+    setPriority("Medium")
+    setAssignee("")
+    setStatus("Open")
+    setDate("")
+  }
+
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
-    if (!assetName.trim()) return setError("Asset is required.")
+    const assetName = isCustom ? customAsset.trim() : selectedAsset?.name ?? ""
+    if (!assetName) return setError("Asset is required.")
     setSaving(true)
     setError(null)
     try {
-      await createMaintenance({ venueId, assetName, issue, priority, assignee, status })
-      setAssetName("")
-      setIssue("")
-      setPriority("Medium")
-      setAssignee("")
-      setStatus("Open")
+      await createMaintenance({
+        venueId,
+        assetName,
+        assetId: selectedAsset?.id ?? null,
+        issue,
+        priority,
+        assignee,
+        status,
+        scheduledDate: date || null,
+      })
+      reset()
       setOpen(false)
       router.refresh()
     } catch (err) {
@@ -432,7 +485,32 @@ function MaintenanceDialog({ venueId }: { venueId: number }) {
         <form onSubmit={handleSubmit} className="grid gap-4">
           <div className="grid gap-2">
             <Label htmlFor="mnt-asset">Asset</Label>
-            <Input id="mnt-asset" value={assetName} onChange={(e) => setAssetName(e.target.value)} placeholder="Glasswasher — Bar 2" />
+            <Select value={assetChoice} onValueChange={(v) => v && setAssetChoice(v)}>
+              <SelectTrigger id="mnt-asset">
+                <SelectValue placeholder="Select an asset" />
+              </SelectTrigger>
+              <SelectContent>
+                {assetOptions.map((a) => (
+                  <SelectItem key={a.id} value={String(a.id)}>
+                    {a.name} · {a.assetNumber}
+                  </SelectItem>
+                ))}
+                <SelectItem value={CUSTOM_ASSET}>Other (not registered)</SelectItem>
+              </SelectContent>
+            </Select>
+            {isCustom && (
+              <Input
+                aria-label="Asset name"
+                value={customAsset}
+                onChange={(e) => setCustomAsset(e.target.value)}
+                placeholder="Glasswasher — Bar 2"
+              />
+            )}
+            {selectedAsset && (
+              <p className="text-xs text-muted-foreground">
+                Linked to {selectedAsset.assetNumber} in Asset Tracking.
+              </p>
+            )}
           </div>
           <div className="grid gap-2">
             <Label htmlFor="mnt-issue">Issue</Label>
@@ -458,6 +536,13 @@ function MaintenanceDialog({ venueId }: { venueId: number }) {
               <Label htmlFor="mnt-assignee">Assignee</Label>
               <Input id="mnt-assignee" value={assignee} onChange={(e) => setAssignee(e.target.value)} placeholder="Dan O." />
             </div>
+          </div>
+          <div className="grid gap-2">
+            <Label htmlFor="mnt-date">Scheduled date</Label>
+            <Input id="mnt-date" type="date" value={date} onChange={(e) => setDate(e.target.value)} />
+            <p className="text-xs text-muted-foreground">
+              Add a date to show this job on the shared calendar.
+            </p>
           </div>
           {error && <p className="text-sm text-destructive">{error}</p>}
           <DialogFooter>
@@ -686,6 +771,7 @@ export function OperationsView({
   maintenance,
   events,
   tasks,
+  assetOptions,
 }: {
   venueId: number
   orders: DbOrder[]
@@ -693,6 +779,7 @@ export function OperationsView({
   maintenance: DbMaintenance[]
   events: DbEvent[]
   tasks: DbTask[]
+  assetOptions: AssetOption[]
 }) {
   const router = useRouter()
   const searchParams = useSearchParams()
@@ -733,7 +820,7 @@ export function OperationsView({
     ) : tab === "suppliers" ? (
       <SupplierDialog venueId={venueId} />
     ) : tab === "maintenance" ? (
-      <MaintenanceDialog venueId={venueId} />
+      <MaintenanceDialog venueId={venueId} assetOptions={assetOptions} />
     ) : tab === "events" ? (
       <EventDialog venueId={venueId} />
     ) : (
@@ -918,6 +1005,7 @@ export function OperationsView({
                       <TableHead>Issue</TableHead>
                       <TableHead>Priority</TableHead>
                       <TableHead>Assignee</TableHead>
+                      <TableHead>Date</TableHead>
                       <TableHead>Status</TableHead>
                       <TableHead className="w-10" />
                     </TableRow>
@@ -925,7 +1013,19 @@ export function OperationsView({
                   <TableBody>
                     {maintenance.map((m) => (
                       <TableRow key={m.id}>
-                        <TableCell className="font-medium">{m.assetName}</TableCell>
+                        <TableCell className="font-medium">
+                          <div className="flex items-center gap-1.5">
+                            {m.assetName}
+                            {m.assetId != null && (
+                              <span
+                                className="inline-flex items-center gap-1 text-xs font-normal text-muted-foreground"
+                                title="Linked to Asset Tracking"
+                              >
+                                <Link2 className="size-3" />
+                              </span>
+                            )}
+                          </div>
+                        </TableCell>
                         <TableCell className="text-muted-foreground">{m.issue}</TableCell>
                         <TableCell>
                           <Badge
@@ -936,6 +1036,7 @@ export function OperationsView({
                           </Badge>
                         </TableCell>
                         <TableCell>{m.assignee}</TableCell>
+                        <TableCell className="text-muted-foreground">{formatMaybeIso(m.scheduledDate ?? m.loggedDate)}</TableCell>
                         <TableCell>
                           <Select
                             value={m.status}

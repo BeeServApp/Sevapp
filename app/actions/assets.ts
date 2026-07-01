@@ -181,6 +181,7 @@ export async function createAssetMaintenance(data: {
   assignee: string
   costPence: number
   loggedDate: string
+  scheduledDate: string
 }) {
   const userId = await getUserId()
   if (!data.issue.trim()) throw new Error("Please describe the maintenance issue")
@@ -198,11 +199,13 @@ export async function createAssetMaintenance(data: {
       assignee: data.assignee.trim() || null,
       costPence: Number.isFinite(data.costPence) ? Math.round(data.costPence) : 0,
       loggedDate: data.loggedDate || null,
+      scheduledDate: /^\d{4}-\d{2}-\d{2}$/.test(data.scheduledDate) ? data.scheduledDate : null,
     })
     .returning()
 
   revalidatePath("/assets")
   revalidatePath("/operations")
+  revalidatePath("/calendar")
   return created
 }
 
@@ -214,6 +217,7 @@ export async function updateAssetMaintenanceStatus(id: number, status: Maintenan
     .where(and(eq(maintenance.id, id), eq(maintenance.userId, userId)))
   revalidatePath("/assets")
   revalidatePath("/operations")
+  revalidatePath("/calendar")
 }
 
 export async function deleteAssetMaintenance(id: number) {
@@ -221,4 +225,5 @@ export async function deleteAssetMaintenance(id: number) {
   await db.delete(maintenance).where(and(eq(maintenance.id, id), eq(maintenance.userId, userId)))
   revalidatePath("/assets")
   revalidatePath("/operations")
+  revalidatePath("/calendar")
 }

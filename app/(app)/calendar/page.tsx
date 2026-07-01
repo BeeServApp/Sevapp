@@ -23,7 +23,8 @@ export default async function CalendarPage() {
     )
   }
 
-  const { events, datedChecks, datedActions, linkable } = await getCalendarData(venueId)
+  const { events, datedChecks, datedActions, datedMeetings, datedMaintenance, linkable } =
+    await getCalendarData(venueId)
 
   return (
     <CalendarView
@@ -31,6 +32,8 @@ export default async function CalendarPage() {
       initialEvents={events}
       datedChecks={datedChecks}
       datedActions={datedActions}
+      datedMeetings={datedMeetings}
+      datedMaintenance={datedMaintenance}
       linkable={linkable}
     />
   )

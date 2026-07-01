@@ -35,4 +35,6 @@ export interface MaintenanceRecord {
   cost: number
   /** Display date the work was logged (e.g. "14 Mar 2024"). */
   loggedDate: string
+  /** ISO date (YYYY-MM-DD) used to place the job on the calendar. */
+  scheduledDate: string
 }
