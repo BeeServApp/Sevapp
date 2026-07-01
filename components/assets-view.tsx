@@ -61,6 +61,18 @@ const conditionClasses: Record<string, string> = {
   "Needs repair": "border-transparent bg-destructive/12 text-destructive",
 }
 
+const maintPriorityClasses: Record<string, string> = {
+  Low: "border-transparent bg-muted text-muted-foreground",
+  Medium: "border-transparent bg-chart-3/15 text-chart-3",
+  High: "border-transparent bg-destructive/12 text-destructive",
+}
+
+const maintStatusClasses: Record<string, string> = {
+  Open: "border-transparent bg-chart-4/20 text-[oklch(0.45_0.11_70)]",
+  "In progress": "border-transparent bg-chart-1/15 text-chart-1",
+  Resolved: "border-transparent bg-chart-2/15 text-chart-2",
+}
+
 function ConditionBadge({ condition }: { condition: AssetCondition }) {
   return (
     <Badge variant="outline" className={cn("font-medium", conditionClasses[condition])}>
@@ -548,6 +560,81 @@ export function AssetsView({
                   </TableRow>
                 </TableBody>
               </Table>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        {/* Maintenance log across all assets */}
+        <TabsContent value="maintenance" className="mt-4">
+          <Card>
+            <CardContent className="p-0">
+              {maintenanceLog.length === 0 ? (
+                <p className="p-10 text-center text-sm text-muted-foreground">
+                  No maintenance logged yet. Open an asset&apos;s{" "}
+                  <span className="font-medium text-foreground">Maintenance log</span> to record a
+                  fault or service, or log a job from Operations.
+                </p>
+              ) : (
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Asset</TableHead>
+                      <TableHead>Issue / work</TableHead>
+                      <TableHead>Priority</TableHead>
+                      <TableHead>Assignee</TableHead>
+                      <TableHead>Date</TableHead>
+                      <TableHead className="text-right">Cost</TableHead>
+                      <TableHead>Status</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {maintenanceLog.map((r) => {
+                      const asset = assetById.get(r.assetId)
+                      return (
+                        <TableRow
+                          key={r.id}
+                          className={asset ? "cursor-pointer" : undefined}
+                          onClick={asset ? () => setLogging(asset) : undefined}
+                        >
+                          <TableCell className="font-medium">
+                            {asset ? (
+                              <span className="inline-flex items-center gap-1.5">
+                                {asset.id} – {asset.name}
+                              </span>
+                            ) : (
+                              <span className="text-muted-foreground">Unlinked asset</span>
+                            )}
+                          </TableCell>
+                          <TableCell className="text-muted-foreground">{r.issue || "—"}</TableCell>
+                          <TableCell>
+                            <Badge
+                              variant="outline"
+                              className={cn("font-medium", maintPriorityClasses[r.priority])}
+                            >
+                              {r.priority}
+                            </Badge>
+                          </TableCell>
+                          <TableCell className="text-muted-foreground">{r.assignee || "—"}</TableCell>
+                          <TableCell className="text-muted-foreground">
+                            {r.loggedDate || "—"}
+                          </TableCell>
+                          <TableCell className="text-right tabular-nums">
+                            {r.cost > 0 ? gbp.format(r.cost) : "—"}
+                          </TableCell>
+                          <TableCell>
+                            <Badge
+                              variant="outline"
+                              className={cn("font-medium", maintStatusClasses[r.status])}
+                            >
+                              {r.status}
+                            </Badge>
+                          </TableCell>
+                        </TableRow>
+                      )
+                    })}
+                  </TableBody>
+                </Table>
+              )}
             </CardContent>
           </Card>
         </TabsContent>
