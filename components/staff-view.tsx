@@ -413,49 +413,10 @@ export function StaffView({
         }
       />
 
-      {/* KPI cards */}
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <StatCard kpi={{ label: "Team members", value: String(staff.length), delta: `${onShift} on shift`, trend: "flat", hint: "active roster" }} />
-        <StatCard kpi={{ label: "Scheduled hours", value: `${totalHours}h`, delta: "this week", trend: "flat", hint: "across team" }} />
-        <StatCard kpi={{ label: "On leave", value: String(onLeave), delta: `${pendingLeave} pending`, trend: "flat", hint: "requests" }} />
-        <StatCard kpi={{ label: "Labour cost", value: "29.1%", delta: "-0.6pt", trend: "down", hint: "of revenue" }} />
-      </div>
-
-      {/* Live status panel */}
-      {staff.length > 0 && (
-        <Card>
-          <CardHeader>
-            <CardTitle>Live shift status</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="flex flex-wrap gap-3">
-              {staff.map((s) => (
-                <div
-                  key={s.id}
-                  className={cn(
-                    "flex items-center gap-2 rounded-lg border px-3 py-2 text-sm",
-                    s.status === "On shift"
-                      ? "border-chart-2/30 bg-chart-2/10"
-                      : s.status === "On leave"
-                        ? "border-chart-4/30 bg-chart-4/10"
-                        : "border-border bg-muted/40",
-                  )}
-                >
-                  <Avatar className="size-6">
-                    <AvatarFallback className="text-xs">{initials(s.name)}</AvatarFallback>
-                  </Avatar>
-                  <span className="font-medium text-foreground">{s.name}</span>
-                  <StatusBadge status={s.status} />
-                </div>
-              ))}
-            </div>
-          </CardContent>
-        </Card>
-      )}
-
       {/* Tabs */}
       <Tabs defaultValue="rota">
-        <TabsList className="flex-wrap">
+        <div className="-mx-1 overflow-x-auto px-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+          <TabsList className="w-max">
           <TabsTrigger value="rota">Rota</TabsTrigger>
           <TabsTrigger value="onboarding">Onboarding</TabsTrigger>
           <TabsTrigger value="availability">Availability</TabsTrigger>
@@ -473,10 +434,51 @@ export function StaffView({
           <TabsTrigger value="team">Team</TabsTrigger>
           <TabsTrigger value="leave">Leave</TabsTrigger>
           <TabsTrigger value="clockin">Clock-in log</TabsTrigger>
-        </TabsList>
+          </TabsList>
+        </div>
 
         {/* ── Rota ── */}
-        <TabsContent value="rota" className="mt-4">
+        <TabsContent value="rota" className="mt-4 flex flex-col gap-6">
+            {/* KPI cards */}
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+              <StatCard kpi={{ label: "Team members", value: String(staff.length), delta: `${onShift} on shift`, trend: "flat", hint: "active roster" }} />
+              <StatCard kpi={{ label: "Scheduled hours", value: `${totalHours}h`, delta: "this week", trend: "flat", hint: "across team" }} />
+              <StatCard kpi={{ label: "On leave", value: String(onLeave), delta: `${pendingLeave} pending`, trend: "flat", hint: "requests" }} />
+              <StatCard kpi={{ label: "Labour cost", value: "29.1%", delta: "-0.6pt", trend: "down", hint: "of revenue" }} />
+            </div>
+
+            {/* Live status panel */}
+            {staff.length > 0 && (
+              <Card>
+                <CardHeader>
+                  <CardTitle>Live shift status</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="flex flex-wrap gap-3">
+                    {staff.map((s) => (
+                      <div
+                        key={s.id}
+                        className={cn(
+                          "flex items-center gap-2 rounded-lg border px-3 py-2 text-sm",
+                          s.status === "On shift"
+                            ? "border-chart-2/30 bg-chart-2/10"
+                            : s.status === "On leave"
+                              ? "border-chart-4/30 bg-chart-4/10"
+                              : "border-border bg-muted/40",
+                        )}
+                      >
+                        <Avatar className="size-6">
+                          <AvatarFallback className="text-xs">{initials(s.name)}</AvatarFallback>
+                        </Avatar>
+                        <span className="font-medium text-foreground">{s.name}</span>
+                        <StatusBadge status={s.status} />
+                      </div>
+                    ))}
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+
             <RotaBoard
               venueId={venueId}
               weekStart={weekStart}
