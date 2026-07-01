@@ -108,12 +108,18 @@ export async function deleteVenue(id: number) {
 }
 
 export async function setActiveVenue(id: number) {
-  const userId = await getUserId()
+  const me = await getCurrentUser()
   const [found] = await db
     .select({ id: venue.id })
     .from(venue)
-    .where(and(eq(venue.id, id), eq(venue.userId, userId)))
+    .where(and(eq(venue.id, id), eq(venue.userId, me.accountId)))
   if (!found) throw new Error("Venue not found")
+
+  // Staff may only activate venues they're assigned to.
+  if (me.appRole === "staff") {
+    const assigned = await getAssignedVenueIds(me)
+    if (!assigned.includes(id)) throw new Error("You are not assigned to this venue")
+  }
 
   const cookieStore = await cookies()
   cookieStore.set(ACTIVE_VENUE_COOKIE, String(id), {

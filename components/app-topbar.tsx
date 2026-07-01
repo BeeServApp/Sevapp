@@ -126,11 +126,15 @@ export function AppTopbar() {
               {!isGroupView && v.id === activeVenue?.id && <Check className="size-4 text-brand" />}
             </DropdownMenuItem>
           ))}
-          <DropdownMenuSeparator />
-          <DropdownMenuItem render={<Link href="/settings?tab=venues" />}>
-            <Plus className="size-4" />
-            Add / manage venues
-          </DropdownMenuItem>
+          {isOwner && (
+            <>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem render={<Link href="/settings?tab=venues" />}>
+                <Plus className="size-4" />
+                Add / manage venues
+              </DropdownMenuItem>
+            </>
+          )}
         </DropdownMenuContent>
       </DropdownMenu>
 
