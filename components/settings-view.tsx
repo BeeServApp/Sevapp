@@ -6,6 +6,8 @@ import { AccountSettings } from "@/components/settings/account-settings"
 import { CompanySettings } from "@/components/settings/company-settings"
 import { VenuesSettings } from "@/components/settings/venues-settings"
 import { TeamSettings, type TeamMember } from "@/components/settings/team-settings"
+import { ManagerAccessSettings } from "@/components/settings/manager-access"
+import type { ManagerAccessData } from "@/app/actions/manager-access"
 import { PreferencesSettings } from "@/components/settings/preferences-settings"
 import { StaffPreferencesSettings } from "@/components/settings/staff-preferences-settings"
 import { BillingSettings } from "@/components/settings/billing-settings"
@@ -29,6 +31,7 @@ export function SettingsView({
   venues = [],
   activeVenueId = null,
   members = [],
+  managerAccess,
   activeVenueName = "this venue",
   defaultTab,
   billing,
@@ -41,6 +44,7 @@ export function SettingsView({
   venues?: VenueSummary[]
   activeVenueId?: number | null
   members?: TeamMember[]
+  managerAccess?: ManagerAccessData
   activeVenueName?: string
   defaultTab: string
   billing?: BillingState
@@ -92,11 +96,14 @@ export function SettingsView({
         )}
         {visibleIds.has("team") && (
           <TabsContent value="team">
-            {activeVenueId ? (
-              <TeamSettings members={members} venueId={activeVenueId} venueName={activeVenueName} />
-            ) : (
-              <p className="text-sm text-muted-foreground">Add a venue first to manage its team.</p>
-            )}
+            <div className="grid gap-6">
+              {activeVenueId ? (
+                <TeamSettings members={members} venueId={activeVenueId} venueName={activeVenueName} />
+              ) : (
+                <p className="text-sm text-muted-foreground">Add a venue first to manage its team.</p>
+              )}
+              {managerAccess && <ManagerAccessSettings data={managerAccess} />}
+            </div>
           </TabsContent>
         )}
         {visibleIds.has("billing") && billing && (

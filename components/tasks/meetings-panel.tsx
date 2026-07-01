@@ -455,6 +455,8 @@ function CreateMeetingDialog({
           scheduledDate: scheduledDate || undefined,
           createdBy: createdBy.trim() || undefined,
           notes: notes.trim() || undefined,
+          assignedStaffMemberId:
+            assignedStaffId === NO_ASSIGNEE ? null : Number(assignedStaffId),
           actions: cleanActions,
         })
         onCreated({
@@ -526,6 +528,33 @@ function CreateMeetingDialog({
               />
             </div>
           </div>
+          <div className="flex flex-col gap-2">
+            <Label htmlFor="m-assignee">Assign to</Label>
+            <Select value={assignedStaffId} onValueChange={(v) => setAssignedStaffId(v ?? NO_ASSIGNEE)}>
+              <SelectTrigger id="m-assignee">
+                <SelectValue placeholder="No one (unassigned)" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value={NO_ASSIGNEE}>No one (unassigned)</SelectItem>
+                {assignable.map((s) => (
+                  <SelectItem key={s.id} value={String(s.id)}>
+                    {s.name}
+                    {s.role ? ` — ${s.role}` : ""}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            {assignable.length === 0 ? (
+              <p className="text-xs text-muted-foreground">
+                No team members with a login yet. Invite staff so you can co-assign meetings to them.
+              </p>
+            ) : (
+              <p className="text-xs text-muted-foreground">
+                The meeting will appear on their calendar and they&apos;ll get a notification.
+              </p>
+            )}
+          </div>
+
           <div className="flex flex-col gap-2">
             <Label htmlFor="m-notes">Meeting notes</Label>
             <Textarea
