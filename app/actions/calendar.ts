@@ -11,7 +11,7 @@ import {
   venue,
   venueEvent,
 } from "@/lib/db/schema"
-import { getAccessibleVenueIds, getCurrentUser, getUserId } from "@/lib/session"
+import { getAccessibleVenueIds, getAccountId, getCurrentUser } from "@/lib/session"
 import { and, desc, eq, inArray, or } from "drizzle-orm"
 import { revalidatePath } from "next/cache"
 

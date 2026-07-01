@@ -660,6 +660,7 @@ export function CalendarView({
       <EventDialog
         key={editing ? `edit-${editing.id}` : `new-${dialogDate}`}
         venueId={venueId}
+        venues={venues}
         open={dialogOpen}
         onOpenChange={setDialogOpen}
         editing={editing}
@@ -785,6 +786,7 @@ function DeleteConfirm({ event, onDone }: { event: DbCalendarEvent | null; onDon
 
 function EventDialog({
   venueId,
+  venues,
   open,
   onOpenChange,
   editing,
@@ -792,6 +794,7 @@ function EventDialog({
   linkable,
 }: {
   venueId: number
+  venues: WorkspaceVenue[]
   open: boolean
   onOpenChange: (open: boolean) => void
   editing: DbCalendarEvent | null
@@ -800,7 +803,10 @@ function EventDialog({
 }) {
   const router = useRouter()
   const isEdit = !!editing
+  const multiVenue = venues.length > 1
 
+  // New entries can target any accessible venue; edits keep their own venue.
+  const [selectedVenueId, setSelectedVenueId] = useState<number>(editing?.venueId ?? venueId)
   const [title, setTitle] = useState(editing?.title ?? "")
   const [type, setType] = useState(editing?.type ?? "event")
   const [color, setColor] = useState<ColorKey>((editing?.color as ColorKey) ?? "blue")
@@ -869,7 +875,7 @@ function EventDialog({
     setSaving(true)
     setError(null)
     const payload = {
-      venueId,
+      venueId: selectedVenueId,
       title,
       description,
       date,
@@ -906,6 +912,32 @@ function EventDialog({
           </DialogDescription>
         </DialogHeader>
         <form onSubmit={handleSubmit} className="grid max-h-[70vh] gap-4 overflow-y-auto px-0.5">
+          {multiVenue && !isEdit && (
+            <div className="grid gap-2">
+              <Label htmlFor="cal-venue">Venue</Label>
+              <Select
+                value={String(selectedVenueId)}
+                onValueChange={(v) => v && setSelectedVenueId(Number(v))}
+              >
+                <SelectTrigger id="cal-venue">
+                  <SelectValue placeholder="Choose a venue" />
+                </SelectTrigger>
+                <SelectContent>
+                  {venues.map((v) => (
+                    <SelectItem key={v.id} value={String(v.id)}>
+                      {v.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          )}
+          {multiVenue && isEdit && (
+            <p className="flex items-center gap-1.5 text-xs text-muted-foreground">
+              <Building2 className="size-3.5" />
+              {venues.find((v) => v.id === selectedVenueId)?.name ?? "This venue"}
+            </p>
+          )}
           <div className="grid gap-2">
             <Label htmlFor="cal-title">Title</Label>
             <Input
