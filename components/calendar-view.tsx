@@ -126,7 +126,7 @@ function prettyDate(iso: string) {
 
 interface CalItem {
   key: string
-  kind: "calendar" | "taskCheck" | "correctiveAction" | "meeting"
+  kind: "calendar" | "taskCheck" | "correctiveAction" | "meeting" | "maintenance"
   refId: number
   title: string
   date: string
@@ -164,6 +164,14 @@ interface DatedMeeting {
   scheduledDate: string
   status: string
 }
+interface DatedMaintenance {
+  id: number
+  title: string
+  scheduledDate: string
+  status: string
+  priority: string
+  assetId: number | null
+}
 
 export function CalendarView({
   venueId,
@@ -171,6 +179,7 @@ export function CalendarView({
   datedChecks,
   datedActions,
   datedMeetings,
+  datedMaintenance,
   linkable,
 }: {
   venueId: number
@@ -178,6 +187,7 @@ export function CalendarView({
   datedChecks: DatedCheck[]
   datedActions: DatedAction[]
   datedMeetings: DatedMeeting[]
+  datedMaintenance: DatedMaintenance[]
   linkable: LinkableItems
 }) {
   const today = toISO(new Date())
@@ -278,8 +288,28 @@ export function CalendarView({
         source: null,
       })
     }
+    for (const m of datedMaintenance) {
+      out.push({
+        key: `mnt-${m.id}`,
+        kind: "maintenance",
+        refId: m.id,
+        title: m.title,
+        date: m.scheduledDate,
+        time: null,
+        allDay: true,
+        type: "maintenance",
+        color: "red",
+        status: m.status,
+        description: null,
+        location: null,
+        linkType: "maintenance",
+        linkId: m.id,
+        href: "/assets",
+        source: null,
+      })
+    }
     return out
-  }, [initialEvents, datedChecks, datedActions, datedMeetings])
+  }, [initialEvents, datedChecks, datedActions, datedMeetings, datedMaintenance])
 
   const visibleItems = useMemo(
     () => items.filter((i) => activeTypes.has(i.type)),

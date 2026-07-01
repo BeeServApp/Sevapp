@@ -49,6 +49,7 @@ export default async function AssetsPage() {
       assignee: m.assignee ?? "",
       cost: (m.costPence ?? 0) / 100,
       loggedDate: m.loggedDate ?? "",
+      scheduledDate: m.scheduledDate ?? "",
     }))
   const assets: ViewAsset[] = rows.map((a) => ({
     dbId: a.id,

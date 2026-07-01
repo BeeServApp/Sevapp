@@ -224,7 +224,11 @@ export const maintenance = pgTable("maintenance", {
   assignee: text("assignee"),
   status: text("status").notNull().default("Open"),
   costPence: integer("costPence").notNull().default(0),
+  // Human-facing display date the work was logged (e.g. "14 Mar 2024").
   loggedDate: text("loggedDate"),
+  // ISO date (YYYY-MM-DD) of the fault/scheduled service, used to sync the
+  // job onto the calendar.
+  scheduledDate: text("scheduledDate"),
   createdAt: timestamp("createdAt").notNull().defaultNow(),
 })
 

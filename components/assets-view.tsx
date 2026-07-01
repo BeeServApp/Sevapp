@@ -186,6 +186,29 @@ export function AssetsView({
     return map
   }, [maintenance])
 
+  const assetById = useMemo(() => {
+    const map = new Map<number, ViewAsset>()
+    for (const a of assets) map.set(a.dbId, a)
+    return map
+  }, [assets])
+
+  // Full maintenance log for the venue, newest first, with the linked asset.
+  const maintenanceLog = useMemo(
+    () =>
+      [...maintenance].sort((a, b) => {
+        const da = a.scheduledDate || ""
+        const db = b.scheduledDate || ""
+        if (da && db) return db.localeCompare(da)
+        return b.id - a.id
+      }),
+    [maintenance],
+  )
+
+  const openMaintenanceCount = useMemo(
+    () => maintenance.filter((r) => r.status !== "Resolved").length,
+    [maintenance],
+  )
+
   function recordsFor(assetDbId: number) {
     return maintenanceByAsset.get(assetDbId) ?? []
   }
@@ -311,6 +334,14 @@ export function AssetsView({
           <TabsList className="w-max">
             <TabsTrigger value="gallery">Gallery</TabsTrigger>
             <TabsTrigger value="register">Register</TabsTrigger>
+            <TabsTrigger value="maintenance" className="gap-1.5">
+              Maintenance
+              {openMaintenanceCount > 0 && (
+                <span className="inline-flex min-w-4 items-center justify-center rounded-full bg-chart-4/25 px-1 text-[10px] font-semibold text-[oklch(0.45_0.11_70)]">
+                  {openMaintenanceCount}
+                </span>
+              )}
+            </TabsTrigger>
           </TabsList>
         </div>
 

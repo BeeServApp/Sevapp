@@ -142,17 +142,26 @@ export async function getMaintenance(venueId: number) {
     .orderBy(desc(maintenance.id))
 }
 
+const isIsoDate = (value: string | undefined | null): value is string =>
+  !!value && /^\d{4}-\d{2}-\d{2}$/.test(value)
+
 export async function createMaintenance(data: {
   venueId: number
   assetName: string
+  /** Optional link to a registered asset in Asset Tracking. */
+  assetId?: number | null
   issue?: string
   priority: string
   assignee?: string
   status: string
+  /** ISO date (YYYY-MM-DD) the job is scheduled for; used by the calendar. */
+  scheduledDate?: string | null
 }) {
   const userId = await getUserId()
   const assetName = data.assetName.trim()
   if (!assetName) throw new Error("Asset is required")
+
+  const scheduledDate = isIsoDate(data.scheduledDate) ? data.scheduledDate : null
 
   const [created] = await db
     .insert(maintenance)
@@ -160,14 +169,26 @@ export async function createMaintenance(data: {
       userId,
       venueId: data.venueId,
       assetName,
+      assetId: data.assetId ?? null,
       issue: data.issue?.trim() || null,
       priority: data.priority || "Medium",
       assignee: data.assignee?.trim() || null,
       status: data.status || "Open",
+      scheduledDate,
+      // Keep the human-facing log date in sync with the scheduled date.
+      loggedDate: scheduledDate
+        ? new Date(`${scheduledDate}T00:00:00`).toLocaleDateString("en-GB", {
+            day: "2-digit",
+            month: "short",
+            year: "numeric",
+          })
+        : null,
     })
     .returning()
 
   revalidatePath(OPS_PATH)
+  revalidatePath("/assets")
+  revalidatePath("/calendar")
   return created
 }
 
@@ -178,12 +199,16 @@ export async function updateMaintenanceStatus(id: number, status: string) {
     .set({ status })
     .where(and(eq(maintenance.id, id), eq(maintenance.userId, userId)))
   revalidatePath(OPS_PATH)
+  revalidatePath("/assets")
+  revalidatePath("/calendar")
 }
 
 export async function deleteMaintenance(id: number) {
   const userId = await getUserId()
   await db.delete(maintenance).where(and(eq(maintenance.id, id), eq(maintenance.userId, userId)))
   revalidatePath(OPS_PATH)
+  revalidatePath("/assets")
+  revalidatePath("/calendar")
 }
 
 /* --------------------------------- Events --------------------------------- */

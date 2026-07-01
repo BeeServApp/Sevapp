@@ -124,6 +124,7 @@ export function MaintenanceLogDialog({
         assignee: assignee.trim(),
         costPence: Math.round(costNum * 100),
         loggedDate: toDisplayDate(loggedDate),
+        scheduledDate: loggedDate,
       })
       const record: MaintenanceRecord = {
         id: created.id,
@@ -134,6 +135,7 @@ export function MaintenanceLogDialog({
         assignee: created.assignee ?? "",
         cost: (created.costPence ?? 0) / 100,
         loggedDate: created.loggedDate ?? toDisplayDate(loggedDate),
+        scheduledDate: created.scheduledDate ?? loggedDate,
       }
       onChange([record, ...records])
       resetForm()
@@ -315,6 +317,7 @@ export function MaintenanceLogDialog({
                 value={loggedDate}
                 onChange={(e) => setLoggedDate(e.target.value)}
               />
+              <p className="text-xs text-muted-foreground">Shows on the calendar until resolved.</p>
             </div>
             <div className="grid gap-2 sm:col-span-1">
               <Label htmlFor="m-assignee">Contractor / staff</Label>

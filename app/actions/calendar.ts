@@ -4,6 +4,7 @@ import { db } from "@/lib/db"
 import {
   calendarEvent,
   correctiveAction,
+  maintenance,
   meeting,
   task,
   taskCheck,
@@ -148,7 +149,7 @@ export interface LinkableItems {
 export async function getCalendarData(venueId: number) {
   const userId = await getUserId()
 
-  const [events, checks, actions, opsEvents, opsTasks, meetings] = await Promise.all([
+  const [events, checks, actions, opsEvents, opsTasks, meetings, maintenanceJobs] = await Promise.all([
     db
       .select()
       .from(calendarEvent)
@@ -173,6 +174,10 @@ export async function getCalendarData(venueId: number) {
       .select()
       .from(meeting)
       .where(and(eq(meeting.userId, userId), eq(meeting.venueId, venueId))),
+    db
+      .select()
+      .from(maintenance)
+      .where(and(eq(maintenance.userId, userId), eq(maintenance.venueId, venueId))),
   ])
 
   // task-check / corrective-action ids already linked, so we don't double-show them.
@@ -213,6 +218,24 @@ export async function getCalendarData(venueId: number) {
       status: m.status,
     }))
 
+  // Open maintenance jobs (faults / scheduled services) logged against assets in
+  // Asset Tracking surface on the calendar until they are resolved.
+  const datedMaintenance = maintenanceJobs
+    .filter(
+      (m) =>
+        isIso(m.scheduledDate) &&
+        m.status !== "Resolved" &&
+        !linkedKeys.has(`maintenance:${m.id}`),
+    )
+    .map((m) => ({
+      id: m.id,
+      title: m.issue?.trim() ? `${m.assetName} — ${m.issue.trim()}` : m.assetName,
+      scheduledDate: m.scheduledDate as string,
+      status: m.status,
+      priority: m.priority,
+      assetId: m.assetId,
+    }))
+
   const linkable: LinkableItems = {
     events: opsEvents.map((e) => ({ id: e.id, name: e.name, date: e.date, status: e.status })),
     tasks: opsTasks.map((t) => ({ id: t.id, title: t.title, due: t.due, priority: t.priority })),
@@ -224,5 +247,5 @@ export async function getCalendarData(venueId: number) {
     })),
   }
 
-  return { events, datedChecks, datedActions, datedMeetings, linkable }
+  return { events, datedChecks, datedActions, datedMeetings, datedMaintenance, linkable }
 }
