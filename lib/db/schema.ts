@@ -873,6 +873,112 @@ export const budget = pgTable("budget", {
 
 export type DbBudget = typeof budget.$inferSelect
 
+// --- HR: Onboarding, documents & checklist --------------------------------
+// UK payroll onboarding record. One row per staff member. Sensitive statutory
+// fields (NI number, bank details, HMRC starter declaration) live here so the
+// team directory stays lightweight. Money values are stored in pence.
+export const onboarding = pgTable("onboarding", {
+  id: serial("id").primaryKey(),
+  userId: text("userId").notNull(),
+  venueId: integer("venueId").notNull(),
+  staffMemberId: integer("staffMemberId").notNull(),
+
+  // Personal / legal identity
+  legalFirstName: text("legalFirstName"),
+  legalLastName: text("legalLastName"),
+  preferredName: text("preferredName"),
+  dob: text("dob"),
+  nationality: text("nationality"),
+
+  // Home address
+  addressLine1: text("addressLine1"),
+  addressLine2: text("addressLine2"),
+  city: text("city"),
+  postcode: text("postcode"),
+  personalEmail: text("personalEmail"),
+  personalPhone: text("personalPhone"),
+
+  // Right to Work (UK immigration compliance)
+  nationalInsuranceNumber: text("nationalInsuranceNumber"),
+  rightToWorkType: text("rightToWorkType"), // "passport" | "share_code" | "brp" | "other"
+  rightToWorkShareCode: text("rightToWorkShareCode"),
+  rightToWorkDocUrl: text("rightToWorkDocUrl"),
+  rightToWorkExpiry: text("rightToWorkExpiry"),
+  rightToWorkChecked: boolean("rightToWorkChecked").notNull().default(false),
+
+  // HMRC New Starter Checklist
+  starterDeclaration: text("starterDeclaration"), // "A" | "B" | "C"
+  studentLoanPlan: text("studentLoanPlan").notNull().default("none"), // none|plan1|plan2|plan4
+  postgradLoan: boolean("postgradLoan").notNull().default(false),
+  taxCode: text("taxCode"),
+
+  // Bank details for payroll
+  bankName: text("bankName"),
+  accountName: text("accountName"),
+  sortCode: text("sortCode"),
+  accountNumber: text("accountNumber"),
+
+  // Pension auto-enrolment
+  pensionOptOut: boolean("pensionOptOut").notNull().default(false),
+
+  // Emergency contact
+  emergencyName: text("emergencyName"),
+  emergencyRelationship: text("emergencyRelationship"),
+  emergencyPhone: text("emergencyPhone"),
+
+  // Employment terms
+  jobTitle: text("jobTitle"),
+  startDate: text("startDate"),
+  payType: text("payType").notNull().default("hourly"), // "hourly" | "salary"
+  payRatePence: integer("payRatePence").notNull().default(0),
+  holidayEntitlementDays: integer("holidayEntitlementDays").notNull().default(28),
+  probationEndDate: text("probationEndDate"),
+  reviewDueDate: text("reviewDueDate"),
+
+  // Workflow status: not_started | in_progress | submitted | approved
+  status: text("status").notNull().default("not_started"),
+  submittedAt: timestamp("submittedAt"),
+  approvedAt: timestamp("approvedAt"),
+
+  createdAt: timestamp("createdAt").notNull().defaultNow(),
+  updatedAt: timestamp("updatedAt").notNull().defaultNow(),
+})
+
+// HR document vault with optional expiry tracking (contracts, RTW evidence,
+// certifications). staffMemberId 0 = company-wide document.
+export const hrDocument = pgTable("hr_document", {
+  id: serial("id").primaryKey(),
+  userId: text("userId").notNull(),
+  venueId: integer("venueId").notNull(),
+  staffMemberId: integer("staffMemberId").notNull().default(0),
+  name: text("name").notNull(),
+  category: text("category").notNull().default("other"), // contract|rtw|certification|policy|other
+  fileUrl: text("fileUrl"),
+  issuedDate: text("issuedDate"),
+  expiryDate: text("expiryDate"),
+  notes: text("notes"),
+  createdAt: timestamp("createdAt").notNull().defaultNow(),
+})
+
+// Per-hire onboarding checklist items. Seeded with a default UK template when
+// an onboarding record is created, then toggled as each step completes.
+export const onboardingTask = pgTable("onboarding_task", {
+  id: serial("id").primaryKey(),
+  userId: text("userId").notNull(),
+  venueId: integer("venueId").notNull(),
+  staffMemberId: integer("staffMemberId").notNull(),
+  label: text("label").notNull(),
+  category: text("category").notNull().default("general"),
+  done: boolean("done").notNull().default(false),
+  doneAt: timestamp("doneAt"),
+  sortOrder: integer("sortOrder").notNull().default(0),
+  createdAt: timestamp("createdAt").notNull().defaultNow(),
+})
+
+export type DbOnboarding = typeof onboarding.$inferSelect
+export type DbHrDocument = typeof hrDocument.$inferSelect
+export type DbOnboardingTask = typeof onboardingTask.$inferSelect
+
 export type Venue = typeof venue.$inferSelect
 export type Company = typeof company.$inferSelect
 export type Member = typeof member.$inferSelect
