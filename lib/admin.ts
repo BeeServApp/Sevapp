@@ -2,17 +2,26 @@ import "server-only"
 
 import { getCurrentUser } from "@/lib/session"
 
-/** The designated super-admin email, configured via env. */
-export function superAdminEmail(): string | null {
-  const raw = process.env.SUPER_ADMIN_EMAIL?.trim().toLowerCase()
-  return raw && raw.length > 0 ? raw : null
+/** Emails that are always treated as super admins, regardless of env config. */
+const HARDCODED_SUPER_ADMINS = ["bradd@thebeesgroup.co.uk"]
+
+/**
+ * The set of allowed super-admin emails.
+ * Combines the always-on list above with SUPER_ADMIN_EMAIL, which may be a
+ * single email or a comma-separated list.
+ */
+export function superAdminEmails(): string[] {
+  const fromEnv = (process.env.SUPER_ADMIN_EMAIL ?? "")
+    .split(",")
+    .map((e) => e.trim().toLowerCase())
+    .filter((e) => e.length > 0)
+  return Array.from(new Set([...HARDCODED_SUPER_ADMINS, ...fromEnv]))
 }
 
-/** True when the given email is the configured super admin. */
+/** True when the given email is one of the configured super admins. */
 export function isSuperAdminEmail(email: string | null | undefined): boolean {
-  const admin = superAdminEmail()
-  if (!admin || !email) return false
-  return email.trim().toLowerCase() === admin
+  if (!email) return false
+  return superAdminEmails().includes(email.trim().toLowerCase())
 }
 
 /** Returns the current user if they are the super admin, otherwise null. */
