@@ -16,7 +16,7 @@ export const MODULES: ModuleDef[] = [
   { href: "/tasks", label: "Task Management", description: "Checklists, corrective actions and audits." },
   { href: "/assets", label: "Asset Tracking", description: "Equipment register and lifecycle." },
   { href: "/financials", label: "Financials", description: "Takings, expenses and reporting." },
-  { href: "/staff", label: "Staff & Scheduling", description: "Rotas, leave and time tracking." },
+  { href: "/staff", label: "HR", description: "Onboarding, rotas, leave, documents and time tracking." },
   { href: "/compliance", label: "Compliance", description: "Certificates, checks and documents." },
   { href: "/food", label: "Food Safety", description: "HACCP checks, policies and food hygiene." },
 ]

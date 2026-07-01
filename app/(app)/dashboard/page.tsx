@@ -43,7 +43,7 @@ import {
 const quickLinks = [
   { href: "/operations", label: "Operations", desc: "Orders, suppliers, tasks", icon: ClipboardList },
   { href: "/financials", label: "Financials", desc: "P&L & spending", icon: Wallet },
-  { href: "/staff", label: "Staff & Scheduling", desc: "Rotas & leave", icon: Users },
+  { href: "/staff", label: "HR", desc: "Onboarding, rotas & leave", icon: Users },
   { href: "/compliance", label: "Compliance", desc: "Checks & certificates", icon: ShieldCheck },
 ]
 

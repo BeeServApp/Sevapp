@@ -61,6 +61,7 @@ import { resolveSwap } from "@/app/actions/scheduling"
 import { RotaBoard } from "@/components/staff/rota-board"
 import type { ScheduledPublishInfo } from "@/app/actions/scheduled-publish"
 import { AvailabilityTab } from "@/components/staff/availability-tab"
+import { HrTab } from "@/components/staff/hr-tab"
 import { TimecardsTab } from "@/components/staff/timecards-tab"
 import { ReportsTab } from "@/components/staff/reports-tab"
 import { TipsTab } from "@/components/staff/tips-tab"
@@ -77,6 +78,8 @@ import type {
   DbShiftPattern,
   DbShiftTask,
   DbRotaTemplate,
+  DbOnboarding,
+  DbHrDocument,
 } from "@/lib/db/schema"
 import { cn } from "@/lib/utils"
 import { Copy, Check, Link2, ArrowLeftRight } from "lucide-react"
@@ -119,6 +122,8 @@ interface Props {
   initialShiftTasks: DbShiftTask[]
   initialConflicts: Record<number, string>
   initialScheduledPublish: ScheduledPublishInfo | null
+  initialOnboarding: DbOnboarding[]
+  initialHrDocuments: DbHrDocument[]
   weekStart: string
   rotaDays: string[]
 }
@@ -143,6 +148,8 @@ export function StaffView({
   initialShiftTasks,
   initialConflicts,
   initialScheduledPublish,
+  initialOnboarding,
+  initialHrDocuments,
   weekStart,
   rotaDays,
 }: Props) {
@@ -392,8 +399,8 @@ export function StaffView({
   return (
     <>
       <PageHeader
-        title="Staff & Scheduling"
-        description="Rotas, annual leave, GPS clock-in and team management."
+        title="HR"
+        description="Onboarding, rotas, annual leave, documents, GPS clock-in and team management."
         actions={
           <div className="flex items-center gap-2">
             <Button variant="outline" onClick={() => openClockDialog("out")}>
@@ -450,6 +457,7 @@ export function StaffView({
       <Tabs defaultValue="rota">
         <TabsList className="flex-wrap">
           <TabsTrigger value="rota">Rota</TabsTrigger>
+          <TabsTrigger value="onboarding">Onboarding</TabsTrigger>
           <TabsTrigger value="availability">Availability</TabsTrigger>
           <TabsTrigger value="swaps">
             Swaps
@@ -484,6 +492,16 @@ export function StaffView({
               scheduledPublish={initialScheduledPublish}
               onShiftsChange={setShifts}
             />
+        </TabsContent>
+
+        {/* ── Onboarding & HR ── */}
+        <TabsContent value="onboarding" className="mt-4">
+          <HrTab
+            venueId={venueId}
+            staff={staff}
+            initialOnboarding={initialOnboarding}
+            initialDocuments={initialHrDocuments}
+          />
         </TabsContent>
 
         {/* ── Availability ── */}

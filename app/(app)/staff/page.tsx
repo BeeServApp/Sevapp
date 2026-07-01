@@ -23,6 +23,7 @@ import {
   getCrossLocationConflicts,
 } from "@/app/actions/shift-planning"
 import { getHomeData, getRotaData } from "@/app/actions/portal"
+import { getOnboardingRecords, getHrDocuments, getMyOnboarding } from "@/app/actions/hr"
 import { getMyProfile, getMyLeaveRequests } from "@/app/actions/staff"
 import { getMyAvailability, getMyTimecards } from "@/app/actions/scheduling"
 import { getScheduledPublish, runDueScheduledPublishes } from "@/app/actions/scheduled-publish"
@@ -31,7 +32,7 @@ import { StaffView } from "@/components/staff-view"
 import { StaffPortalView } from "@/components/staff-portal-view"
 
 export const metadata: Metadata = {
-  title: "Staff & Scheduling — Tapsheet",
+  title: "HR — Tapsheet",
 }
 
 function normalizeWeek(raw: string | undefined): string {
@@ -51,13 +52,14 @@ export default async function StaffPage({
 
   // ── Staff: self-service view (their own shifts, timecards, availability) ────
   if (me.appRole === "staff") {
-    const [home, rota, timecards, profile, availability, leave] = await Promise.all([
+    const [home, rota, timecards, profile, availability, leave, myOnboarding] = await Promise.all([
       getHomeData(weekStart),
       getRotaData(weekStart),
       getMyTimecards(weekStart, dateForDay(weekStart, "Sun")),
       getMyProfile(),
       getMyAvailability(),
       getMyLeaveRequests(),
+      getMyOnboarding(),
     ])
     return (
       <StaffPortalView
@@ -75,6 +77,7 @@ export default async function StaffPage({
         }}
         availability={availability}
         rotaDays={[...ROTA_DAYS]}
+        onboarding={myOnboarding}
       />
     )
   }
@@ -131,6 +134,10 @@ export default async function StaffPage({
 
   const scheduledPublish = await getScheduledPublish(venueId, weekStart)
   const shiftTasks = await getShiftTasks(rotaShifts.map((s) => s.id))
+  const [onboardingRecords, hrDocuments] = await Promise.all([
+    getOnboardingRecords(venueId),
+    getHrDocuments(venueId),
+  ])
 
   return (
     <StaffView
@@ -151,6 +158,8 @@ export default async function StaffPage({
       initialShiftTasks={shiftTasks}
       initialConflicts={conflicts}
       initialScheduledPublish={scheduledPublish}
+      initialOnboarding={onboardingRecords}
+      initialHrDocuments={hrDocuments}
       weekStart={weekStart}
       rotaDays={[...ROTA_DAYS]}
     />
