@@ -54,7 +54,16 @@ import {
   deleteCorrectiveAction,
   type TaskWithItems,
 } from "@/app/actions/tasks"
-import type { DbCorrectiveAction, DbStaffMember } from "@/lib/db/schema"
+import type {
+  DbCorrectiveAction,
+  DbStaffMember,
+  DbMeterReading,
+  DbOpsDocument,
+} from "@/lib/db/schema"
+import type { MeetingWithActions } from "@/app/actions/oversight"
+import { MeetingsPanel } from "@/components/tasks/meetings-panel"
+import { MeterReadingsPanel } from "@/components/tasks/meter-readings-panel"
+import { DocumentsPanel } from "@/components/tasks/documents-panel"
 
 const TASK_CATEGORIES = ["Opening", "Closing", "Cleaning", "Food Safety", "Cellar", "Maintenance", "Checklist"]
 const FREQUENCIES = ["One-off", "Daily", "Weekly", "Monthly"]
@@ -65,6 +74,9 @@ type Props = {
   initialTasks: TaskWithItems[]
   initialActions: DbCorrectiveAction[]
   staff: DbStaffMember[]
+  initialMeetings: MeetingWithActions[]
+  initialMeterReadings: DbMeterReading[]
+  initialDocuments: DbOpsDocument[]
 }
 
 /** Friendly assignment label from a task's staff/role/legacy fields. */
@@ -95,7 +107,15 @@ function priorityTone(priority: string) {
   return "bg-muted text-muted-foreground"
 }
 
-export function TasksView({ venueId, initialTasks, initialActions, staff }: Props) {
+export function TasksView({
+  venueId,
+  initialTasks,
+  initialActions,
+  staff,
+  initialMeetings,
+  initialMeterReadings,
+  initialDocuments,
+}: Props) {
   const [tasks, setTasks] = useState<TaskWithItems[]>(initialTasks)
   const [actions, setActions] = useState<DbCorrectiveAction[]>(initialActions)
   const [statusFilter, setStatusFilter] = useState<string>("All")
@@ -182,6 +202,9 @@ export function TasksView({ venueId, initialTasks, initialActions, staff }: Prop
               </Badge>
             )}
           </TabsTrigger>
+          <TabsTrigger value="meetings">Meetings</TabsTrigger>
+          <TabsTrigger value="meters">Meter Readings</TabsTrigger>
+          <TabsTrigger value="documents">Documents</TabsTrigger>
         </TabsList>
 
         <TabsContent value="tasks" className="mt-5">
@@ -271,6 +294,18 @@ export function TasksView({ venueId, initialTasks, initialActions, staff }: Prop
               ))}
             </div>
           )}
+        </TabsContent>
+
+        <TabsContent value="meetings" className="mt-5">
+          <MeetingsPanel venueId={venueId} initialMeetings={initialMeetings} />
+        </TabsContent>
+
+        <TabsContent value="meters" className="mt-5">
+          <MeterReadingsPanel venueId={venueId} initialReadings={initialMeterReadings} />
+        </TabsContent>
+
+        <TabsContent value="documents" className="mt-5">
+          <DocumentsPanel venueId={venueId} initialDocuments={initialDocuments} />
         </TabsContent>
       </Tabs>
     </div>

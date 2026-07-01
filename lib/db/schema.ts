@@ -637,6 +637,72 @@ export const correctiveAction = pgTable("corrective_action", {
   createdAt: timestamp("createdAt").notNull().defaultNow(),
 })
 
+// Business meetings held with venue operators. A meeting captures shared notes,
+// a signature review for accountability, and links to trackable follow-up actions.
+export const meeting = pgTable("meeting", {
+  id: serial("id").primaryKey(),
+  userId: text("userId").notNull(),
+  venueId: integer("venueId").notNull(),
+  title: text("title").notNull(),
+  scheduledDate: text("scheduledDate"),
+  createdBy: text("createdBy"),
+  // "Pending" | "Held" | "Completed" | "Actions Overdue" | "Review Overdue"
+  status: text("status").notNull().default("Pending"),
+  notes: text("notes"),
+  // Data-URL / blob of the captured signature review.
+  signatureUrl: text("signatureUrl"),
+  signedBy: text("signedBy"),
+  signedAt: timestamp("signedAt"),
+  reviewedAt: timestamp("reviewedAt"),
+  heldAt: timestamp("heldAt"),
+  createdAt: timestamp("createdAt").notNull().defaultNow(),
+})
+
+// A follow-up action agreed in a meeting; tracked to completion.
+export const meetingAction = pgTable("meeting_action", {
+  id: serial("id").primaryKey(),
+  userId: text("userId").notNull(),
+  venueId: integer("venueId").notNull(),
+  meetingId: integer("meetingId").notNull(),
+  title: text("title").notNull(),
+  assignee: text("assignee"),
+  dueDate: text("dueDate"),
+  // "Open" | "Completed" | "Overdue"
+  status: text("status").notNull().default("Open"),
+  completedAt: timestamp("completedAt"),
+  createdAt: timestamp("createdAt").notNull().defaultNow(),
+})
+
+// A recorded utility meter reading (gas/electric/water) for a venue.
+export const meterReading = pgTable("meter_reading", {
+  id: serial("id").primaryKey(),
+  userId: text("userId").notNull(),
+  venueId: integer("venueId").notNull(),
+  meterType: text("meterType").notNull().default("Electric"),
+  unit: text("unit").notNull().default("kWh"),
+  value: doublePrecision("value").notNull().default(0),
+  readingDate: text("readingDate").notNull(),
+  recordedBy: text("recordedBy"),
+  notes: text("notes"),
+  createdAt: timestamp("createdAt").notNull().defaultNow(),
+})
+
+// Document store. venueId 0 = stored centrally (company-wide); otherwise the
+// document belongs to a specific venue. Categorised, shareable and with an
+// optional expiry/reminder date for certificates that must be renewed.
+export const opsDocument = pgTable("ops_document", {
+  id: serial("id").primaryKey(),
+  userId: text("userId").notNull(),
+  venueId: integer("venueId").notNull().default(0),
+  name: text("name").notNull(),
+  description: text("description"),
+  category: text("category").notNull().default("General"),
+  fileUrl: text("fileUrl"),
+  expires: text("expires"),
+  sharedWith: text("sharedWith").notNull().default("All Venue Staff"),
+  createdAt: timestamp("createdAt").notNull().defaultNow(),
+})
+
 // --- Safety Management -----------------------------------------------------
 
 export const safetyRecord = pgTable("safety_record", {
@@ -1012,6 +1078,10 @@ export type DbTakings = typeof takings.$inferSelect
 export type DbTaskCheck = typeof taskCheck.$inferSelect
 export type DbTaskCheckItem = typeof taskCheckItem.$inferSelect
 export type DbCorrectiveAction = typeof correctiveAction.$inferSelect
+export type DbMeeting = typeof meeting.$inferSelect
+export type DbMeetingAction = typeof meetingAction.$inferSelect
+export type DbMeterReading = typeof meterReading.$inferSelect
+export type DbOpsDocument = typeof opsDocument.$inferSelect
 export type DbSafetyRecord = typeof safetyRecord.$inferSelect
 export type DbRiskAssessment = typeof riskAssessment.$inferSelect
 export type DbRiskHazard = typeof riskHazard.$inferSelect

@@ -26,7 +26,11 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import { createVenue, updateVenue } from "@/app/actions/venues"
+import { getStaffMembers } from "@/app/actions/staff"
 import type { VenueSummary } from "@/components/venue-provider"
+import type { DbStaffMember } from "@/lib/db/schema"
+
+const CUSTOM_MANAGER = "__custom__"
 
 const venueTypes = ["Pub", "Bar", "Restaurant", "Hotel", "Cafe", "Nightclub", "Brewery"]
 const licenseTypes = ["Premises Licence", "Personal Licence", "Club Premises", "TENs", "Other"]
@@ -81,6 +85,9 @@ export function VenueDialog({
   const [phone, setPhone] = useState(venue?.phone ?? "")
   const [email, setEmail] = useState(venue?.email ?? "")
   const [managerName, setManagerName] = useState(venue?.managerName ?? "")
+  const [staffOptions, setStaffOptions] = useState<DbStaffMember[]>([])
+  // When true, the manager is typed free-text rather than picked from the team.
+  const [managerCustom, setManagerCustom] = useState(false)
   const [capacity, setCapacity] = useState(venue?.capacity != null ? String(venue.capacity) : "")
   const [floors, setFloors] = useState(venue?.floors != null ? String(venue.floors) : "")
   const [licenseNumber, setLicenseNumber] = useState(venue?.licenseNumber ?? "")
@@ -116,6 +123,22 @@ export function VenueDialog({
 
   function setDay(day: string, patch: Partial<DayHours>) {
     setHours((prev) => prev.map((h) => (h.day === day ? { ...h, ...patch } : h)))
+  }
+
+  // Load the venue's team so the manager can be picked from existing members.
+  async function loadStaff() {
+    if (mode !== "edit" || !venue) {
+      setManagerCustom(true)
+      return
+    }
+    try {
+      const members = await getStaffMembers(venue.id)
+      setStaffOptions(members)
+      const current = venue.managerName ?? ""
+      setManagerCustom(!!current && !members.some((m) => m.name === current))
+    } catch {
+      setManagerCustom(true)
+    }
   }
 
   async function handleSubmit(e: React.FormEvent) {
@@ -161,6 +184,7 @@ export function VenueDialog({
       open={open}
       onOpenChange={(o) => {
         setOpen(o)
+        if (o) loadStaff()
         if (!o) reset()
       }}
     >
@@ -341,12 +365,57 @@ export function VenueDialog({
                 </div>
                 <div className="grid gap-2 sm:col-span-2">
                   <Label htmlFor="venue-manager">Venue manager</Label>
-                  <Input
-                    id="venue-manager"
-                    value={managerName}
-                    onChange={(e) => setManagerName(e.target.value)}
-                    placeholder="e.g. Jamie Doyle"
-                  />
+                  {managerCustom ? (
+                    <div className="flex flex-col gap-1.5">
+                      <Input
+                        id="venue-manager"
+                        value={managerName}
+                        onChange={(e) => setManagerName(e.target.value)}
+                        placeholder="e.g. Jamie Doyle"
+                      />
+                      {staffOptions.length > 0 && (
+                        <button
+                          type="button"
+                          className="self-start text-xs text-brand hover:underline"
+                          onClick={() => {
+                            setManagerCustom(false)
+                            setManagerName("")
+                          }}
+                        >
+                          Choose from team instead
+                        </button>
+                      )}
+                    </div>
+                  ) : (
+                    <Select
+                      value={managerName || ""}
+                      onValueChange={(v) => {
+                        if (v === CUSTOM_MANAGER) {
+                          setManagerCustom(true)
+                          setManagerName("")
+                        } else {
+                          setManagerName(v ?? "")
+                        }
+                      }}
+                    >
+                      <SelectTrigger id="venue-manager">
+                        <SelectValue placeholder={staffOptions.length ? "Select a team member" : "No team members yet"} />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {staffOptions.map((m) => (
+                          <SelectItem key={m.id} value={m.name}>
+                            {m.name} · {m.role}
+                          </SelectItem>
+                        ))}
+                        <SelectItem value={CUSTOM_MANAGER}>Enter a different name…</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  )}
+                  {mode === "add" && (
+                    <p className="text-xs text-muted-foreground">
+                      Add team members after creating the venue to assign a manager from your team.
+                    </p>
+                  )}
                 </div>
               </div>
             </section>
