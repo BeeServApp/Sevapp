@@ -12,6 +12,7 @@ import {
   Users,
   ShieldCheck,
   UtensilsCrossed,
+  GraduationCap,
   Package,
   Settings,
   LifeBuoy,
@@ -31,6 +32,7 @@ const moduleIcons: Record<string, LucideIcon> = {
   "/staff": Users,
   "/compliance": ShieldCheck,
   "/food": UtensilsCrossed,
+  "/training": GraduationCap,
 }
 
 export function AppSidebar({ onNavigate }: { onNavigate?: () => void }) {

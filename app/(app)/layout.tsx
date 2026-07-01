@@ -33,8 +33,9 @@ export default async function AppLayout({ children }: { children: React.ReactNod
     .where(eq(venueTable.userId, me.accountId))
     .orderBy(asc(venueTable.id))
 
-  // Non-owners only see the venues they have access to (managers: their single
-  // venue, area managers: their assigned set). Owners see everything.
+  // Non-owners only see the venues they have access to: managers get their
+  // single venue, area managers get their assigned set, and plain staff get the
+  // venues they're assigned to. Owners see every account venue.
   const accessibleIds = me.appRole === "owner" ? null : new Set(await getAccessibleVenueIds(me))
   const venues = accessibleIds ? allVenues.filter((v) => accessibleIds.has(v.id)) : allVenues
   const company = await getCompany()

@@ -884,6 +884,62 @@ export const foodPolicy = pgTable("food_policy", {
   createdAt: timestamp("createdAt").notNull().defaultNow(),
 })
 
+// --- Training -------------------------------------------------------------
+
+// A training module is a course grouped under a category (e.g. Cellar
+// Management, Food Training). It contains ordered lessons (videos + documents)
+// and is business-wide (account scoped) so it applies across venues.
+export const trainingModule = pgTable("training_module", {
+  id: serial("id").primaryKey(),
+  userId: text("userId").notNull(),
+  title: text("title").notNull(),
+  description: text("description"),
+  category: text("category").notNull().default("General"),
+  coverImage: text("coverImage"),
+  status: text("status").notNull().default("Published"),
+  sortOrder: integer("sortOrder").notNull().default(0),
+  createdAt: timestamp("createdAt").notNull().defaultNow(),
+})
+
+// A lesson is a single learning item within a module: a "video" (external
+// link) or a "document" (rich text to read, optionally with a link).
+export const trainingLesson = pgTable("training_lesson", {
+  id: serial("id").primaryKey(),
+  userId: text("userId").notNull(),
+  moduleId: integer("moduleId").notNull(),
+  title: text("title").notNull(),
+  type: text("type").notNull().default("video"),
+  url: text("url"),
+  content: text("content"),
+  durationMin: integer("durationMin"),
+  sortOrder: integer("sortOrder").notNull().default(0),
+  createdAt: timestamp("createdAt").notNull().defaultNow(),
+})
+
+// Assigns a module to an audience group (everyone/kitchen/bar/foh/management)
+// and/or a specific staff member. Multiple rows can target the same module.
+export const trainingAssignment = pgTable("training_assignment", {
+  id: serial("id").primaryKey(),
+  userId: text("userId").notNull(),
+  moduleId: integer("moduleId").notNull(),
+  audience: text("audience").notNull().default("everyone"),
+  staffMemberId: integer("staffMemberId"),
+  dueDate: text("dueDate"),
+  assignedBy: text("assignedBy"),
+  createdAt: timestamp("createdAt").notNull().defaultNow(),
+})
+
+// A per-staff, per-lesson completion record. Presence of a row = completed.
+export const trainingProgress = pgTable("training_progress", {
+  id: serial("id").primaryKey(),
+  userId: text("userId").notNull(),
+  staffMemberId: integer("staffMemberId").notNull(),
+  moduleId: integer("moduleId").notNull(),
+  lessonId: integer("lessonId").notNull(),
+  completed: boolean("completed").notNull().default(true),
+  completedAt: timestamp("completedAt").notNull().defaultNow(),
+})
+
 // --- Financials -----------------------------------------------------------
 
 export const expense = pgTable("expense", {
@@ -1107,6 +1163,10 @@ export type DbCorrectiveAction = typeof correctiveAction.$inferSelect
 export type DbMeeting = typeof meeting.$inferSelect
 export type DbMeetingAction = typeof meetingAction.$inferSelect
 export type DbMeterReading = typeof meterReading.$inferSelect
+export type DbTrainingModule = typeof trainingModule.$inferSelect
+export type DbTrainingLesson = typeof trainingLesson.$inferSelect
+export type DbTrainingAssignment = typeof trainingAssignment.$inferSelect
+export type DbTrainingProgress = typeof trainingProgress.$inferSelect
 export type DbOpsDocument = typeof opsDocument.$inferSelect
 export type DbSafetyRecord = typeof safetyRecord.$inferSelect
 export type DbRiskAssessment = typeof riskAssessment.$inferSelect
