@@ -4,6 +4,7 @@ import { db } from "@/lib/db"
 import {
   calendarEvent,
   correctiveAction,
+  meeting,
   task,
   taskCheck,
   venueEvent,
@@ -147,7 +148,7 @@ export interface LinkableItems {
 export async function getCalendarData(venueId: number) {
   const userId = await getUserId()
 
-  const [events, checks, actions, opsEvents, opsTasks] = await Promise.all([
+  const [events, checks, actions, opsEvents, opsTasks, meetings] = await Promise.all([
     db
       .select()
       .from(calendarEvent)
@@ -168,6 +169,10 @@ export async function getCalendarData(venueId: number) {
       .select()
       .from(task)
       .where(and(eq(task.userId, userId), eq(task.venueId, venueId))),
+    db
+      .select()
+      .from(meeting)
+      .where(and(eq(meeting.userId, userId), eq(meeting.venueId, venueId))),
   ])
 
   // task-check / corrective-action ids already linked, so we don't double-show them.
@@ -198,6 +203,16 @@ export async function getCalendarData(venueId: number) {
       priority: a.priority,
     }))
 
+  // Meetings scheduled from Task Management surface on the calendar automatically.
+  const datedMeetings = meetings
+    .filter((m) => isIso(m.scheduledDate) && !linkedKeys.has(`meeting:${m.id}`))
+    .map((m) => ({
+      id: m.id,
+      title: m.title,
+      scheduledDate: m.scheduledDate as string,
+      status: m.status,
+    }))
+
   const linkable: LinkableItems = {
     events: opsEvents.map((e) => ({ id: e.id, name: e.name, date: e.date, status: e.status })),
     tasks: opsTasks.map((t) => ({ id: t.id, title: t.title, due: t.due, priority: t.priority })),
@@ -209,5 +224,5 @@ export async function getCalendarData(venueId: number) {
     })),
   }
 
-  return { events, datedChecks, datedActions, linkable }
+  return { events, datedChecks, datedActions, datedMeetings, linkable }
 }
