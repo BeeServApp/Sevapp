@@ -67,9 +67,9 @@ export default async function LandingPage() {
       {/* ── Hero ─────────────────────────────────────────────────── */}
       <section className="mx-auto w-full max-w-7xl px-4 pb-16 pt-20 text-center md:px-8 md:pt-24">
         <div className="mx-auto max-w-3xl">
-          <div className="mb-6 inline-flex items-center gap-2 rounded-full border border-border bg-accent/60 px-3 py-1 text-xs font-medium text-accent-foreground">
-            <span className="size-1.5 rounded-full bg-brand" />
-            Built for pubs, bars &amp; restaurants
+          <div className="mb-6 inline-flex items-center gap-2 rounded-full border border-brand/40 bg-brand/10 px-3 py-1 text-xs font-medium text-brand">
+            <Sparkles className="size-3.5" />
+            3 months free · no credit card required
           </div>
           <h1 className="text-balance font-heading text-4xl font-bold leading-tight tracking-tight text-foreground md:text-5xl lg:text-6xl">
             Run your whole venue from one dashboard
@@ -80,13 +80,23 @@ export default async function LandingPage() {
           </p>
           <div className="mt-8 flex flex-wrap items-center justify-center gap-3">
             <Link href="/sign-up" className={cn(buttonVariants({ size: "lg" }), "gap-2")}>
-              Start your free trial <ArrowRight className="size-4" />
+              Start 3 months free <ArrowRight className="size-4" />
             </Link>
             <Link href="#modules" className={cn(buttonVariants({ size: "lg", variant: "outline" }))}>
               See it in action
             </Link>
           </div>
-          <p className="mt-4 text-xs text-muted-foreground">14-day free trial · no charge until it ends</p>
+          <div className="mt-5 flex flex-wrap items-center justify-center gap-x-6 gap-y-2 text-xs text-muted-foreground">
+            <span className="flex items-center gap-1.5">
+              <CheckCircle2 className="size-3.5 text-brand" /> No credit card needed
+            </span>
+            <span className="flex items-center gap-1.5">
+              <CheckCircle2 className="size-3.5 text-brand" /> Full access for 3 months
+            </span>
+            <span className="flex items-center gap-1.5">
+              <CheckCircle2 className="size-3.5 text-brand" /> Cancel anytime
+            </span>
+          </div>
         </div>
 
         {/* Real product screenshot */}
@@ -242,17 +252,18 @@ export default async function LandingPage() {
         <div className="mx-auto max-w-2xl px-4 text-center md:px-8">
           <BrandLogo variant="onPrimary" className="mx-auto mb-8 h-14 md:h-16" />
           <h2 className="text-balance font-heading text-3xl font-bold tracking-tight md:text-4xl">
-            Ready to take control of your venue?
+            Try Beeserv free for 3 months
           </h2>
           <p className="mt-4 text-base leading-relaxed text-primary-foreground/70">
-            Join operators across the UK using Beeserv to manage their pubs, bars, and restaurants.
+            Full access, every module, no credit card required. Join operators across the UK using
+            Beeserv to manage their pubs, bars, and restaurants.
           </p>
           <div className="mt-8 flex flex-wrap items-center justify-center gap-3">
             <Link
               href="/sign-up"
               className={cn(buttonVariants({ size: "lg" }), "gap-2 bg-brand text-brand-foreground hover:bg-brand/90")}
             >
-              Create a free account <ArrowRight className="size-4" />
+              Start 3 months free <ArrowRight className="size-4" />
             </Link>
             <Link
               href="/sign-in"
@@ -261,6 +272,9 @@ export default async function LandingPage() {
               Sign in
             </Link>
           </div>
+          <p className="mt-4 text-xs text-primary-foreground/60">
+            No credit card needed · Cancel anytime
+          </p>
         </div>
       </section>
 

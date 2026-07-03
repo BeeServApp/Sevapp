@@ -3,6 +3,7 @@ import { redirect } from "next/navigation"
 
 import { TasksView } from "@/components/tasks-view"
 import { getActiveVenueId, getSession } from "@/lib/session"
+import { guardModuleAccess } from "@/lib/plan-guard"
 import { getTaskChecks, getCorrectiveActions } from "@/app/actions/tasks"
 import { getStaffMembers } from "@/app/actions/staff"
 import { getMeetings, getMeterReadings, getDocuments } from "@/app/actions/oversight"
@@ -14,6 +15,7 @@ export const metadata: Metadata = {
 export default async function TasksPage() {
   const session = await getSession()
   if (!session?.user) redirect("/sign-in")
+  await guardModuleAccess("/tasks")
 
   const venueId = await getActiveVenueId(session.user.id)
   if (!venueId) {

@@ -1,5 +1,5 @@
 import Link from "next/link"
-import { Check, ArrowRight } from "lucide-react"
+import { Check, ArrowRight, MapPin } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { buttonVariants } from "@/components/ui/button"
 import { PRICING_TIERS, formatGBP, TRIAL_PERIOD_DAYS } from "@/lib/pricing"
@@ -14,8 +14,9 @@ export function PricingSection() {
             Simple per-location pricing
           </h2>
           <p className="mx-auto mt-3 max-w-xl text-pretty text-base text-muted-foreground">
-            Pay only for the venues you run. Every plan includes a {TRIAL_PERIOD_DAYS}-day free trial —
-            no charge until it ends, cancel anytime.
+            Pay only for the venues you run. Start with a{" "}
+            <span className="font-medium text-foreground">3-month free trial</span> — no credit card
+            required, cancel anytime.
           </p>
         </div>
 
@@ -43,7 +44,12 @@ export function PricingSection() {
               </div>
               <p className="mt-2 text-sm leading-relaxed text-muted-foreground">{tier.tagline}</p>
 
-              <ul className="mt-6 flex flex-1 flex-col gap-2.5">
+              <span className="mt-4 inline-flex w-fit items-center gap-1.5 rounded-full border border-border bg-muted px-2.5 py-1 text-xs font-medium text-foreground">
+                <MapPin className="size-3" />
+                {tier.venueNote}
+              </span>
+
+              <ul className="mt-5 flex flex-1 flex-col gap-2.5">
                 {tier.features.map((f) => (
                   <li key={f} className="flex items-start gap-2 text-sm text-foreground">
                     <Check className="mt-0.5 size-4 shrink-0 text-brand" />
@@ -67,7 +73,8 @@ export function PricingSection() {
 
         <p className="mx-auto mt-8 max-w-xl text-center text-xs text-muted-foreground">
           All prices in GBP, billed monthly per location and capped at {formatGBP(3500)} per location.
-          A payment method is required to start your trial; you won&apos;t be charged until day {TRIAL_PERIOD_DAYS + 1}.
+          No credit card required to start — your {TRIAL_PERIOD_DAYS}-day trial is completely free and you
+          can add payment details later to continue.
         </p>
       </div>
     </section>

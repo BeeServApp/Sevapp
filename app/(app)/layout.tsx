@@ -13,6 +13,7 @@ import { getMyBusinesses } from "@/app/actions/business"
 import { getMyPreferences } from "@/app/actions/preferences"
 import { computeAccess, ensureCompanyRow } from "@/lib/trial"
 import { isSuperAdminEmail } from "@/lib/admin"
+import { PREMIUM_MODULE_PATHS } from "@/lib/pricing"
 import { asc, eq } from "drizzle-orm"
 
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
@@ -43,9 +44,16 @@ export default async function AppLayout({ children }: { children: React.ReactNod
 
   // Enforce the trial/subscription gate for owners. Staff are never gated.
   // The billing settings page is always reachable so they can subscribe.
+  // We also read the active plan here so plan-locked modules can be hidden
+  // from the sidebar (they're already blocked server-side by guardModuleAccess).
+  let planLockedModules: string[] = []
   if (me.appRole === "owner") {
-    const access = computeAccess(await ensureCompanyRow(me.accountId))
+    const companyRow = await ensureCompanyRow(me.accountId)
+    const access = computeAccess(companyRow)
     if (access.locked) redirect("/settings?tab=billing&locked=1")
+    if (companyRow.subscriptionPlan === "hr") {
+      planLockedModules = [...PREMIUM_MODULE_PATHS]
+    }
   }
 
   const businesses = me.appRole === "owner" ? await getMyBusinesses() : []
@@ -53,8 +61,10 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   // Staff module restriction (scheduling + tasks only) is handled in AppSidebar
   // via STAFF_ALLOWED_PATHS. Owners apply their company-wide hidden modules;
   // staff apply their own personal preferences instead of the owner's config.
-  const hiddenModules =
+  const baseHiddenModules =
     me.appRole === "staff" ? (await getMyPreferences()).hiddenModules : company.hiddenModules
+  // HR-plan owners never see the premium modules in their sidebar.
+  const hiddenModules = Array.from(new Set([...baseHiddenModules, ...planLockedModules]))
 
   return (
     <RealtimeProvider>
