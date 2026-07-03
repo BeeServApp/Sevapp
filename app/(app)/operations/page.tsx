@@ -3,6 +3,7 @@ import { redirect } from "next/navigation"
 
 import { OperationsView } from "@/components/operations-view"
 import { getActiveVenueId, getSession, guardOwnerPage } from "@/lib/session"
+import { guardModuleAccess } from "@/lib/plan-guard"
 import {
   getEvents,
   getMaintenance,
@@ -20,6 +21,7 @@ export default async function OperationsPage() {
   const session = await getSession()
   if (!session?.user) redirect("/sign-in")
   await guardOwnerPage()
+  await guardModuleAccess("/operations")
 
   const venueId = await getActiveVenueId(session.user.id)
   if (!venueId) {

@@ -8,6 +8,8 @@ import {
   getAssignedVenueIds,
   getCurrentUser,
 } from "@/lib/session"
+import { getActivePlanFor } from "@/lib/plan-guard"
+import { planMaxVenues } from "@/lib/pricing"
 import { and, asc, eq } from "drizzle-orm"
 import { cookies } from "next/headers"
 import { revalidatePath } from "next/cache"
@@ -60,6 +62,22 @@ export async function createVenue(data: VenueInput) {
   const userId = await getUserId()
   const name = data.name.trim()
   if (!name) throw new Error("Venue name is required")
+
+  // Enforce the plan's venue allowance. HR & Pro are single-venue; only
+  // Enterprise supports multi-site. This mirrors the UI limit server-side so
+  // trial and paid users can never exceed what their plan allows.
+  const plan = await getActivePlanFor(userId)
+  const maxVenues = planMaxVenues(plan)
+  if (maxVenues !== null) {
+    const existing = await db.select({ id: venue.id }).from(venue).where(eq(venue.userId, userId))
+    if (existing.length >= maxVenues) {
+      throw new Error(
+        maxVenues === 1
+          ? "Your plan supports a single venue. Upgrade to Enterprise to manage multiple sites."
+          : `Your plan supports up to ${maxVenues} venues. Upgrade to Enterprise for multi-site.`,
+      )
+    }
+  }
 
   const [created] = await db
     .insert(venue)

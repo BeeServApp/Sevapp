@@ -2,29 +2,34 @@ import "server-only"
 
 import { db } from "@/lib/db"
 import { company } from "@/lib/db/schema"
-import { TRIAL_PERIOD_DAYS, type PlanId } from "@/lib/pricing"
+import { TRIAL_PERIOD_DAYS, isPlanId, type PlanId } from "@/lib/pricing"
 import { eq } from "drizzle-orm"
 
-/** Every new business starts on a card-less 14-day Starter trial. */
-export const DEFAULT_TRIAL_PLAN: PlanId = "starter"
+/** Every new business starts on a card-less 3-month Pro trial by default. */
+export const DEFAULT_TRIAL_PLAN: PlanId = "pro"
 
 type CompanyRow = typeof company.$inferSelect
 
 /**
  * Returns the company row for a data-scope, creating it on first access with a
- * 14-day Starter trial already running. This is the single place a company row
- * is ever created so the "no account without a trial plan" rule always holds.
+ * card-less trial already running. This is the single place a company row is
+ * ever created so the "no account without a trial plan" rule always holds.
+ *
+ * When a `preferredPlan` is supplied (e.g. the plan the user chose from the
+ * pricing page at sign-up), the trial starts on that plan so their access is
+ * restricted to what they signed up for from day one.
  */
-export async function ensureCompanyRow(userId: string): Promise<CompanyRow> {
+export async function ensureCompanyRow(userId: string, preferredPlan?: string): Promise<CompanyRow> {
   const [existing] = await db.select().from(company).where(eq(company.userId, userId)).limit(1)
   if (existing) return existing
 
+  const plan: PlanId = isPlanId(preferredPlan) ? preferredPlan : DEFAULT_TRIAL_PLAN
   const trialEndsAt = new Date(Date.now() + TRIAL_PERIOD_DAYS * 24 * 60 * 60 * 1000)
   const [created] = await db
     .insert(company)
     .values({
       userId,
-      subscriptionPlan: DEFAULT_TRIAL_PLAN,
+      subscriptionPlan: plan,
       subscriptionStatus: "trialing",
       trialEndsAt,
     })

@@ -3,6 +3,7 @@ import { redirect } from "next/navigation"
 
 import { ComplianceHub } from "@/components/compliance/compliance-hub"
 import { getActiveVenueId, getSession, guardOwnerPage } from "@/lib/session"
+import { guardModuleAccess } from "@/lib/plan-guard"
 import { getCertificates, getChecks, getDocuments } from "@/app/actions/compliance"
 import {
   getAudits,
@@ -23,6 +24,7 @@ export default async function CompliancePage() {
   const session = await getSession()
   if (!session?.user) redirect("/sign-in")
   await guardOwnerPage()
+  await guardModuleAccess("/compliance")
 
   const venueId = await getActiveVenueId(session.user.id)
   if (!venueId) {

@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation"
 import { AssetsView } from "@/components/assets-view"
 import { getActiveVenueId, getSession, guardOwnerPage } from "@/lib/session"
+import { guardModuleAccess } from "@/lib/plan-guard"
 import { getAssets, getAssetMaintenance } from "@/app/actions/assets"
 import { getGamingMachines } from "@/app/actions/gaming"
 import { getVenues } from "@/app/actions/venues"
@@ -17,6 +18,7 @@ export default async function AssetsPage() {
   const session = await getSession()
   if (!session?.user) redirect("/sign-in")
   await guardOwnerPage()
+  await guardModuleAccess("/assets")
 
   const venueId = await getActiveVenueId(session.user.id)
   if (!venueId) {

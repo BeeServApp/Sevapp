@@ -4,6 +4,7 @@ import { redirect } from "next/navigation"
 
 import { FoodHub } from "@/components/food/food-hub"
 import { getActiveVenueId, getSession } from "@/lib/session"
+import { guardModuleAccess } from "@/lib/plan-guard"
 import { getFoodAlerts, getFoodChecks, getFoodPolicies, getFoodScore } from "@/app/actions/food"
 
 export const metadata: Metadata = {
@@ -14,6 +15,7 @@ export const metadata: Metadata = {
 export default async function FoodPage() {
   const session = await getSession()
   if (!session?.user) redirect("/sign-in")
+  await guardModuleAccess("/food")
 
   const venueId = await getActiveVenueId(session.user.id)
   if (!venueId) {

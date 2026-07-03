@@ -10,9 +10,12 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Card } from "@/components/ui/card"
+import { startTrialForPlan } from "@/app/actions/onboarding"
+import { getTier } from "@/lib/pricing"
 
-export function AuthForm({ mode }: { mode: "sign-in" | "sign-up" }) {
+export function AuthForm({ mode, plan }: { mode: "sign-in" | "sign-up"; plan?: string }) {
   const router = useRouter()
+  const selectedTier = plan ? getTier(plan) : undefined
   const [name, setName] = useState("")
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
@@ -30,13 +33,23 @@ export function AuthForm({ mode }: { mode: "sign-in" | "sign-up" }) {
       ? await authClient.signUp.email({ email, password, name })
       : await authClient.signIn.email({ email, password })
 
-    setLoading(false)
-
     if (error) {
+      setLoading(false)
       setError(error.message ?? "Something went wrong")
       return
     }
 
+    // Pin the new account's card-less trial to the plan they chose on the
+    // pricing page so their access is restricted to that plan from day one.
+    if (isSignUp) {
+      try {
+        await startTrialForPlan(plan)
+      } catch {
+        // Non-fatal: the app layout will still create a default trial row.
+      }
+    }
+
+    setLoading(false)
     router.push("/")
     router.refresh()
   }
@@ -55,9 +68,15 @@ export function AuthForm({ mode }: { mode: "sign-in" | "sign-up" }) {
             </h1>
             <p className="mt-1 text-sm text-muted-foreground">
               {isSignUp
-                ? "Set up your venue management workspace"
+                ? "Start your 3-month free trial — no credit card required"
                 : "Sign in to your venue management workspace"}
             </p>
+            {isSignUp && selectedTier && (
+              <div className="mt-3 flex items-center gap-2 rounded-md border border-border bg-muted px-3 py-2 text-sm">
+                <span className="font-medium text-foreground">{selectedTier.name} plan</span>
+                <span className="text-muted-foreground">selected — free for 3 months</span>
+              </div>
+            )}
           </div>
 
           <form onSubmit={handleSubmit} className="flex flex-col gap-4">

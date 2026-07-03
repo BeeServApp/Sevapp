@@ -11,6 +11,7 @@ import { GamingMachines } from "@/components/gaming/gaming-machines"
 import { TakingsLog } from "@/components/takings-log"
 import type { Kpi } from "@/lib/mock-data"
 import { getUserId, getActiveVenueId, guardOwnerPage } from "@/lib/session"
+import { guardModuleAccess } from "@/lib/plan-guard"
 import { getExpenses } from "@/app/actions/financials"
 import { getTakings } from "@/app/actions/takings"
 import { getGamingMachines } from "@/app/actions/gaming"
@@ -55,6 +56,7 @@ export default async function FinancialsPage({
   searchParams: Promise<{ tab?: string }>
 }) {
   await guardOwnerPage()
+  await guardModuleAccess("/financials")
   const { tab } = await searchParams
   const userId = await getUserId()
   const venueId = await getActiveVenueId(userId)
