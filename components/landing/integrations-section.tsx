@@ -1,5 +1,5 @@
 import Image from "next/image"
-import { CreditCard, Database, ImageIcon, ArrowRight } from "lucide-react"
+import { CreditCard, Database, ShieldCheck, ArrowRight } from "lucide-react"
 
 // User-facing integrations get a full card with logo + explanation.
 const featured = [
@@ -19,14 +19,14 @@ const featured = [
     title: "Secure billing with Stripe",
     description:
       "Per-location subscriptions, free trials and card management are handled by Stripe — PCI-compliant and trusted by millions of businesses.",
-    points: ["14-day free trial", "Per-location pricing", "Cancel anytime"],
+    points: ["3-month free trial", "Per-location pricing", "Cancel anytime"],
   },
 ]
 
 // Infrastructure / platform partners shown as a trust strip.
 const platform = [
   { name: "Neon", logo: "/logos/neon-default.svg", caption: "Postgres database", icon: Database },
-  { name: "Vercel Blob", logo: "/logos/vercel-mono.svg", caption: "Asset photo storage", icon: ImageIcon },
+  { name: "Bank-grade security", logo: "", caption: "Encrypted & backed up", icon: ShieldCheck },
 ]
 
 export function IntegrationsSection() {
@@ -83,21 +83,28 @@ export function IntegrationsSection() {
             Built on
           </span>
           <div className="flex flex-wrap items-center justify-center gap-x-8 gap-y-3">
-            {platform.map((p) => (
-              <div key={p.name} className="flex items-center gap-2.5">
-                <Image
-                  src={p.logo || "/placeholder.svg"}
-                  alt={`${p.name} logo`}
-                  width={20}
-                  height={20}
-                  className="h-5 w-auto"
-                />
-                <div className="flex flex-col leading-tight">
-                  <span className="text-sm font-semibold text-foreground">{p.name}</span>
-                  <span className="text-xs text-muted-foreground">{p.caption}</span>
+            {platform.map((p) => {
+              const Icon = p.icon
+              return (
+                <div key={p.name} className="flex items-center gap-2.5">
+                  {p.logo ? (
+                    <Image
+                      src={p.logo || "/placeholder.svg"}
+                      alt={`${p.name} logo`}
+                      width={20}
+                      height={20}
+                      className="h-5 w-auto"
+                    />
+                  ) : (
+                    <Icon className="size-5 text-brand" />
+                  )}
+                  <div className="flex flex-col leading-tight">
+                    <span className="text-sm font-semibold text-foreground">{p.name}</span>
+                    <span className="text-xs text-muted-foreground">{p.caption}</span>
+                  </div>
                 </div>
-              </div>
-            ))}
+              )
+            })}
           </div>
         </div>
       </div>

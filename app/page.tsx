@@ -154,7 +154,7 @@ export default async function LandingPage() {
         </div>
       </section>
 
-      {/* ── Features ─────────────────────────────────────────────── */}
+      {/* ── Features ───────��─────────────────────────────────────── */}
       <section id="features" className="border-t border-border bg-muted/20 py-24">
         <div className="mx-auto w-full max-w-7xl px-4 md:px-8">
           <div className="mb-14 text-center">
@@ -248,33 +248,60 @@ export default async function LandingPage() {
       <PricingSection />
 
       {/* ── CTA ──────────────────────────────────────────────────── */}
-      <section className="border-t border-border bg-primary py-20 text-primary-foreground">
-        <div className="mx-auto max-w-2xl px-4 text-center md:px-8">
+      <section className="border-t border-border bg-primary py-20 text-primary-foreground md:py-24">
+        <div className="mx-auto max-w-3xl px-4 text-center md:px-8">
           <BrandLogo variant="onPrimary" className="mx-auto mb-8 h-14 md:h-16" />
-          <h2 className="text-balance font-heading text-3xl font-bold tracking-tight md:text-4xl">
-            Try Beeserv free for 3 months
+
+          <div className="mb-6 inline-flex items-center gap-2 rounded-full border border-brand/50 bg-brand/15 px-3 py-1 text-xs font-medium text-brand-foreground">
+            <Sparkles className="size-3.5" />
+            3 months free · then from £9.99/mo
+          </div>
+
+          <h2 className="text-balance font-heading text-3xl font-bold tracking-tight md:text-5xl">
+            Spend less time on admin, more time serving guests
           </h2>
-          <p className="mt-4 text-base leading-relaxed text-primary-foreground/70">
-            Full access, every module, no credit card required. Join operators across the UK using
-            Beeserv to manage their pubs, bars, and restaurants.
+          <p className="mx-auto mt-4 max-w-xl text-balance text-base leading-relaxed text-primary-foreground/70 md:text-lg">
+            Set up your venue in minutes and get full access to every module free for 3 months.
+            No credit card, no commitment — see the difference before you pay a penny.
           </p>
-          <div className="mt-8 flex flex-wrap items-center justify-center gap-3">
+
+          {/* Value stack */}
+          <ul className="mx-auto mt-8 grid max-w-2xl gap-3 text-left sm:grid-cols-2">
+            {ctaBenefits.map((benefit) => (
+              <li
+                key={benefit}
+                className="flex items-center gap-2.5 rounded-lg border border-primary-foreground/15 bg-primary-foreground/5 px-4 py-3 text-sm"
+              >
+                <CheckCircle2 className="size-4 shrink-0 text-brand" />
+                <span className="text-primary-foreground/90">{benefit}</span>
+              </li>
+            ))}
+          </ul>
+
+          <div className="mt-10 flex flex-col items-center gap-4">
             <Link
               href="/sign-up"
-              className={cn(buttonVariants({ size: "lg" }), "gap-2 bg-brand text-brand-foreground hover:bg-brand/90")}
+              className={cn(
+                buttonVariants({ size: "lg" }),
+                "h-14 gap-2 bg-brand px-8 text-base font-semibold text-brand-foreground shadow-lg transition-transform hover:bg-brand/90 hover:scale-[1.02]",
+              )}
             >
-              Start 3 months free <ArrowRight className="size-4" />
+              Start my 3 months free <ArrowRight className="size-5" />
             </Link>
-            <Link
-              href="/sign-in"
-              className={cn(buttonVariants({ size: "lg", variant: "outline" }), "border-primary-foreground/30 text-primary-foreground hover:bg-primary-foreground/10")}
-            >
-              Sign in
-            </Link>
+            <p className="flex flex-wrap items-center justify-center gap-x-4 gap-y-1 text-xs text-primary-foreground/60">
+              <span>No credit card required</span>
+              <span aria-hidden>·</span>
+              <span>Cancel anytime</span>
+              <span aria-hidden>·</span>
+              <span>Setup in under 5 minutes</span>
+            </p>
+            <p className="text-sm text-primary-foreground/70">
+              Already have an account?{" "}
+              <Link href="/sign-in" className="font-medium text-brand underline-offset-4 hover:underline">
+                Sign in
+              </Link>
+            </p>
           </div>
-          <p className="mt-4 text-xs text-primary-foreground/60">
-            No credit card needed · Cancel anytime
-          </p>
         </div>
       </section>
 
@@ -296,6 +323,13 @@ export default async function LandingPage() {
 }
 
 // ── Data ─────────────────────────────────────────────────────────────────────
+
+const ctaBenefits = [
+  "Every module unlocked — nothing held back",
+  "Live sales, rotas & financials in one place",
+  "Your data ready to go, no long setup",
+  "Friendly UK-based support included",
+]
 
 const whatsNew = [
   {
@@ -400,7 +434,7 @@ const modules = [
     description:
       "Keep a complete register of every venue asset — from cellar equipment to furniture. Upload photos, track condition and location, record replacement values, and export the whole register to Excel in one click.",
     points: [
-      "Photo gallery via Vercel Blob",
+      "Secure photo gallery",
       "Condition & location tracking",
       "Replacement valuations",
       "Category breakdown",
