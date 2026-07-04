@@ -154,7 +154,7 @@ export default async function LandingPage() {
         </div>
       </section>
 
-      {/* ── Features ───────��─────────────────────────────────────── */}
+      {/* ── Features ───────���─────────────────────────────────────── */}
       <section id="features" className="border-t border-border bg-muted/20 py-24">
         <div className="mx-auto w-full max-w-7xl px-4 md:px-8">
           <div className="mb-14 text-center">
@@ -249,13 +249,11 @@ export default async function LandingPage() {
 
       {/* ── CTA ──────────────────────────────────────────────────── */}
       <section className="border-t border-border bg-primary py-20 text-primary-foreground md:py-24">
-        <div className="mx-auto max-w-3xl px-4 text-center md:px-8">
-          <BrandLogo variant="onPrimary" className="mx-auto mb-8 h-14 md:h-16" />
-
-          <div className="mb-6 inline-flex items-center gap-2 rounded-full border border-brand/50 bg-brand/15 px-3 py-1 text-xs font-medium text-brand-foreground">
+        <div className="mx-auto flex max-w-3xl flex-col items-center px-4 text-center md:px-8">
+          <span className="mb-6 inline-flex items-center gap-2 rounded-full border border-brand/40 bg-brand/10 px-3.5 py-1.5 text-xs font-medium text-brand">
             <Sparkles className="size-3.5" />
             3 months free · then from £9.99/mo
-          </div>
+          </span>
 
           <h2 className="text-balance font-heading text-3xl font-bold tracking-tight md:text-5xl">
             Spend less time on admin, more time serving guests
@@ -266,14 +264,16 @@ export default async function LandingPage() {
           </p>
 
           {/* Value stack */}
-          <ul className="mx-auto mt-8 grid max-w-2xl gap-3 text-left sm:grid-cols-2">
+          <ul className="mx-auto mt-8 grid w-full max-w-xl gap-3 text-left sm:grid-cols-2">
             {ctaBenefits.map((benefit) => (
               <li
                 key={benefit}
-                className="flex items-center gap-2.5 rounded-lg border border-primary-foreground/15 bg-primary-foreground/5 px-4 py-3 text-sm"
+                className="flex items-center gap-3 rounded-xl border border-primary-foreground/10 bg-primary-foreground/[0.06] px-4 py-3.5 text-sm transition-colors hover:bg-primary-foreground/10"
               >
-                <CheckCircle2 className="size-4 shrink-0 text-brand" />
-                <span className="text-primary-foreground/90">{benefit}</span>
+                <span className="flex size-6 shrink-0 items-center justify-center rounded-full bg-brand/15">
+                  <CheckCircle2 className="size-4 text-brand" />
+                </span>
+                <span className="text-pretty text-primary-foreground/90">{benefit}</span>
               </li>
             ))}
           </ul>
