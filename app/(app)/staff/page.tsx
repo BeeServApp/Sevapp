@@ -27,6 +27,7 @@ import { getOnboardingRecords, getHrDocuments, getMyOnboarding } from "@/app/act
 import { getMyProfile, getMyLeaveRequests } from "@/app/actions/staff"
 import { getMyAvailability, getMyTimecards } from "@/app/actions/scheduling"
 import { getScheduledPublish, runDueScheduledPublishes } from "@/app/actions/scheduled-publish"
+import { runDueReminders } from "@/app/actions/reminders"
 import { ROTA_DAYS, weekStartOf, addWeeks, dateForDay } from "@/lib/rota"
 import { StaffView } from "@/components/staff-view"
 import { StaffPortalView } from "@/components/staff-portal-view"
@@ -86,6 +87,8 @@ export default async function StaffPage({
   // Fallback for environments where Vercel Cron may not run (preview/local):
   // publish any rota whose scheduled time has passed whenever an owner loads.
   await runDueScheduledPublishes()
+  // Same idea for shift reminders: sweep any that are due when an owner loads.
+  await runDueReminders()
 
   const venueId = await getActiveVenueId(me.accountId)
 

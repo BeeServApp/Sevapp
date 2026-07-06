@@ -19,15 +19,21 @@ export const metadata: Metadata = {
   description:
     'Run your venue from one dashboard: operations, financials, staff & scheduling, asset tracking, and compliance.',
   generator: 'v0.app',
+  manifest: '/manifest.webmanifest',
   icons: {
     icon: '/beeserv-icon.png',
     apple: '/beeserv-icon.png',
+  },
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: 'default',
+    title: 'Beeserv',
   },
 }
 
 export const viewport: Viewport = {
   colorScheme: 'light',
-  themeColor: 'white',
+  themeColor: '#16a34a',
 }
 
 export default function RootLayout({

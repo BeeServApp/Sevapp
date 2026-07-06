@@ -109,6 +109,10 @@ export const venue = pgTable("venue", {
   // Square integration: the mapped Square location id for this venue (if any).
   // The human-readable name is resolved live from the Square API.
   squareLocationId: text("squareLocationId"),
+  // Shift reminders: when enabled, staff are reminded `reminderLeadMins` before
+  // their shift starts (opening checklist) and before it ends (closing checklist).
+  remindersEnabled: boolean("remindersEnabled").notNull().default(true),
+  reminderLeadMins: integer("reminderLeadMins").notNull().default(30),
   createdAt: timestamp("createdAt").notNull().defaultNow(),
 })
 
@@ -439,6 +443,34 @@ export const notification = pgTable("notification", {
   href: text("href"),
   read: boolean("read").notNull().default(false),
   createdAt: timestamp("createdAt").notNull().defaultNow(),
+})
+
+// Web Push subscriptions for a staff/owner login. `userId` = owning account
+// (data scope), `recipientUserId` = the login the subscription belongs to.
+// One row per browser/device endpoint; dead endpoints are pruned on send.
+export const pushSubscription = pgTable("push_subscription", {
+  id: serial("id").primaryKey(),
+  userId: text("userId").notNull(),
+  recipientUserId: text("recipientUserId").notNull(),
+  endpoint: text("endpoint").notNull().unique(),
+  p256dh: text("p256dh").notNull(),
+  auth: text("auth").notNull(),
+  userAgent: text("userAgent"),
+  createdAt: timestamp("createdAt").notNull().defaultNow(),
+})
+
+// Ledger of shift reminders that have already been sent, so the cron sweep
+// fires each reminder at most once. Kind is "start" (opening / shift-start) or
+// "closing". Unique on (shiftId, kind, dateISO).
+export const reminderLog = pgTable("reminder_log", {
+  id: serial("id").primaryKey(),
+  userId: text("userId").notNull(),
+  venueId: integer("venueId").notNull(),
+  staffMemberId: integer("staffMemberId"),
+  shiftId: integer("shiftId").notNull(),
+  kind: text("kind").notNull(),
+  dateISO: text("dateISO").notNull(),
+  sentAt: timestamp("sentAt").notNull().defaultNow(),
 })
 
 // Change feed used to drive real-time SSE updates per account.

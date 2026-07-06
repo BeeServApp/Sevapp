@@ -9,6 +9,8 @@ import { TeamSettings, type TeamMember } from "@/components/settings/team-settin
 import { ManagerAccessSettings } from "@/components/settings/manager-access"
 import type { ManagerAccessData } from "@/app/actions/manager-access"
 import { PreferencesSettings } from "@/components/settings/preferences-settings"
+import { NotificationsSettings } from "@/components/settings/notifications-settings"
+import type { ReminderSettings } from "@/app/actions/reminders"
 import { StaffPreferencesSettings } from "@/components/settings/staff-preferences-settings"
 import { BillingSettings } from "@/components/settings/billing-settings"
 import { IntegrationsSettings, type IntegrationVenue } from "@/components/settings/integrations-settings"
@@ -39,6 +41,7 @@ export function SettingsView({
   square,
   allowedTabIds,
   personalPreferences,
+  reminderSettings,
   security,
 }: {
   user: { name: string; email: string }
@@ -56,6 +59,8 @@ export function SettingsView({
   /** When provided (staff), the Preferences tab manages personal, per-user
    * settings instead of the owner's company-wide configuration. */
   personalPreferences?: { hiddenModules: string[] }
+  /** Owner-only per-venue shift reminder config. Omitted for staff. */
+  reminderSettings?: ReminderSettings[]
   /** Current user's email-verification and 2FA status for the Account tab. */
   security?: SecurityState
 }) {
@@ -122,6 +127,14 @@ export function SettingsView({
               venues={square.venues}
               locations={square.locations}
               flash={square.flash}
+            />
+          </TabsContent>
+        )}
+        {visibleIds.has("notifications") && (
+          <TabsContent value="notifications">
+            <NotificationsSettings
+              reminderSettings={reminderSettings}
+              canManageVenues={!allowedTabIds}
             />
           </TabsContent>
         )}

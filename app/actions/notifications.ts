@@ -7,6 +7,7 @@ import { notification } from "@/lib/db/schema"
 import { getSession } from "@/lib/session"
 import { emitChange } from "@/lib/realtime"
 import { sendEmail } from "@/lib/email"
+import { sendPushToUser } from "@/lib/push"
 import { and, desc, eq } from "drizzle-orm"
 import { revalidatePath } from "next/cache"
 
@@ -36,6 +37,17 @@ export async function notify(opts: {
   })
 
   await emitChange(opts.accountId, "notifications")
+
+  // Fire a Web Push to the recipient's devices (no-op without VAPID keys).
+  // Never let a push failure break the in-app notification write.
+  await sendPushToUser(opts.recipientUserId, {
+    title: opts.title,
+    body: opts.body,
+    href: opts.href,
+    tag: opts.kind ?? "shift",
+  }).catch((err) => {
+    console.log("[v0] notify push failed:", (err as Error).message)
+  })
 
   if (opts.email) {
     await sendEmail({
