@@ -34,6 +34,24 @@ export const MODULES: ModuleDef[] = [
 // hidden from the sidebar and blocked at the route level.
 export const STAFF_ALLOWED_PATHS = ["/staff", "/tasks", "/training"]
 
+// Extra module paths that elevated staff (managers and area managers) get on
+// top of the plain-staff set. Managers run day-to-day operations, so they get
+// the Operations module in addition to the calendar handled below.
+export const MANAGER_EXTRA_PATHS = ["/operations"]
+
+/**
+ * The module paths a given role may see in the sidebar (and reach at the route
+ * level). Owners see everything; managers get the plain-staff set plus the
+ * manager extras; plain staff get only the focused staff set.
+ */
+export function allowedModulePathsForRole(
+  appRole: "owner" | "staff",
+  managerRole: ManagerRole = null,
+): string[] {
+  if (appRole === "owner") return MODULES.map((m) => m.href)
+  return managerRole ? [...STAFF_ALLOWED_PATHS, ...MANAGER_EXTRA_PATHS] : STAFF_ALLOWED_PATHS
+}
+
 // Settings tabs a staff account may open. Staff manage only their own profile
 // and personal preferences — never company, venues, team, billing, etc.
 export const STAFF_ALLOWED_SETTINGS_TABS = ["account", "notifications", "preferences"]
@@ -46,9 +64,10 @@ export function isPathAllowedForRole(
   managerRole: ManagerRole = null,
 ) {
   if (appRole === "owner") return true
-  // Managers and area managers additionally get the workspace Calendar.
+  // Managers and area managers additionally get the workspace Calendar and the
+  // manager module set (e.g. Operations).
   const allowed = managerRole
-    ? [...STAFF_ALLOWED_PATHS, CALENDAR_ITEM.href]
+    ? [...STAFF_ALLOWED_PATHS, ...MANAGER_EXTRA_PATHS, CALENDAR_ITEM.href]
     : STAFF_ALLOWED_PATHS
   return allowed.some((p) => pathname === p || pathname.startsWith(`${p}/`))
 }

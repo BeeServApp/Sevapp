@@ -2,7 +2,7 @@ import type { Metadata } from "next"
 import { redirect } from "next/navigation"
 
 import { OperationsView } from "@/components/operations-view"
-import { getActiveVenueId, getSession, guardOwnerPage } from "@/lib/session"
+import { getActiveVenueId, getSession, guardManagerPage } from "@/lib/session"
 import { guardModuleAccess } from "@/lib/plan-guard"
 import {
   getEvents,
@@ -20,10 +20,10 @@ export const metadata: Metadata = {
 export default async function OperationsPage() {
   const session = await getSession()
   if (!session?.user) redirect("/sign-in")
-  await guardOwnerPage()
+  const me = await guardManagerPage()
   await guardModuleAccess("/operations")
 
-  const venueId = await getActiveVenueId(session.user.id)
+  const venueId = await getActiveVenueId(me.accountId)
   if (!venueId) {
     return (
       <p className="text-sm text-muted-foreground">
