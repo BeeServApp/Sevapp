@@ -20,7 +20,7 @@ import {
   type LucideIcon,
 } from "lucide-react"
 import { cn } from "@/lib/utils"
-import { CALENDAR_ITEM, MODULES, STAFF_ALLOWED_PATHS } from "@/lib/nav-config"
+import { CALENDAR_ITEM, MODULES, allowedModulePathsForRole } from "@/lib/nav-config"
 import { useVenue } from "@/components/venue-provider"
 
 const moduleIcons: Record<string, LucideIcon> = {
@@ -45,11 +45,12 @@ export function AppSidebar({ onNavigate }: { onNavigate?: () => void }) {
 
   const calendarItem = { href: CALENDAR_ITEM.href, label: CALENDAR_ITEM.label, icon: CalendarDays }
 
-  // Staff are limited to Staff & Scheduling and Task Management, minus any they
-  // have personally hidden. Owners see the Dashboard plus every module they
-  // haven't hidden company-wide.
+  // Staff are limited to their focused module set (managers additionally get
+  // Operations), minus any they have personally hidden. Owners see the
+  // Dashboard plus every module they haven't hidden company-wide.
+  const staffAllowedPaths = allowedModulePathsForRole(appRole, managerRole)
   const moduleItems = MODULES.filter((m) => {
-    if (isStaff) return STAFF_ALLOWED_PATHS.includes(m.href) && !hiddenModules.includes(m.href)
+    if (isStaff) return staffAllowedPaths.includes(m.href) && !hiddenModules.includes(m.href)
     return !hiddenModules.includes(m.href)
   }).map((m) => ({
     href: m.href,

@@ -184,6 +184,17 @@ export async function guardOwnerPage(): Promise<CurrentUser> {
 }
 
 /**
+ * Guard for pages that owners and elevated managers (manager / area_manager)
+ * may access, e.g. Operations. Plain staff are redirected to their schedule.
+ */
+export async function guardManagerPage(): Promise<CurrentUser> {
+  const me = await getCurrentUser()
+  if (me.appRole === "owner") return me
+  if (me.managerRole === "manager" || me.managerRole === "area_manager") return me
+  redirect("/staff")
+}
+
+/**
  * The venue ids a staff member is assigned to. A staff login is linked to one
  * or more staff_member rows (via linkedUserId) within their owner's account;
  * each row pins a venue. Owners are not restricted, so this returns [].
