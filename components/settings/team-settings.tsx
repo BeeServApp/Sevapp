@@ -3,13 +3,14 @@
 import type React from "react"
 import { useState } from "react"
 import { useRouter } from "next/navigation"
-import { Plus, Trash2 } from "lucide-react"
+import { Plus, Trash2, Copy, Check, Link2 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
+import { StatusBadge } from "@/components/status-badge"
 import {
   Dialog,
   DialogContent,
@@ -26,17 +27,14 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
-import { addMember, removeMember, updateMember } from "@/app/actions/members"
+import { createStaffMember, deleteStaffMember } from "@/app/actions/staff"
+import { createStaffInvite, revokeStaffInvite } from "@/app/actions/invites"
+import type { DbStaffMember } from "@/lib/db/schema"
 
-export interface TeamMember {
-  id: number
-  name: string
-  email: string
-  role: string
-  status: string
-}
+export type TeamMember = DbStaffMember
+export type InviteStatusMap = Record<number, { status: string; token: string }>
 
-const roles = ["Owner", "Manager", "Supervisor", "Bar Staff", "Kitchen", "Staff"]
+const roles = ["Manager", "Supervisor", "Bar Staff", "Kitchen", "Staff"]
 
 function initials(name: string) {
   return (
@@ -66,7 +64,15 @@ function AddMemberDialog({ venueId }: { venueId: number }) {
     setSaving(true)
     setError(null)
     try {
-      await addMember({ venueId, name, email, role })
+      await createStaffMember({
+        venueId,
+        name: name.trim(),
+        role,
+        contract: "Full-time",
+        hoursWk: 0,
+        status: "Off",
+        email: email.trim(),
+      })
       setName("")
       setEmail("")
       setRole("Staff")
@@ -84,14 +90,16 @@ function AddMemberDialog({ venueId }: { venueId: number }) {
       <DialogTrigger
         render={
           <Button className="gap-1.5">
-            <Plus className="size-4" /> Invite member
+            <Plus className="size-4" /> Add member
           </Button>
         }
       />
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
-          <DialogTitle>Invite team member</DialogTitle>
-          <DialogDescription>Add a member to this venue&apos;s team.</DialogDescription>
+          <DialogTitle>Add team member</DialogTitle>
+          <DialogDescription>
+            Adds a person to the staff directory. Send them an app-access invite once added.
+          </DialogDescription>
         </DialogHeader>
         <form onSubmit={handleSubmit} className="grid gap-4">
           <div className="grid gap-2">
@@ -129,7 +137,7 @@ function AddMemberDialog({ venueId }: { venueId: number }) {
               Cancel
             </Button>
             <Button type="submit" disabled={saving}>
-              {saving ? "Adding..." : "Send invite"}
+              {saving ? "Adding..." : "Add member"}
             </Button>
           </DialogFooter>
         </form>
@@ -139,32 +147,68 @@ function AddMemberDialog({ venueId }: { venueId: number }) {
 }
 
 export function TeamSettings({
-  members,
+  staff,
+  inviteStatuses: initialInviteStatuses,
   venueId,
   venueName,
 }: {
-  members: TeamMember[]
+  staff: TeamMember[]
+  inviteStatuses: InviteStatusMap
   venueId: number
   venueName: string
 }) {
   const router = useRouter()
+  const [inviteStatuses, setInviteStatuses] = useState<InviteStatusMap>(initialInviteStatuses)
+  const [invitingId, setInvitingId] = useState<number | null>(null)
+  const [copiedId, setCopiedId] = useState<number | null>(null)
   const [busyId, setBusyId] = useState<number | null>(null)
 
-  async function handleRole(m: TeamMember, role: string) {
-    setBusyId(m.id)
+  function inviteUrl(token: string) {
+    if (typeof window === "undefined") return `/join/${token}`
+    return `${window.location.origin}/join/${token}`
+  }
+
+  async function handleInvite(m: TeamMember) {
+    setInvitingId(m.id)
     try {
-      await updateMember(m.id, { name: m.name, email: m.email, role, status: m.status })
-      router.refresh()
+      const inv = await createStaffInvite(m.id, m.email ?? undefined)
+      setInviteStatuses((prev) => ({ ...prev, [m.id]: { status: "pending", token: inv.token } }))
+      try {
+        await navigator.clipboard.writeText(inviteUrl(inv.token))
+        setCopiedId(m.id)
+        setTimeout(() => setCopiedId((c) => (c === m.id ? null : c)), 2000)
+      } catch {
+        /* clipboard may be blocked; link is still shown */
+      }
     } finally {
-      setBusyId(null)
+      setInvitingId(null)
     }
   }
 
-  async function handleRemove(id: number) {
-    if (!confirm("Remove this team member?")) return
-    setBusyId(id)
+  async function handleCopyInvite(m: TeamMember, token: string) {
     try {
-      await removeMember(id)
+      await navigator.clipboard.writeText(inviteUrl(token))
+      setCopiedId(m.id)
+      setTimeout(() => setCopiedId((c) => (c === m.id ? null : c)), 2000)
+    } catch {
+      /* ignore */
+    }
+  }
+
+  async function handleRevoke(m: TeamMember) {
+    await revokeStaffInvite(m.id)
+    setInviteStatuses((prev) => {
+      const next = { ...prev }
+      delete next[m.id]
+      return next
+    })
+  }
+
+  async function handleRemove(m: TeamMember) {
+    if (!confirm(`Remove ${m.name} from the team?`)) return
+    setBusyId(m.id)
+    try {
+      await deleteStaffMember(m.id)
       router.refresh()
     } finally {
       setBusyId(null)
@@ -177,70 +221,95 @@ export function TeamSettings({
         <div>
           <CardTitle>Team &amp; users</CardTitle>
           <p className="mt-1 text-sm text-muted-foreground">
-            People with access to {venueName}.
+            People in the {venueName} staff directory. Invite them to give app access, then set their
+            permission level under Manager access below.
           </p>
         </div>
         <AddMemberDialog venueId={venueId} />
       </CardHeader>
       <CardContent>
         <ul className="grid gap-3">
-          {members.length === 0 && (
+          {staff.length === 0 && (
             <li className="rounded-lg border border-dashed border-border p-6 text-center text-sm text-muted-foreground">
-              No team members yet. Invite your first one.
+              No team members yet. Add your first one.
             </li>
           )}
-          {members.map((m) => (
-            <li key={m.id} className="flex items-center gap-3 rounded-lg border border-border p-4">
-              <Avatar className="size-10">
-                <AvatarFallback className="bg-primary/15 text-sm font-semibold text-primary">
-                  {initials(m.name)}
-                </AvatarFallback>
-              </Avatar>
-              <div className="min-w-0 flex-1">
-                <div className="flex items-center gap-2">
-                  <p className="truncate font-medium text-foreground">{m.name}</p>
-                  <Badge
-                    variant="outline"
-                    className={
-                      m.status === "Active"
-                        ? "border-transparent bg-chart-2/15 text-xs text-chart-2"
-                        : "border-transparent bg-chart-4/20 text-xs text-[oklch(0.45_0.11_70)]"
-                    }
-                  >
-                    {m.status}
-                  </Badge>
+          {staff.map((m) => {
+            const invite = inviteStatuses[m.id]
+            const linked = !!m.linkedUserId
+            return (
+              <li key={m.id} className="flex items-center gap-3 rounded-lg border border-border p-4">
+                <Avatar className="size-10">
+                  <AvatarFallback className="bg-primary/15 text-sm font-semibold text-primary">
+                    {initials(m.name)}
+                  </AvatarFallback>
+                </Avatar>
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-center gap-2">
+                    <p className="truncate font-medium text-foreground">{m.name}</p>
+                    <StatusBadge status={m.status} />
+                  </div>
+                  <p className="truncate text-sm text-muted-foreground">
+                    {m.email || "No email"} · {m.role}
+                  </p>
                 </div>
-                <p className="truncate text-sm text-muted-foreground">{m.email}</p>
-              </div>
-              <div className="flex shrink-0 items-center gap-1.5">
-                <Select
-                  value={m.role}
-                  onValueChange={(v) => v && handleRole(m, v)}
-                  disabled={busyId === m.id || m.role === "Owner"}
-                >
-                  <SelectTrigger className="w-36" aria-label={`Role for ${m.name}`}>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {roles.map((r) => (
-                      <SelectItem key={r} value={r}>
-                        {r}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  aria-label={`Remove ${m.name}`}
-                  disabled={busyId === m.id || m.role === "Owner"}
-                  onClick={() => handleRemove(m.id)}
-                >
-                  <Trash2 className="size-4 text-destructive" />
-                </Button>
-              </div>
-            </li>
-          ))}
+                <div className="flex shrink-0 items-center gap-1.5">
+                  {linked ? (
+                    <Badge variant="outline" className="border-transparent bg-chart-2/15 text-chart-2">
+                      <Check className="size-3" /> Linked
+                    </Badge>
+                  ) : invite?.status === "pending" ? (
+                    <>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="h-8"
+                        onClick={() => handleCopyInvite(m, invite.token)}
+                      >
+                        {copiedId === m.id ? (
+                          <>
+                            <Check className="size-3.5" /> Copied
+                          </>
+                        ) : (
+                          <>
+                            <Copy className="size-3.5" /> Copy link
+                          </>
+                        )}
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-8 text-muted-foreground hover:text-destructive"
+                        onClick={() => handleRevoke(m)}
+                      >
+                        Revoke
+                      </Button>
+                    </>
+                  ) : (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="h-8"
+                      disabled={invitingId === m.id}
+                      onClick={() => handleInvite(m)}
+                    >
+                      <Link2 className="size-3.5" />
+                      {invitingId === m.id ? "Creating..." : "Invite"}
+                    </Button>
+                  )}
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    aria-label={`Remove ${m.name}`}
+                    disabled={busyId === m.id || linked}
+                    onClick={() => handleRemove(m)}
+                  >
+                    <Trash2 className="size-4 text-destructive" />
+                  </Button>
+                </div>
+              </li>
+            )
+          })}
         </ul>
       </CardContent>
     </Card>
