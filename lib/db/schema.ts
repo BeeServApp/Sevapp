@@ -667,6 +667,9 @@ export const taskCheck = pgTable("task_check", {
   dueDate: text("dueDate"),
   dueTime: text("dueTime"),
   frequency: text("frequency").notNull().default("Daily"),
+  // For the "Set days" frequency: comma-separated day labels (e.g. "Mon,Wed,Fri")
+  // that a template repeats on. Null/empty for other frequencies.
+  repeatDays: text("repeatDays"),
   priority: text("priority").notNull().default("Medium"),
   requiresPhoto: boolean("requiresPhoto").notNull().default(false),
   status: text("status").notNull().default("Pending"),

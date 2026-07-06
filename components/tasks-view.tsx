@@ -44,6 +44,7 @@ import {
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Textarea } from "@/components/ui/textarea"
 import { cn } from "@/lib/utils"
+import { ROTA_DAYS } from "@/lib/rota"
 import {
   createTaskCheck,
   toggleTaskItem,
@@ -66,7 +67,7 @@ import { MeterReadingsPanel } from "@/components/tasks/meter-readings-panel"
 import { DocumentsPanel } from "@/components/tasks/documents-panel"
 
 const TASK_CATEGORIES = ["Opening", "Closing", "Cleaning", "Food Safety", "Cellar", "Maintenance", "Checklist"]
-const FREQUENCIES = ["One-off", "Daily", "Weekly", "Monthly"]
+const FREQUENCIES = ["One-off", "Daily", "Set days", "Weekly", "Monthly"]
 const PRIORITIES = ["Low", "Medium", "High"]
 
 type Props = {
@@ -779,7 +780,9 @@ function RecurringTemplateCard({
           <div className="flex flex-wrap items-center gap-2">
             <Badge variant="outline" className="border-transparent bg-chart-3/15 text-chart-3">
               <Repeat className="size-3" />
-              {template.frequency}
+              {template.frequency === "Set days" && template.repeatDays
+                ? template.repeatDays.split(",").join(", ")
+                : template.frequency}
             </Badge>
             <Badge variant="outline" className="border-transparent bg-muted text-muted-foreground">
               {template.category}
@@ -802,7 +805,11 @@ function RecurringTemplateCard({
                 {template.items.length} steps
               </span>
             )}
-            <span>Auto-generates a fresh to-do every {template.frequency.toLowerCase().replace("ly", "")}.</span>
+            <span>
+              {template.frequency === "Set days" && template.repeatDays
+                ? `Auto-generates on ${template.repeatDays.split(",").join(", ")}.`
+                : `Auto-generates a fresh to-do every ${template.frequency.toLowerCase().replace("ly", "")}.`}
+            </span>
           </div>
         </div>
         <Button
@@ -843,6 +850,7 @@ function CreateTaskDialog({
     dueDate: "",
     dueTime: "",
     frequency: "Daily",
+    repeatDays: [] as string[],
     priority: "Medium",
     requiresPhoto: false,
     recurring: true,
@@ -853,6 +861,15 @@ function CreateTaskDialog({
 
   function update<K extends keyof typeof form>(key: K, value: (typeof form)[K]) {
     setForm((f) => ({ ...f, [key]: value }))
+  }
+
+  function toggleDay(day: string) {
+    setForm((f) => ({
+      ...f,
+      repeatDays: f.repeatDays.includes(day)
+        ? f.repeatDays.filter((d) => d !== day)
+        : [...f.repeatDays, day],
+    }))
   }
 
   function reset() {
@@ -880,6 +897,10 @@ function CreateTaskDialog({
       setError("Add a due date so we can tell who's on shift then")
       return
     }
+    if (form.frequency === "Set days" && form.repeatDays.length === 0) {
+      setError("Pick at least one day for the task to repeat on")
+      return
+    }
     startTransition(async () => {
       try {
         const items = itemsText
@@ -899,6 +920,10 @@ function CreateTaskDialog({
           dueDate: form.dueDate || undefined,
           dueTime: form.dueTime || undefined,
           frequency: form.frequency,
+          repeatDays:
+            form.frequency === "Set days"
+              ? ROTA_DAYS.filter((d) => form.repeatDays.includes(d)).join(",")
+              : null,
           priority: form.priority,
           requiresPhoto: form.requiresPhoto,
           recurring: canRecur && form.recurring,
@@ -1086,6 +1111,36 @@ function CreateTaskDialog({
               </span>
             </label>
           </div>
+
+          {form.frequency === "Set days" && (
+            <div className="flex flex-col gap-2">
+              <Label>Repeat on</Label>
+              <div className="flex flex-wrap gap-2">
+                {ROTA_DAYS.map((day) => {
+                  const active = form.repeatDays.includes(day)
+                  return (
+                    <button
+                      key={day}
+                      type="button"
+                      aria-pressed={active}
+                      onClick={() => toggleDay(day)}
+                      className={cn(
+                        "rounded-md border px-3 py-1.5 text-sm font-medium transition-colors",
+                        active
+                          ? "border-primary bg-primary text-primary-foreground"
+                          : "border-border bg-background text-foreground hover:bg-muted",
+                      )}
+                    >
+                      {day}
+                    </button>
+                  )
+                })}
+              </div>
+              <p className="text-xs text-muted-foreground">
+                A fresh instance is created automatically on each selected day.
+              </p>
+            </div>
+          )}
 
           <div className="grid grid-cols-2 gap-3">
             <div className="flex flex-col gap-2">

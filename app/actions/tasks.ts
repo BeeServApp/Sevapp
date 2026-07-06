@@ -75,6 +75,7 @@ type CreateTaskInput = {
   dueDate?: string
   dueTime?: string
   frequency: string
+  repeatDays?: string | null
   priority: string
   requiresPhoto: boolean
   recurring?: boolean
@@ -100,6 +101,7 @@ export async function createTaskCheck(input: CreateTaskInput) {
       dueDate: input.dueDate || null,
       dueTime: input.dueTime || null,
       frequency: input.frequency,
+      repeatDays: input.frequency === "Set days" ? input.repeatDays || null : null,
       priority: input.priority,
       requiresPhoto: input.requiresPhoto,
       recurring: isRecurring,
@@ -244,6 +246,11 @@ export async function generateRecurringTaskInstances(venueId: number) {
 
   for (const t of templates) {
     const periodDate = currentPeriodDate(t.frequency)
+    // "Set days" templates only spawn on their chosen weekdays (e.g. Mon/Wed/Fri).
+    if (t.frequency === "Set days") {
+      const days = (t.repeatDays ?? "").split(",").map((s) => s.trim()).filter(Boolean)
+      if (!days.includes(dayLabelOf(periodDate))) continue
+    }
     if (t.lastGeneratedDate === periodDate) continue
 
     const [existing] = await db
@@ -267,6 +274,7 @@ export async function generateRecurringTaskInstances(venueId: number) {
           dueDate: periodDate,
           dueTime: t.dueTime,
           frequency: t.frequency,
+          repeatDays: t.repeatDays,
           priority: t.priority,
           requiresPhoto: t.requiresPhoto,
           recurring: false,
