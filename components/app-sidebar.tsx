@@ -17,6 +17,7 @@ import {
   Settings,
   LifeBuoy,
   Building2,
+  Store,
   type LucideIcon,
 } from "lucide-react"
 import { cn } from "@/lib/utils"
@@ -119,6 +120,21 @@ export function AppSidebar({ onNavigate }: { onNavigate?: () => void }) {
 
       <div className="border-t border-sidebar-border p-3">
         <ul className="flex flex-col gap-1">
+          <li>
+            <Link
+              href="/marketplace"
+              onClick={onNavigate}
+              className={cn(
+                "flex w-full items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition-colors",
+                pathname.startsWith("/marketplace")
+                  ? "bg-sidebar-primary text-sidebar-primary-foreground"
+                  : "text-sidebar-foreground/80 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground",
+              )}
+            >
+              <Store className="size-4" />
+              Marketplace
+            </Link>
+          </li>
           <li>
             <Link
               href="/settings"

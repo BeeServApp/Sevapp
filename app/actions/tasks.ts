@@ -134,6 +134,80 @@ export async function createTaskCheck(input: CreateTaskInput) {
   return created
 }
 
+type UpdateTaskInput = {
+  taskId: number
+  title: string
+  category: string
+  assigneeStaffId?: number | null
+  assigneeRole?: string | null
+  assignOnShift?: boolean
+  dueDate?: string
+  dueTime?: string
+  frequency: string
+  repeatDays?: string | null
+  priority: string
+  requiresPhoto: boolean
+  recurring?: boolean
+  notes?: string
+  items: string[]
+}
+
+/**
+ * Edit an existing task or recurring template. Updates the editable fields and
+ * fully replaces the checklist items. Scoped to the owner's account. Returns the
+ * updated row (without items — the caller reconstructs those for optimistic UI).
+ */
+export async function updateTaskCheck(input: UpdateTaskInput) {
+  const userId = await getUserId()
+  const isRecurring = !!input.recurring && input.frequency !== "One-off"
+  const [updated] = await db
+    .update(taskCheck)
+    .set({
+      title: input.title,
+      category: input.category,
+      assigneeStaffId: input.assigneeStaffId ?? null,
+      assigneeRole: input.assigneeRole || null,
+      assignOnShift: input.assignOnShift ?? false,
+      dueDate: input.dueDate || null,
+      dueTime: input.dueTime || null,
+      frequency: input.frequency,
+      repeatDays: input.frequency === "Set days" ? input.repeatDays || null : null,
+      priority: input.priority,
+      requiresPhoto: input.requiresPhoto,
+      recurring: isRecurring,
+      notes: input.notes || null,
+    })
+    .where(and(eq(taskCheck.id, input.taskId), eq(taskCheck.userId, userId)))
+    .returning()
+
+  if (!updated) throw new Error("Task not found")
+
+  // Replace the checklist: drop existing items, insert the new set in order.
+  await db
+    .delete(taskCheckItem)
+    .where(and(eq(taskCheckItem.taskId, input.taskId), eq(taskCheckItem.userId, userId)))
+  const cleanItems = input.items.map((s) => s.trim()).filter(Boolean)
+  if (cleanItems.length > 0) {
+    await db.insert(taskCheckItem).values(
+      cleanItems.map((label, idx) => ({
+        userId,
+        taskId: input.taskId,
+        label,
+        sortOrder: idx,
+      })),
+    )
+  }
+
+  // Keep freshly-spawned recurring instances aligned with the edited template.
+  if (isRecurring) {
+    await generateRecurringTaskInstances(updated.venueId)
+  }
+
+  revalidatePath("/tasks")
+  revalidatePath("/staff")
+  return updated
+}
+
 /**
  * Staff member ids rostered on shift at a given date/time, from PUBLISHED rota
  * shifts only. Optionally filters to a single day time; when no time is given,

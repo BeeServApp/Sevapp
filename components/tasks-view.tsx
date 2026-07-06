@@ -8,6 +8,7 @@ import {
   CheckCircle2,
   Clock,
   Plus,
+  Pencil,
   Trash2,
   Camera,
   X,
@@ -48,6 +49,7 @@ import { cn } from "@/lib/utils"
 import { ROTA_DAYS } from "@/lib/rota"
 import {
   createTaskCheck,
+  updateTaskCheck,
   toggleTaskItem,
   updateTaskStatus,
   deleteTaskCheck,
@@ -159,11 +161,21 @@ export function TasksView({
         title="Task Management"
         description="Assign, track and verify the recurring jobs that keep your venue running — with checklist steps and photo proof."
         actions={
-          <CreateTaskDialog
+          <TaskFormDialog
             venueId={venueId}
             staff={staff}
             roles={roles}
-            onCreated={(t) => setTasks((prev) => [t, ...prev])}
+            trigger={
+              <Button>
+                <Plus className="size-4" />
+                New task
+              </Button>
+            }
+            onSaved={(t) =>
+              setTasks((prev) =>
+                prev.some((p) => p.id === t.id) ? prev.map((p) => (p.id === t.id ? t : p)) : [t, ...prev],
+              )
+            }
           />
         }
       />
@@ -243,6 +255,8 @@ export function TasksView({
                   key={task.id}
                   task={task}
                   staffById={staffById}
+                  staff={staff}
+                  roles={roles}
                   onChange={(updated) =>
                     setTasks((prev) => prev.map((t) => (t.id === updated.id ? updated : t)))
                   }
@@ -269,6 +283,12 @@ export function TasksView({
                   key={tmpl.id}
                   template={tmpl}
                   assignee={assigneeLabel(tmpl, staffById)}
+                  staff={staff}
+                  roles={roles}
+                  venueId={venueId}
+                  onChange={(updated) =>
+                    setTasks((prev) => prev.map((t) => (t.id === updated.id ? updated : t)))
+                  }
                   onDelete={(id) => setTasks((prev) => prev.filter((t) => t.id !== id && t.recurrenceParentId !== id))}
                 />
               ))}
@@ -371,6 +391,8 @@ function EmptyState({
 function TaskCard({
   task,
   staffById,
+  staff,
+  roles,
   onChange,
   onDelete,
   onRaiseAction,
@@ -378,6 +400,8 @@ function TaskCard({
 }: {
   task: TaskWithItems
   staffById: Map<number, string>
+  staff: DbStaffMember[]
+  roles: string[]
   onChange: (t: TaskWithItems) => void
   onDelete: (id: number) => void
   onRaiseAction: (a: DbCorrectiveAction) => void
@@ -573,15 +597,35 @@ function TaskCard({
 
           <RaiseActionButton task={task} venueId={venueId} onRaised={onRaiseAction} />
 
-          <Button
-            size="sm"
-            variant="ghost"
-            className="ml-auto text-muted-foreground hover:text-destructive"
-            onClick={handleDelete}
-            disabled={pending}
-          >
-            <Trash2 className="size-4" />
-          </Button>
+          <div className="ml-auto flex items-center gap-1">
+            <TaskFormDialog
+              venueId={venueId}
+              staff={staff}
+              roles={roles}
+              task={task}
+              trigger={
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  className="text-muted-foreground hover:text-foreground"
+                  aria-label="Edit task"
+                >
+                  <Pencil className="size-4" />
+                </Button>
+              }
+              onSaved={onChange}
+            />
+            <Button
+              size="sm"
+              variant="ghost"
+              className="text-muted-foreground hover:text-destructive"
+              onClick={handleDelete}
+              disabled={pending}
+              aria-label="Delete task"
+            >
+              <Trash2 className="size-4" />
+            </Button>
+          </div>
         </div>
       </CardContent>
     </Card>
@@ -768,10 +812,18 @@ function ActionCard({
 function RecurringTemplateCard({
   template,
   assignee,
+  staff,
+  roles,
+  venueId,
+  onChange,
   onDelete,
 }: {
   template: TaskWithItems
   assignee: string | null
+  staff: DbStaffMember[]
+  roles: string[]
+  venueId: number
+  onChange: (t: TaskWithItems) => void
   onDelete: (id: number) => void
 }) {
   const [pending, startTransition] = useTransition()
@@ -822,52 +874,90 @@ function RecurringTemplateCard({
             </span>
           </div>
         </div>
-        <Button
-          size="sm"
-          variant="ghost"
-          className="text-muted-foreground hover:text-destructive"
-          onClick={handleDelete}
-          disabled={pending}
-          aria-label="Delete recurring task"
-        >
-          <Trash2 className="size-4" />
-        </Button>
+        <div className="flex items-center gap-1">
+          <TaskFormDialog
+            venueId={venueId}
+            staff={staff}
+            roles={roles}
+            task={template}
+            trigger={
+              <Button
+                size="sm"
+                variant="ghost"
+                className="text-muted-foreground hover:text-foreground"
+                aria-label="Edit recurring task"
+              >
+                <Pencil className="size-4" />
+              </Button>
+            }
+            onSaved={onChange}
+          />
+          <Button
+            size="sm"
+            variant="ghost"
+            className="text-muted-foreground hover:text-destructive"
+            onClick={handleDelete}
+            disabled={pending}
+            aria-label="Delete recurring task"
+          >
+            <Trash2 className="size-4" />
+          </Button>
+        </div>
       </div>
     </Card>
   )
 }
 
-function CreateTaskDialog({
+type AssignMode = "unassigned" | "person" | "role" | "on-shift"
+
+function assignModeOf(task: TaskWithItems): AssignMode {
+  if (task.assigneeStaffId != null) return "person"
+  if (task.assigneeRole) return "role"
+  if (task.assignOnShift) return "on-shift"
+  return "unassigned"
+}
+
+function TaskFormDialog({
   venueId,
   staff,
   roles,
-  onCreated,
+  task,
+  trigger,
+  onSaved,
 }: {
   venueId: number
   staff: DbStaffMember[]
   roles: string[]
-  onCreated: (t: TaskWithItems) => void
+  /** When provided, the dialog edits this task instead of creating a new one. */
+  task?: TaskWithItems
+  trigger: React.ReactElement
+  onSaved: (t: TaskWithItems) => void
 }) {
+  const isEdit = !!task
   const [open, setOpen] = useState(false)
   const [pending, startTransition] = useTransition()
   const [error, setError] = useState<string | null>(null)
-  const initialForm = {
-    title: "",
-    category: "Opening",
-    assignMode: "unassigned" as "unassigned" | "person" | "role" | "on-shift",
-    assigneeStaffId: "",
-    assigneeRole: roles[0] ?? "",
-    dueDate: "",
-    dueTime: "",
-    frequency: "Daily",
-    repeatDays: [] as string[],
-    priority: "Medium",
-    requiresPhoto: false,
-    recurring: true,
-    notes: "",
-  }
-  const [form, setForm] = useState(initialForm)
-  const [itemsText, setItemsText] = useState("")
+
+  const buildInitialForm = () => ({
+    title: task?.title ?? "",
+    category: task?.category ?? "Opening",
+    assignMode: (task ? assignModeOf(task) : "unassigned") as AssignMode,
+    assigneeStaffId: task?.assigneeStaffId != null ? String(task.assigneeStaffId) : "",
+    assigneeRole: task?.assigneeRole ?? roles[0] ?? "",
+    dueDate: task?.dueDate ?? "",
+    dueTime: task?.dueTime ?? "",
+    frequency: task?.frequency ?? "Daily",
+    repeatDays: task?.repeatDays
+      ? task.repeatDays.split(",").map((s) => s.trim()).filter(Boolean)
+      : ([] as string[]),
+    priority: task?.priority ?? "Medium",
+    requiresPhoto: task?.requiresPhoto ?? false,
+    recurring: task ? task.recurring : true,
+    notes: task?.notes ?? "",
+  })
+
+  const [form, setForm] = useState(buildInitialForm)
+  const [itemsText, setItemsText] = useState(task ? task.items.map((i) => i.label).join("\n") : "")
 
   function update<K extends keyof typeof form>(key: K, value: (typeof form)[K]) {
     setForm((f) => ({ ...f, [key]: value }))
@@ -882,10 +972,15 @@ function CreateTaskDialog({
     }))
   }
 
-  function reset() {
-    setForm(initialForm)
-    setItemsText("")
-    setError(null)
+  // Sync the form to the latest values every time the dialog opens; on create,
+  // that clears it back to defaults, on edit it reflects the current task.
+  function handleOpenChange(next: boolean) {
+    setOpen(next)
+    if (next) {
+      setForm(buildInitialForm())
+      setItemsText(task ? task.items.map((i) => i.label).join("\n") : "")
+      setError(null)
+    }
   }
 
   const canRecur = form.frequency !== "One-off"
@@ -920,8 +1015,7 @@ function CreateTaskDialog({
         const assigneeStaffId =
           form.assignMode === "person" && form.assigneeStaffId ? Number(form.assigneeStaffId) : null
         const assigneeRole = form.assignMode === "role" ? form.assigneeRole : null
-        const created = await createTaskCheck({
-          venueId,
+        const shared = {
           title: form.title.trim(),
           category: form.category,
           assigneeStaffId,
@@ -939,42 +1033,45 @@ function CreateTaskDialog({
           recurring: canRecur && form.recurring,
           notes: form.notes.trim() || undefined,
           items,
+        }
+        const saved =
+          isEdit && task
+            ? await updateTaskCheck({ taskId: task.id, ...shared })
+            : await createTaskCheck({ venueId, ...shared })
+        // Preserve completion state of matching existing items when editing.
+        const prevItems = task?.items ?? []
+        onSaved({
+          ...saved,
+          items: items.map((label, idx) => {
+            const prior = prevItems.find((p) => p.label === label)
+            return {
+              id: prior?.id ?? -1 - idx,
+              userId: saved.userId,
+              taskId: saved.id,
+              label,
+              done: prior?.done ?? false,
+              sortOrder: idx,
+              createdAt: prior?.createdAt ?? new Date(),
+            }
+          }),
         })
-        onCreated({
-          ...created,
-          items: items.map((label, idx) => ({
-            id: -1 - idx,
-            userId: created.userId,
-            taskId: created.id,
-            label,
-            done: false,
-            sortOrder: idx,
-            createdAt: new Date(),
-          })),
-        })
-        reset()
         setOpen(false)
       } catch (err) {
-        setError(err instanceof Error ? err.message : "Could not create task")
+        setError(err instanceof Error ? err.message : isEdit ? "Could not update task" : "Could not create task")
       }
     })
   }
 
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
-      <DialogTrigger
-        render={
-          <Button>
-            <Plus className="size-4" />
-            New task
-          </Button>
-        }
-      />
+    <Dialog open={open} onOpenChange={handleOpenChange}>
+      <DialogTrigger render={trigger} />
       <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-lg">
         <DialogHeader>
-          <DialogTitle>Create task</DialogTitle>
+          <DialogTitle>{isEdit ? "Edit task" : "Create task"}</DialogTitle>
           <DialogDescription>
-            Build a recurring job or checklist and assign it to your team.
+            {isEdit
+              ? "Update this task's details, assignment and checklist."
+              : "Build a recurring job or checklist and assign it to your team."}
           </DialogDescription>
         </DialogHeader>
         <div className="flex flex-col gap-4">
@@ -1215,7 +1312,7 @@ function CreateTaskDialog({
           </Button>
           <Button onClick={submit} disabled={pending}>
             {pending && <Loader2 className="size-4 animate-spin" />}
-            Create task
+            {isEdit ? "Save changes" : "Create task"}
           </Button>
         </DialogFooter>
       </DialogContent>
