@@ -715,15 +715,20 @@ export const meeting = pgTable("meeting", {
   venueId: integer("venueId").notNull(),
   title: text("title").notNull(),
   scheduledDate: text("scheduledDate"),
+  // Free-text display name, kept for back-compat and quick rendering.
   createdBy: text("createdBy"),
+  // Preferred link: the staff member who created/owns the meeting.
+  createdByStaffMemberId: integer("createdByStaffMemberId"),
   // Optional co-assignment: a manager/staff login (assignedUserId) and/or the
   // linked staff record (assignedStaffMemberId). Assigned meetings appear on the
   // assignee's calendar and raise a notification.
   assignedUserId: text("assignedUserId"),
   assignedStaffMemberId: integer("assignedStaffMemberId"),
-  // "Pending" | "Held" | "Completed" | "Actions Overdue" | "Review Overdue"
+  // "Pending" | "In Progress" | "Held" | "Completed" | "Actions Overdue" | "Review Overdue"
   status: text("status").notNull().default("Pending"),
   notes: text("notes"),
+  // When the meeting was actually started (live-run workspace opened).
+  startedAt: timestamp("startedAt"),
   // Data-URL / blob of the captured signature review.
   signatureUrl: text("signatureUrl"),
   signedBy: text("signedBy"),
