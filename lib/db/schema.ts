@@ -22,8 +22,25 @@ export const user = pgTable("user", {
   // When set, the account is deactivated: existing sessions are revoked and the
   // user is blocked from signing in until an admin reactivates them.
   disabledAt: timestamp("disabledAt"),
+  // Better Auth two-factor plugin: true once the user has verified & enabled 2FA.
+  twoFactorEnabled: boolean("twoFactorEnabled").notNull().default(false),
+  // Timestamp the owner finished the first-run setup wizard. Null = not done yet
+  // (brand-new signups), which routes them into /welcome until completed.
+  setupCompletedAt: timestamp("setupCompletedAt"),
   createdAt: timestamp("createdAt").notNull().defaultNow(),
   updatedAt: timestamp("updatedAt").notNull().defaultNow(),
+})
+
+// Better Auth two-factor plugin table. Stores the TOTP secret and hashed backup
+// codes for each user who has enabled 2FA. Never returned to the client.
+export const twoFactor = pgTable("twoFactor", {
+  id: text("id").primaryKey(),
+  secret: text("secret").notNull(),
+  backupCodes: text("backupCodes").notNull(),
+  userId: text("userId")
+    .notNull()
+    .references(() => user.id, { onDelete: "cascade" }),
+  verified: boolean("verified").default(true),
 })
 
 export const session = pgTable("session", {

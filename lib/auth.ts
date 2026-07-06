@@ -1,8 +1,11 @@
 import { betterAuth } from "better-auth"
 import { APIError } from "better-auth/api"
+import { twoFactor } from "better-auth/plugins"
 import { eq } from "drizzle-orm"
 import { pool, db } from "@/lib/db"
 import { user } from "@/lib/db/schema"
+import { sendEmail } from "@/lib/email"
+import { renderEmail, verifyEmailTemplate, twoFactorOtpTemplate } from "@/lib/email-templates"
 
 export const auth = betterAuth({
   database: pool,
@@ -37,6 +40,36 @@ export const auth = betterAuth({
     enabled: true,
     autoSignIn: true,
   },
+  // Send a verification email on sign-up but do NOT block access: new owners go
+  // straight into the setup wizard while the email sits in their inbox. Clicking
+  // the link marks the address verified and keeps them signed in.
+  emailVerification: {
+    sendOnSignUp: true,
+    autoSignInAfterVerification: true,
+    async sendVerificationEmail({ user: u, url }) {
+      await sendEmail({
+        to: u.email,
+        subject: "Verify your email address",
+        ...renderEmail(verifyEmailTemplate({ name: u.name, url })),
+      })
+    },
+  },
+  plugins: [
+    // Two-factor auth: users can enable an authenticator app (TOTP) and/or
+    // email one-time codes, with backup codes for recovery.
+    twoFactor({
+      issuer: "TapSheet",
+      otpOptions: {
+        async sendOTP({ user: u, otp }) {
+          await sendEmail({
+            to: u.email,
+            subject: "Your TapSheet verification code",
+            ...renderEmail(twoFactorOtpTemplate({ name: u.name, otp })),
+          })
+        },
+      },
+    }),
+  ],
   trustedOrigins: [
     ...(process.env.V0_RUNTIME_URL ? [process.env.V0_RUNTIME_URL] : []),
     ...(process.env.VERCEL_URL ? [`https://${process.env.VERCEL_URL}`] : []),
