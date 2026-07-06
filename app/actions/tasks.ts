@@ -3,10 +3,11 @@
 import { revalidatePath } from "next/cache"
 import { and, asc, desc, eq, or } from "drizzle-orm"
 import { db } from "@/lib/db"
-import { taskCheck, taskCheckItem, correctiveAction, staffMember } from "@/lib/db/schema"
+import { taskCheck, taskCheckItem, correctiveAction, staffMember, venue } from "@/lib/db/schema"
 // Tasks are always scoped to the business account. `getUserId` is aliased to
 // `getAccountId` so every query uses the owner/business scope (and works for staff).
 import { getAccountId, getAccountId as getUserId, getCurrentUser } from "@/lib/session"
+import { notify } from "@/app/actions/notifications"
 import { weekStartOf } from "@/lib/rota"
 
 export type TaskWithItems = typeof taskCheck.$inferSelect & {
@@ -121,9 +122,58 @@ export async function createTaskCheck(input: CreateTaskInput) {
     await generateRecurringTaskInstances(input.venueId)
   }
 
+  // Alert the assignee(s) that a task was created for them (in-app + push).
+  await notifyTaskAssignees(userId, created)
+
   revalidatePath("/tasks")
   revalidatePath("/staff")
   return created
+}
+
+/**
+ * Notify the people responsible for a task check: a specific staff member
+ * (assigneeStaffId) or everyone holding the assigned role (assigneeRole). Only
+ * staff with a linked login receive an in-app notification + Web Push. Safe to
+ * call for templates and one-offs alike.
+ */
+async function notifyTaskAssignees(accountId: string, task: typeof taskCheck.$inferSelect) {
+  let recipients: (typeof staffMember.$inferSelect)[] = []
+  if (task.assigneeStaffId) {
+    const [m] = await db
+      .select()
+      .from(staffMember)
+      .where(and(eq(staffMember.id, task.assigneeStaffId), eq(staffMember.userId, accountId)))
+      .limit(1)
+    if (m?.linkedUserId) recipients = [m]
+  } else if (task.assigneeRole) {
+    const rows = await db
+      .select()
+      .from(staffMember)
+      .where(
+        and(
+          eq(staffMember.userId, accountId),
+          eq(staffMember.venueId, task.venueId),
+          eq(staffMember.role, task.assigneeRole),
+        ),
+      )
+    recipients = rows.filter((m) => m.linkedUserId)
+  }
+  if (recipients.length === 0) return
+
+  const [v] = await db.select({ name: venue.name }).from(venue).where(eq(venue.id, task.venueId)).limit(1)
+  const due = task.dueDate ? ` (due ${task.dueDate}${task.dueTime ? ` ${task.dueTime}` : ""})` : ""
+  for (const m of recipients) {
+    await notify({
+      accountId,
+      recipientUserId: m.linkedUserId as string,
+      staffMemberId: m.id,
+      kind: "task",
+      title: `New task assigned: ${task.title}`,
+      body: `${v?.name ? `${v.name} — ` : ""}${task.title}${due}`,
+      href: "/staff",
+      email: m.email,
+    })
+  }
 }
 
 /**

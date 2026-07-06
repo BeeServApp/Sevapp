@@ -1,12 +1,44 @@
 "use server"
 
 import { db } from "@/lib/db"
-import { maintenance, order, supplier, task, venueEvent } from "@/lib/db/schema"
+import { maintenance, order, staffMember, supplier, task, venueEvent } from "@/lib/db/schema"
 import { getAccountId as getUserId } from "@/lib/session"
+import { notify } from "@/app/actions/notifications"
 import { and, asc, desc, eq } from "drizzle-orm"
 import { revalidatePath } from "next/cache"
 
 const OPS_PATH = "/operations"
+
+/**
+ * Maintenance jobs and ops tasks track their assignee as free text. When that
+ * name matches a staff member with a linked login, send them an in-app
+ * notification + Web Push so assignments reach their phone. No-op otherwise.
+ */
+async function notifyAssigneeByName(
+  accountId: string,
+  venueId: number,
+  assigneeName: string | null | undefined,
+  payload: { title: string; body: string; href: string },
+) {
+  const name = assigneeName?.trim().toLowerCase()
+  if (!name) return
+  const rows = await db
+    .select()
+    .from(staffMember)
+    .where(and(eq(staffMember.userId, accountId), eq(staffMember.venueId, venueId)))
+  const m = rows.find((r) => r.linkedUserId && r.name.trim().toLowerCase() === name)
+  if (!m?.linkedUserId) return
+  await notify({
+    accountId,
+    recipientUserId: m.linkedUserId,
+    staffMemberId: m.id,
+    kind: "task",
+    title: payload.title,
+    body: payload.body,
+    href: payload.href,
+    email: m.email,
+  })
+}
 
 /* --------------------------------- Orders --------------------------------- */
 
@@ -186,6 +218,15 @@ export async function createMaintenance(data: {
     })
     .returning()
 
+  // Ping the assignee's phone if their name maps to a linked staff login.
+  await notifyAssigneeByName(userId, data.venueId, created.assignee, {
+    title: `Maintenance assigned: ${created.assetName}`,
+    body: `${created.issue ? `${created.issue}. ` : ""}${
+      created.scheduledDate ? `Scheduled for ${created.scheduledDate}.` : "Please action when possible."
+    }`,
+    href: OPS_PATH,
+  })
+
   revalidatePath(OPS_PATH)
   revalidatePath("/assets")
   revalidatePath("/calendar")
@@ -302,6 +343,13 @@ export async function createTask(data: {
       done: false,
     })
     .returning()
+
+  // Ping the assignee's phone if their name maps to a linked staff login.
+  await notifyAssigneeByName(userId, data.venueId, created.assignee, {
+    title: `New task assigned: ${created.title}`,
+    body: `${created.area ? `${created.area} — ` : ""}${created.title}${created.due ? ` (due ${created.due})` : ""}`,
+    href: OPS_PATH,
+  })
 
   revalidatePath(OPS_PATH)
   return created

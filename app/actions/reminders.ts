@@ -6,10 +6,13 @@ import { db } from "@/lib/db"
 import {
   company,
   dailyChecklist,
+  maintenance,
+  meeting,
   pushSubscription,
   reminderLog,
   rotaShift,
   staffMember,
+  taskCheck,
   venue,
 } from "@/lib/db/schema"
 import { getCurrentUser, requireOwner } from "@/lib/session"
@@ -267,11 +270,204 @@ async function processVenueDay(v: VenueCtx, dateISO: string, now: Date, checklis
   return sent
 }
 
+/**
+ * Fire day-of reminders for dated work that isn't a shift: task checks,
+ * maintenance jobs and meetings due on `dateISO`. Each reminder is sent once per
+ * recipient (deduped via reminder_log using a recipient-namespaced `kind`), and
+ * lands as an in-app notification + Web Push + email through `notify`.
+ *
+ * Timing:
+ * - A task with a specific `dueTime` fires `lead` minutes before that time.
+ * - Everything else (all-day tasks, maintenance, meetings) fires from 08:00
+ *   local on the due date.
+ * Once due, a reminder fires on the next sweep even if its exact window passed,
+ * so a paused cron never permanently misses a reminder.
+ */
+async function processVenueDueItems(v: VenueCtx, dateISO: string, now: Date): Promise<number> {
+  let sent = 0
+  const leadMs = v.lead * 60000
+  const morningAt = zonedTimeToUtc(dateISO, "08:00", v.tz)
+
+  // Staff for this venue, for assignee resolution and role fan-out.
+  const members = await db
+    .select()
+    .from(staffMember)
+    .where(and(eq(staffMember.userId, v.userId), eq(staffMember.venueId, v.id)))
+  const withLogin = members.filter((m) => m.linkedUserId)
+  const byId = new Map(members.map((m) => [m.id, m]))
+  const byLowerName = new Map(withLogin.map((m) => [m.name.trim().toLowerCase(), m]))
+
+  // Send one due reminder to a single recipient, deduped per (item, recipient, day).
+  async function fire(opts: {
+    refId: number
+    type: "task" | "maint" | "meeting"
+    recipientKey: string
+    staffMemberId: number | null
+    recipientUserId: string
+    email: string | null
+    title: string
+    body: string
+    href: string
+  }) {
+    const kind = `${opts.type}-due:${opts.recipientKey}`
+    if (await claimReminder(v, opts.refId, opts.staffMemberId, kind, dateISO)) {
+      await notify({
+        accountId: v.userId,
+        recipientUserId: opts.recipientUserId,
+        staffMemberId: opts.staffMemberId,
+        kind: "reminder",
+        title: opts.title,
+        body: opts.body,
+        href: opts.href,
+        email: opts.email,
+      })
+      sent++
+    }
+  }
+
+  // ── Task checks due today ────────────────────────────────────────────────
+  const tasks = await db
+    .select()
+    .from(taskCheck)
+    .where(
+      and(
+        eq(taskCheck.userId, v.userId),
+        eq(taskCheck.venueId, v.id),
+        eq(taskCheck.recurring, false),
+        eq(taskCheck.dueDate, dateISO),
+      ),
+    )
+  for (const t of tasks) {
+    if (t.status === "Completed") continue
+    const dueAt = t.dueTime ? zonedTimeToUtc(dateISO, t.dueTime, v.tz) : morningAt
+    if (!dueAt) continue
+    const fireAtMs = dueAt.getTime() - (t.dueTime ? leadMs : 0)
+    if (now.getTime() < fireAtMs) continue
+
+    const when = t.dueTime ? ` by ${t.dueTime}` : " today"
+    const title = `Task due${when}: ${t.title}`
+    const body = `${v.name} — please complete "${t.title}"${when}.`
+
+    const recipients: (typeof members)[number][] = []
+    if (t.assigneeStaffId) {
+      const m = byId.get(t.assigneeStaffId)
+      if (m?.linkedUserId) recipients.push(m)
+    } else if (t.assigneeRole) {
+      for (const m of withLogin) if (m.role === t.assigneeRole) recipients.push(m)
+    }
+    for (const m of recipients) {
+      await fire({
+        refId: t.id,
+        type: "task",
+        recipientKey: String(m.id),
+        staffMemberId: m.id,
+        recipientUserId: m.linkedUserId as string,
+        email: m.email,
+        title,
+        body,
+        href: "/staff",
+      })
+    }
+  }
+
+  // ── Maintenance scheduled today ──────────────────────────────────────────
+  if (morningAt && now.getTime() >= morningAt.getTime()) {
+    const jobs = await db
+      .select()
+      .from(maintenance)
+      .where(
+        and(
+          eq(maintenance.userId, v.userId),
+          eq(maintenance.venueId, v.id),
+          eq(maintenance.scheduledDate, dateISO),
+        ),
+      )
+    for (const j of jobs) {
+      if (j.status === "Completed" || j.status === "Closed") continue
+      const title = `Maintenance due today: ${j.assetName}`
+      const body = `${v.name} — ${j.issue ? `${j.issue}. ` : ""}Scheduled work on ${j.assetName}.`
+      const assignee = j.assignee ? byLowerName.get(j.assignee.trim().toLowerCase()) : undefined
+      if (assignee?.linkedUserId) {
+        await fire({
+          refId: j.id,
+          type: "maint",
+          recipientKey: String(assignee.id),
+          staffMemberId: assignee.id,
+          recipientUserId: assignee.linkedUserId,
+          email: assignee.email,
+          title,
+          body,
+          href: "/operations",
+        })
+      } else {
+        await fire({
+          refId: j.id,
+          type: "maint",
+          recipientKey: "owner",
+          staffMemberId: null,
+          recipientUserId: v.userId,
+          email: null,
+          title,
+          body,
+          href: "/operations",
+        })
+      }
+    }
+  }
+
+  // ── Meetings scheduled today ─────────────────────────────────────────────
+  if (morningAt && now.getTime() >= morningAt.getTime()) {
+    const meetings = await db
+      .select()
+      .from(meeting)
+      .where(
+        and(
+          eq(meeting.userId, v.userId),
+          eq(meeting.venueId, v.id),
+          eq(meeting.scheduledDate, dateISO),
+        ),
+      )
+    for (const mt of meetings) {
+      if (mt.status === "Completed" || mt.status === "Held") continue
+      const title = `Meeting today: ${mt.title}`
+      const body = `${v.name} — "${mt.title}" is scheduled for today.`
+      if (mt.assignedUserId) {
+        const sm = mt.assignedStaffMemberId ? byId.get(mt.assignedStaffMemberId) : undefined
+        await fire({
+          refId: mt.id,
+          type: "meeting",
+          recipientKey: mt.assignedStaffMemberId ? String(mt.assignedStaffMemberId) : "user",
+          staffMemberId: mt.assignedStaffMemberId ?? null,
+          recipientUserId: mt.assignedUserId,
+          email: sm?.email ?? null,
+          title,
+          body,
+          href: "/calendar",
+        })
+      } else {
+        await fire({
+          refId: mt.id,
+          type: "meeting",
+          recipientKey: "owner",
+          staffMemberId: null,
+          recipientUserId: v.userId,
+          email: null,
+          title,
+          body,
+          href: "/calendar",
+        })
+      }
+    }
+  }
+
+  return sent
+}
+
 /** Atomically claim a reminder slot. Returns true only for the first caller. */
 async function claimReminder(
   v: VenueCtx,
   shiftId: number,
-  staffMemberId: number,
+  staffMemberId: number | null,
   kind: string,
   dateISO: string,
 ): Promise<boolean> {
@@ -323,6 +519,8 @@ export async function runDueReminders(): Promise<{ venues: number; sent: number 
     const yesterdayISO = addDaysISO(todayISO, -1)
     sent += await processVenueDay(ctx, todayISO, now, modules)
     sent += await processVenueDay(ctx, yesterdayISO, now, modules)
+    // Day-of reminders for tasks, maintenance and meetings due today.
+    sent += await processVenueDueItems(ctx, todayISO, now)
   }
 
   return { venues: venues.length, sent }
