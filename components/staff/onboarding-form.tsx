@@ -546,7 +546,8 @@ export function OnboardingForm({
           {savedAt && <span className="text-xs text-muted-foreground">Saved at {savedAt}</span>}
           {onSubmit && clientMissing.length > 0 && (
             <span className="text-xs text-muted-foreground">
-              {clientMissing.length} required field{clientMissing.length > 1 ? "s" : ""} left
+              {clientMissing.length} required field{clientMissing.length > 1 ? "s" : ""} left:{" "}
+              {clientMissing.join(", ")}
             </span>
           )}
         </div>

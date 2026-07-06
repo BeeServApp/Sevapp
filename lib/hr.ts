@@ -107,7 +107,10 @@ export const REQUIRED_ONBOARDING_FIELDS: {
   { key: "starterDeclaration", label: "HMRC starter declaration" },
   { key: "sortCode", label: "Bank sort code" },
   { key: "accountNumber", label: "Bank account number" },
-  { key: "startDate", label: "Start date" },
+  // NOTE: startDate is an employer-set employment term (owner-only section),
+  // not something the new starter fills in — so it must not block the
+  // employee's self-service submission. It is captured/confirmed by the
+  // employer before final approval.
   { key: "emergencyName", label: "Emergency contact" },
   { key: "emergencyPhone", label: "Emergency contact phone" },
 ]
