@@ -80,6 +80,8 @@ type Props = {
   staff: DbStaffMember[]
   initialMeetings: MeetingWithActions[]
   initialMeterReadings: DbMeterReading[]
+  /** Meter Readings are restricted to owners and area managers. */
+  canViewMeters: boolean
   initialDocuments: DbOpsDocument[]
 }
 
@@ -119,6 +121,7 @@ export function TasksView({
   staff,
   initialMeetings,
   initialMeterReadings,
+  canViewMeters,
   initialDocuments,
 }: Props) {
   const searchParams = useSearchParams()
@@ -201,7 +204,7 @@ export function TasksView({
               )}
             </TabsTrigger>
             <TabsTrigger value="meetings">Meetings</TabsTrigger>
-            <TabsTrigger value="meters">Meter Readings</TabsTrigger>
+            {canViewMeters && <TabsTrigger value="meters">Meter Readings</TabsTrigger>}
             <TabsTrigger value="documents">Documents</TabsTrigger>
           </TabsList>
         </div>
@@ -334,9 +337,11 @@ export function TasksView({
           />
         </TabsContent>
 
-        <TabsContent value="meters" className="mt-5">
-          <MeterReadingsPanel venueId={venueId} initialReadings={initialMeterReadings} />
-        </TabsContent>
+        {canViewMeters && (
+          <TabsContent value="meters" className="mt-5">
+            <MeterReadingsPanel venueId={venueId} initialReadings={initialMeterReadings} />
+          </TabsContent>
+        )}
 
         <TabsContent value="documents" className="mt-5">
           <DocumentsPanel venueId={venueId} initialDocuments={initialDocuments} />

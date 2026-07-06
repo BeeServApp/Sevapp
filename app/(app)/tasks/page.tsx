@@ -3,7 +3,7 @@ import { redirect } from "next/navigation"
 import { Suspense } from "react"
 
 import { TasksView } from "@/components/tasks-view"
-import { getActiveVenueId, getSession } from "@/lib/session"
+import { getActiveVenueId, getCurrentUser, getSession } from "@/lib/session"
 import { guardModuleAccess } from "@/lib/plan-guard"
 import { getTaskChecks, getCorrectiveActions } from "@/app/actions/tasks"
 import { getStaffMembers } from "@/app/actions/staff"
@@ -17,6 +17,10 @@ export default async function TasksPage() {
   const session = await getSession()
   if (!session?.user) redirect("/sign-in")
   await guardModuleAccess("/tasks")
+
+  // Meter Readings are restricted to owners and area managers.
+  const me = await getCurrentUser()
+  const canViewMeters = me.appRole === "owner" || me.managerRole === "area_manager"
 
   const venueId = await getActiveVenueId(session.user.id)
   if (!venueId) {
@@ -45,6 +49,7 @@ export default async function TasksPage() {
         staff={staff}
         initialMeetings={meetings}
         initialMeterReadings={meterReadings}
+        canViewMeters={canViewMeters}
         initialDocuments={documents}
       />
     </Suspense>
