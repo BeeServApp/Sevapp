@@ -3,7 +3,7 @@ import { SettingsView } from "@/components/settings-view"
 import { getActiveVenueId, getCurrentUser, getSession } from "@/lib/session"
 import { getVenues } from "@/app/actions/venues"
 import { getCompany } from "@/app/actions/company"
-import { getMembers } from "@/app/actions/members"
+import { getStaffMembers, getStaffInviteStatuses } from "@/app/actions/staff"
 import { getManagerAccess } from "@/app/actions/manager-access"
 import { getBillingState, syncSubscriptionFromCheckout } from "@/app/actions/billing"
 import { getSquareConnection, listSquareLocations } from "@/app/actions/square"
@@ -68,7 +68,8 @@ export default async function SettingsPage({
   const squareLocations = squareConnection.connected ? await listSquareLocations() : []
   const activeVenueId = await getActiveVenueId(session.user.id)
   const activeVenue = venues.find((v) => v.id === activeVenueId) ?? venues[0] ?? null
-  const members = activeVenueId ? await getMembers(activeVenueId) : []
+  const staff = activeVenueId ? await getStaffMembers(activeVenueId) : []
+  const inviteStatuses = activeVenueId ? await getStaffInviteStatuses(activeVenueId) : {}
   const managerAccess = await getManagerAccess()
   const reminderSettings = await getReminderSettings()
   const security = await getSecurityState()
@@ -98,13 +99,8 @@ export default async function SettingsPage({
         notes: v.notes,
       }))}
       activeVenueId={activeVenueId}
-      members={members.map((m) => ({
-        id: m.id,
-        name: m.name,
-        email: m.email,
-        role: m.role,
-        status: m.status,
-      }))}
+      staff={staff}
+      inviteStatuses={inviteStatuses}
       activeVenueName={activeVenue?.name ?? "this venue"}
       managerAccess={managerAccess}
       reminderSettings={reminderSettings}

@@ -5,7 +5,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { AccountSettings } from "@/components/settings/account-settings"
 import { CompanySettings } from "@/components/settings/company-settings"
 import { VenuesSettings } from "@/components/settings/venues-settings"
-import { TeamSettings, type TeamMember } from "@/components/settings/team-settings"
+import { TeamSettings, type TeamMember, type InviteStatusMap } from "@/components/settings/team-settings"
 import { ManagerAccessSettings } from "@/components/settings/manager-access"
 import type { ManagerAccessData } from "@/app/actions/manager-access"
 import { PreferencesSettings } from "@/components/settings/preferences-settings"
@@ -33,7 +33,8 @@ export function SettingsView({
   company,
   venues = [],
   activeVenueId = null,
-  members = [],
+  staff = [],
+  inviteStatuses = {},
   managerAccess,
   activeVenueName = "this venue",
   defaultTab,
@@ -48,7 +49,8 @@ export function SettingsView({
   company: CompanyData
   venues?: VenueSummary[]
   activeVenueId?: number | null
-  members?: TeamMember[]
+  staff?: TeamMember[]
+  inviteStatuses?: InviteStatusMap
   managerAccess?: ManagerAccessData
   activeVenueName?: string
   defaultTab: string
@@ -107,7 +109,12 @@ export function SettingsView({
           <TabsContent value="team">
             <div className="grid gap-6">
               {activeVenueId ? (
-                <TeamSettings members={members} venueId={activeVenueId} venueName={activeVenueName} />
+                <TeamSettings
+                  staff={staff}
+                  inviteStatuses={inviteStatuses}
+                  venueId={activeVenueId}
+                  venueName={activeVenueName}
+                />
               ) : (
                 <p className="text-sm text-muted-foreground">Add a venue first to manage its team.</p>
               )}
