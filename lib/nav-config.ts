@@ -36,7 +36,7 @@ export const STAFF_ALLOWED_PATHS = ["/staff", "/tasks", "/training"]
 
 // Settings tabs a staff account may open. Staff manage only their own profile
 // and personal preferences — never company, venues, team, billing, etc.
-export const STAFF_ALLOWED_SETTINGS_TABS = ["account", "preferences"]
+export const STAFF_ALLOWED_SETTINGS_TABS = ["account", "notifications", "preferences"]
 
 export type ManagerRole = "manager" | "area_manager" | null
 
@@ -67,5 +67,6 @@ export const SETTINGS_TABS: SettingsTabDef[] = [
   { id: "team", label: "Team & users", lockable: true },
   { id: "billing", label: "Billing", lockable: true },
   { id: "integrations", label: "Integrations", lockable: true },
+  { id: "notifications", label: "Notifications", lockable: false },
   { id: "preferences", label: "Preferences", lockable: false },
 ]

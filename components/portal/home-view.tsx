@@ -8,6 +8,7 @@ import { PortalHeader } from "@/components/portal/portal-header"
 import { PortalFilterBar } from "@/components/portal/portal-filter-bar"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { buttonVariants } from "@/components/ui/button"
+import { EnableNotifications } from "@/components/notifications/enable-notifications"
 import { formatMoney } from "@/lib/rota"
 import { cn } from "@/lib/utils"
 import type { HomeData } from "@/app/actions/portal"
@@ -100,6 +101,20 @@ export function HomeView({ data }: { data: HomeData }) {
           >
             {working ? "Please wait…" : clockState === "in" ? "Clock out" : "Clock in"}
           </button>
+        </CardContent>
+      </Card>
+
+      {/* Phone alerts opt-in */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Shift reminders</CardTitle>
+        </CardHeader>
+        <CardContent className="flex flex-col gap-3">
+          <p className="text-sm text-muted-foreground">
+            Turn on phone alerts to get reminded before your shift starts and before closing — so you never
+            miss an opening or closing checklist.
+          </p>
+          <EnableNotifications />
         </CardContent>
       </Card>
 

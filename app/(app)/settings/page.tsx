@@ -8,6 +8,7 @@ import { getManagerAccess } from "@/app/actions/manager-access"
 import { getBillingState, syncSubscriptionFromCheckout } from "@/app/actions/billing"
 import { getSquareConnection, listSquareLocations } from "@/app/actions/square"
 import { getMyPreferences } from "@/app/actions/preferences"
+import { getReminderSettings } from "@/app/actions/reminders"
 import { SETTINGS_TABS, STAFF_ALLOWED_SETTINGS_TABS } from "@/lib/nav-config"
 
 export default async function SettingsPage({
@@ -63,6 +64,7 @@ export default async function SettingsPage({
   const activeVenue = venues.find((v) => v.id === activeVenueId) ?? venues[0] ?? null
   const members = activeVenueId ? await getMembers(activeVenueId) : []
   const managerAccess = await getManagerAccess()
+  const reminderSettings = await getReminderSettings()
 
   return (
     <SettingsView
@@ -97,6 +99,7 @@ export default async function SettingsPage({
       }))}
       activeVenueName={activeVenue?.name ?? "this venue"}
       managerAccess={managerAccess}
+      reminderSettings={reminderSettings}
       defaultTab={defaultTab}
       billing={billing}
       square={{
