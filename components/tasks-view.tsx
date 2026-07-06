@@ -1,6 +1,7 @@
 "use client"
 
 import { useMemo, useRef, useState, useTransition } from "react"
+import { useSearchParams } from "next/navigation"
 import {
   ListChecks,
   AlertTriangle,
@@ -116,6 +117,10 @@ export function TasksView({
   initialMeterReadings,
   initialDocuments,
 }: Props) {
+  const searchParams = useSearchParams()
+  const startMeetingId = searchParams.get("startMeeting")
+  const initialTab = searchParams.get("tab") === "meetings" || startMeetingId ? "meetings" : "tasks"
+
   const [tasks, setTasks] = useState<TaskWithItems[]>(initialTasks)
   const [actions, setActions] = useState<DbCorrectiveAction[]>(initialActions)
   const [statusFilter, setStatusFilter] = useState<string>("All")
@@ -161,7 +166,7 @@ export function TasksView({
         }
       />
 
-      <Tabs defaultValue="tasks" className="w-full">
+      <Tabs defaultValue={initialTab} className="w-full">
         <div className="-mx-1 overflow-x-auto px-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
           <TabsList className="w-max">
             <TabsTrigger value="tasks">Tasks &amp; Checklists</TabsTrigger>
@@ -299,7 +304,12 @@ export function TasksView({
         </TabsContent>
 
         <TabsContent value="meetings" className="mt-5">
-          <MeetingsPanel venueId={venueId} initialMeetings={initialMeetings} staff={staff} />
+          <MeetingsPanel
+            venueId={venueId}
+            initialMeetings={initialMeetings}
+            staff={staff}
+            startMeetingId={startMeetingId ? Number(startMeetingId) : null}
+          />
         </TabsContent>
 
         <TabsContent value="meters" className="mt-5">

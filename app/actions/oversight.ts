@@ -56,6 +56,8 @@ export async function createMeeting(input: {
   title: string
   scheduledDate?: string
   createdBy?: string
+  /** Preferred: the staff member who created/owns this meeting. */
+  createdByStaffMemberId?: number | null
   notes?: string
   /** Optional staff member (with a linked login) to co-assign the meeting to. */
   assignedStaffMemberId?: number | null
@@ -78,6 +80,22 @@ export async function createMeeting(input: {
     }
   }
 
+  // Resolve the creator: prefer the linked staff member, falling back to the
+  // free-text name so existing callers keep working.
+  let createdByStaffMemberId: number | null = null
+  let createdByName: string | null = input.createdBy?.trim() || null
+  if (input.createdByStaffMemberId) {
+    const [sm] = await db
+      .select()
+      .from(staffMember)
+      .where(and(eq(staffMember.id, input.createdByStaffMemberId), eq(staffMember.userId, userId)))
+      .limit(1)
+    if (sm) {
+      createdByStaffMemberId = sm.id
+      createdByName = sm.name
+    }
+  }
+
   const [created] = await db
     .insert(meeting)
     .values({
@@ -85,7 +103,8 @@ export async function createMeeting(input: {
       venueId: input.venueId,
       title: input.title,
       scheduledDate: input.scheduledDate || null,
-      createdBy: input.createdBy || null,
+      createdBy: createdByName,
+      createdByStaffMemberId,
       notes: input.notes || null,
       assignedStaffMemberId,
       assignedUserId,
@@ -136,6 +155,82 @@ export async function createMeeting(input: {
   revalidatePath("/tasks")
   revalidatePath("/calendar")
   return created
+}
+
+/** Edit a scheduled meeting's core details (before or after it's started). */
+export async function updateMeeting(input: {
+  meetingId: number
+  title?: string
+  scheduledDate?: string | null
+  createdByStaffMemberId?: number | null
+  notes?: string | null
+  assignedStaffMemberId?: number | null
+}) {
+  const userId = await getAccountId()
+
+  const patch: Partial<typeof meeting.$inferSelect> = {}
+  if (input.title !== undefined) patch.title = input.title.trim()
+  if (input.scheduledDate !== undefined) patch.scheduledDate = input.scheduledDate || null
+  if (input.notes !== undefined) patch.notes = input.notes || null
+
+  if (input.createdByStaffMemberId !== undefined) {
+    if (input.createdByStaffMemberId) {
+      const [sm] = await db
+        .select()
+        .from(staffMember)
+        .where(and(eq(staffMember.id, input.createdByStaffMemberId), eq(staffMember.userId, userId)))
+        .limit(1)
+      patch.createdByStaffMemberId = sm ? sm.id : null
+      patch.createdBy = sm ? sm.name : null
+    } else {
+      patch.createdByStaffMemberId = null
+    }
+  }
+
+  if (input.assignedStaffMemberId !== undefined) {
+    if (input.assignedStaffMemberId) {
+      const [sm] = await db
+        .select()
+        .from(staffMember)
+        .where(and(eq(staffMember.id, input.assignedStaffMemberId), eq(staffMember.userId, userId)))
+        .limit(1)
+      patch.assignedStaffMemberId = sm ? sm.id : null
+      patch.assignedUserId = sm ? sm.linkedUserId ?? null : null
+    } else {
+      patch.assignedStaffMemberId = null
+      patch.assignedUserId = null
+    }
+  }
+
+  await db
+    .update(meeting)
+    .set(patch)
+    .where(and(eq(meeting.id, input.meetingId), eq(meeting.userId, userId)))
+  revalidatePath("/tasks")
+  revalidatePath("/calendar")
+}
+
+/** Mark a meeting as started, opening its live notes + actions workspace. */
+export async function startMeeting(meetingId: number) {
+  const userId = await getAccountId()
+  const [updated] = await db
+    .update(meeting)
+    .set({ status: "In Progress", startedAt: new Date() })
+    .where(and(eq(meeting.id, meetingId), eq(meeting.userId, userId)))
+    .returning()
+  revalidatePath("/tasks")
+  revalidatePath("/calendar")
+  return updated
+}
+
+/** Persist live notes captured while a meeting is running. */
+export async function updateMeetingNotes(meetingId: number, notes: string) {
+  const userId = await getAccountId()
+  await db
+    .update(meeting)
+    .set({ notes: notes || null })
+    .where(and(eq(meeting.id, meetingId), eq(meeting.userId, userId)))
+  revalidatePath("/tasks")
 }
 
 /** Store the captured signature review, marking the meeting reviewed + held. */
