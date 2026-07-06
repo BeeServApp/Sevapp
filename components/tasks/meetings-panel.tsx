@@ -75,6 +75,67 @@ function fmtDate(iso?: string | null) {
   return d.toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" })
 }
 
+const NO_ASSIGNEE = "none"
+/** Role-based creators offered alongside named staff in "Created by". */
+const CREATOR_ROLES = ["Owner", "Area Manager"] as const
+const ROLE_PREFIX = "role:"
+
+/** The select value representing a meeting's current creator. */
+function creatorSelectValue(m: { createdByStaffMemberId: number | null; createdBy: string | null }) {
+  if (m.createdByStaffMemberId) return String(m.createdByStaffMemberId)
+  if (m.createdBy && (CREATOR_ROLES as readonly string[]).includes(m.createdBy)) return ROLE_PREFIX + m.createdBy
+  return NO_ASSIGNEE
+}
+
+/** Translate a "Created by" select value into server-action params. */
+function creatorFromValue(value: string): { createdByStaffMemberId: number | null; createdBy: string | null } {
+  if (value === NO_ASSIGNEE) return { createdByStaffMemberId: null, createdBy: null }
+  if (value.startsWith(ROLE_PREFIX)) return { createdByStaffMemberId: null, createdBy: value.slice(ROLE_PREFIX.length) }
+  return { createdByStaffMemberId: Number(value), createdBy: null }
+}
+
+/** Human-readable label for a "Created by" select value. */
+function creatorLabel(value: string, staff: DbStaffMember[]) {
+  if (value === NO_ASSIGNEE) return null
+  if (value.startsWith(ROLE_PREFIX)) return value.slice(ROLE_PREFIX.length)
+  return staff.find((s) => s.id === Number(value))?.name ?? null
+}
+
+/** Shared "Created by" picker: role quick-picks (Owner, Area Manager) + staff. */
+function CreatedBySelect({
+  id,
+  value,
+  onValueChange,
+  staff,
+}: {
+  id: string
+  value: string
+  onValueChange: (v: string) => void
+  staff: DbStaffMember[]
+}) {
+  return (
+    <Select value={value} onValueChange={(v) => onValueChange(v ?? NO_ASSIGNEE)}>
+      <SelectTrigger id={id}>
+        <SelectValue placeholder="Select creator" />
+      </SelectTrigger>
+      <SelectContent>
+        <SelectItem value={NO_ASSIGNEE}>Unassigned</SelectItem>
+        {CREATOR_ROLES.map((r) => (
+          <SelectItem key={r} value={ROLE_PREFIX + r}>
+            {r}
+          </SelectItem>
+        ))}
+        {staff.map((s) => (
+          <SelectItem key={s.id} value={String(s.id)}>
+            {s.name}
+            {s.role ? ` — ${s.role}` : ""}
+          </SelectItem>
+        ))}
+      </SelectContent>
+    </Select>
+  )
+}
+
 export function MeetingsPanel({
   venueId,
   initialMeetings,
@@ -395,6 +456,7 @@ function MeetingCard({
         open={runOpen}
         onOpenChange={setRunOpen}
         meeting={meeting}
+        staff={staff}
         onChange={onChange}
         onActionStatus={onActionStatus}
         onSigned={handleSigned}
@@ -412,6 +474,7 @@ function RunMeetingDialog({
   open,
   onOpenChange,
   meeting,
+  staff,
   onChange,
   onActionStatus,
   onSigned,
@@ -419,6 +482,7 @@ function RunMeetingDialog({
   open: boolean
   onOpenChange: (o: boolean) => void
   meeting: MeetingWithActions
+  staff: DbStaffMember[]
   onChange: (m: MeetingWithActions) => void
   onActionStatus: (actionId: number, status: string) => void
   onSigned: (signatureUrl: string, signedBy: string) => void
@@ -426,6 +490,10 @@ function RunMeetingDialog({
   const [notes, setNotes] = useState(meeting.notes ?? "")
   const [savingNotes, startNotes] = useTransition()
   const [signing, setSigning] = useState(false)
+  const [addingAction, startAddAction] = useTransition()
+  const [actionTitle, setActionTitle] = useState("")
+  const [actionAssignee, setActionAssignee] = useState<string>(NO_ASSIGNEE)
+  const [actionDue, setActionDue] = useState("")
   const doneCount = meeting.actions.filter((a) => a.status === "Completed").length
 
   // Keep the local notes buffer in sync when the underlying meeting changes.
@@ -439,6 +507,27 @@ function RunMeetingDialog({
     onChange({ ...meeting, notes })
     startNotes(async () => {
       await updateMeetingNotes(meeting.id, notes)
+    })
+  }
+
+  function addAction() {
+    const title = actionTitle.trim()
+    if (!title) return
+    const assigneeName =
+      actionAssignee === NO_ASSIGNEE ? null : staff.find((s) => s.id === Number(actionAssignee))?.name ?? null
+    const dueDate = actionDue || null
+    startAddAction(async () => {
+      const created = await addMeetingAction({
+        meetingId: meeting.id,
+        venueId: meeting.venueId,
+        title,
+        assignee: assigneeName ?? undefined,
+        dueDate: dueDate ?? undefined,
+      })
+      onChange({ ...meeting, actions: [...meeting.actions, created] })
+      setActionTitle("")
+      setActionAssignee(NO_ASSIGNEE)
+      setActionDue("")
     })
   }
 
@@ -493,7 +582,7 @@ function RunMeetingDialog({
               </div>
               {meeting.actions.length === 0 ? (
                 <p className="rounded-md border border-dashed border-border p-3 text-sm text-muted-foreground">
-                  No actions were agreed when scheduling. You can add them from the meeting card after finishing.
+                  No actions yet. Agree follow-ups below and assign each one to a team member.
                 </p>
               ) : (
                 <ul className="flex flex-col gap-1.5 rounded-md border border-border p-3">
@@ -503,9 +592,15 @@ function RunMeetingDialog({
                         <span className={cn(a.status === "Completed" && "text-muted-foreground line-through")}>
                           {a.title}
                         </span>
-                        {a.dueDate && (
-                          <span className="ml-2 text-xs text-muted-foreground">Due {fmtDate(a.dueDate)}</span>
-                        )}
+                        <div className="mt-0.5 flex flex-wrap items-center gap-x-3 text-xs text-muted-foreground">
+                          {a.assignee && (
+                            <span className="inline-flex items-center gap-1">
+                              <User className="size-3" />
+                              {a.assignee}
+                            </span>
+                          )}
+                          {a.dueDate && <span>Due {fmtDate(a.dueDate)}</span>}
+                        </div>
                       </div>
                       <Button
                         size="sm"
@@ -519,6 +614,54 @@ function RunMeetingDialog({
                   ))}
                 </ul>
               )}
+
+              {/* Agree & assign a new action live during the meeting. */}
+              <div className="flex flex-col gap-2 rounded-md border border-dashed border-border p-3">
+                <Input
+                  value={actionTitle}
+                  onChange={(e) => setActionTitle(e.target.value)}
+                  placeholder="New action to complete"
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" && !e.nativeEvent.isComposing && e.keyCode !== 229) {
+                      e.preventDefault()
+                      addAction()
+                    }
+                  }}
+                />
+                <div className="flex flex-wrap items-center gap-2">
+                  <Select value={actionAssignee} onValueChange={(v) => setActionAssignee(v ?? NO_ASSIGNEE)}>
+                    <SelectTrigger className="w-44" aria-label="Assign action to">
+                      <SelectValue placeholder="Assign to" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value={NO_ASSIGNEE}>Unassigned</SelectItem>
+                      {staff.map((s) => (
+                        <SelectItem key={s.id} value={String(s.id)}>
+                          {s.name}
+                          {s.role ? ` — ${s.role}` : ""}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <Input
+                    type="date"
+                    value={actionDue}
+                    onChange={(e) => setActionDue(e.target.value)}
+                    className="w-40"
+                    aria-label="Action due date"
+                  />
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="shrink-0"
+                    onClick={addAction}
+                    disabled={addingAction || !actionTitle.trim()}
+                  >
+                    {addingAction ? <Loader2 className="size-4 animate-spin" /> : <Plus className="size-4" />}
+                    Add action
+                  </Button>
+                </div>
+              </div>
             </div>
 
             <DialogFooter>
@@ -557,15 +700,13 @@ function EditMeetingDialog({
   const [error, setError] = useState<string | null>(null)
   const [title, setTitle] = useState(meeting.title)
   const [scheduledDate, setScheduledDate] = useState(meeting.scheduledDate ?? "")
-  const [createdById, setCreatedById] = useState<string>(
-    meeting.createdByStaffMemberId ? String(meeting.createdByStaffMemberId) : NO_ASSIGNEE,
-  )
+  const [createdById, setCreatedById] = useState<string>(creatorSelectValue(meeting))
   const [notes, setNotes] = useState(meeting.notes ?? "")
 
   function reset() {
     setTitle(meeting.title)
     setScheduledDate(meeting.scheduledDate ?? "")
-    setCreatedById(meeting.createdByStaffMemberId ? String(meeting.createdByStaffMemberId) : NO_ASSIGNEE)
+    setCreatedById(creatorSelectValue(meeting))
     setNotes(meeting.notes ?? "")
     setError(null)
   }
@@ -575,23 +716,23 @@ function EditMeetingDialog({
       setError("Meeting title is required")
       return
     }
-    const staffId = createdById === NO_ASSIGNEE ? null : Number(createdById)
-    const creator = staff.find((s) => s.id === staffId)
+    const creator = creatorFromValue(createdById)
     startTransition(async () => {
       try {
         await updateMeeting({
           meetingId: meeting.id,
           title: title.trim(),
           scheduledDate: scheduledDate || null,
-          createdByStaffMemberId: staffId,
+          createdByStaffMemberId: creator.createdByStaffMemberId,
+          createdBy: creator.createdBy,
           notes: notes.trim() || null,
         })
         onSaved({
           ...meeting,
           title: title.trim(),
           scheduledDate: scheduledDate || null,
-          createdByStaffMemberId: staffId,
-          createdBy: creator ? creator.name : null,
+          createdByStaffMemberId: creator.createdByStaffMemberId,
+          createdBy: creatorLabel(createdById, staff),
           notes: notes.trim() || null,
         })
         setOpen(false)
@@ -633,20 +774,7 @@ function EditMeetingDialog({
             </div>
             <div className="flex flex-col gap-2">
               <Label htmlFor="e-by">Created by</Label>
-              <Select value={createdById} onValueChange={(v) => setCreatedById(v ?? NO_ASSIGNEE)}>
-                <SelectTrigger id="e-by">
-                  <SelectValue placeholder="Select staff member" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value={NO_ASSIGNEE}>Unassigned</SelectItem>
-                  {staff.map((s) => (
-                    <SelectItem key={s.id} value={String(s.id)}>
-                      {s.name}
-                      {s.role ? ` — ${s.role}` : ""}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <CreatedBySelect id="e-by" value={createdById} onValueChange={setCreatedById} staff={staff} />
             </div>
           </div>
           <div className="flex flex-col gap-2">
@@ -718,8 +846,6 @@ function ActionRow({
 
 type DraftAction = { title: string; assignee: string; dueDate: string }
 
-const NO_ASSIGNEE = "none"
-
 function CreateMeetingDialog({
   venueId,
   staff,
@@ -767,11 +893,13 @@ function CreateMeetingDialog({
         const cleanActions = actions
           .filter((a) => a.title.trim())
           .map((a) => ({ title: a.title.trim(), assignee: a.assignee.trim() || undefined, dueDate: a.dueDate || undefined }))
+        const creator = creatorFromValue(createdById)
         const created = await createMeeting({
           venueId,
           title: title.trim(),
           scheduledDate: scheduledDate || undefined,
-          createdByStaffMemberId: createdById === NO_ASSIGNEE ? null : Number(createdById),
+          createdByStaffMemberId: creator.createdByStaffMemberId,
+          createdBy: creator.createdBy ?? undefined,
           notes: notes.trim() || undefined,
           assignedStaffMemberId:
             assignedStaffId === NO_ASSIGNEE ? null : Number(assignedStaffId),
@@ -838,20 +966,7 @@ function CreateMeetingDialog({
             </div>
             <div className="flex flex-col gap-2">
               <Label htmlFor="m-by">Created by</Label>
-              <Select value={createdById} onValueChange={(v) => setCreatedById(v ?? NO_ASSIGNEE)}>
-                <SelectTrigger id="m-by">
-                  <SelectValue placeholder="Select staff member" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value={NO_ASSIGNEE}>Unassigned</SelectItem>
-                  {staff.map((s) => (
-                    <SelectItem key={s.id} value={String(s.id)}>
-                      {s.name}
-                      {s.role ? ` — ${s.role}` : ""}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <CreatedBySelect id="m-by" value={createdById} onValueChange={setCreatedById} staff={staff} />
             </div>
           </div>
           <div className="flex flex-col gap-2">

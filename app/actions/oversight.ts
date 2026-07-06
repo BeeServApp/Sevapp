@@ -163,6 +163,8 @@ export async function updateMeeting(input: {
   title?: string
   scheduledDate?: string | null
   createdByStaffMemberId?: number | null
+  /** Free-text creator, e.g. a role like "Owner" or "Area Manager". */
+  createdBy?: string | null
   notes?: string | null
   assignedStaffMemberId?: number | null
 }) {
@@ -183,8 +185,12 @@ export async function updateMeeting(input: {
       patch.createdByStaffMemberId = sm ? sm.id : null
       patch.createdBy = sm ? sm.name : null
     } else {
+      // Clear the staff link; fall back to any free-text creator provided.
       patch.createdByStaffMemberId = null
+      patch.createdBy = input.createdBy?.trim() || null
     }
+  } else if (input.createdBy !== undefined) {
+    patch.createdBy = input.createdBy?.trim() || null
   }
 
   if (input.assignedStaffMemberId !== undefined) {
