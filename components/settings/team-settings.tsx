@@ -3,7 +3,7 @@
 import type React from "react"
 import { useState } from "react"
 import { useRouter } from "next/navigation"
-import { Plus, Trash2, Copy, Check, Link2 } from "lucide-react"
+import { Plus, Trash2, Copy, Check, Link2, Pencil } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
@@ -27,7 +27,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
-import { createStaffMember, deleteStaffMember } from "@/app/actions/staff"
+import { createStaffMember, updateStaffMember, deleteStaffMember } from "@/app/actions/staff"
 import { createStaffInvite, revokeStaffInvite } from "@/app/actions/invites"
 import type { DbStaffMember } from "@/lib/db/schema"
 
@@ -138,6 +138,127 @@ function AddMemberDialog({ venueId }: { venueId: number }) {
             </Button>
             <Button type="submit" disabled={saving}>
               {saving ? "Adding..." : "Add member"}
+            </Button>
+          </DialogFooter>
+        </form>
+      </DialogContent>
+    </Dialog>
+  )
+}
+
+function EditMemberDialog({ member }: { member: TeamMember }) {
+  const router = useRouter()
+  const [open, setOpen] = useState(false)
+  const [name, setName] = useState(member.name)
+  const [email, setEmail] = useState(member.email ?? "")
+  const [role, setRole] = useState(member.role)
+  const [status, setStatus] = useState(member.status)
+  const [saving, setSaving] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+
+  function handleOpenChange(next: boolean) {
+    if (next) {
+      // Reset fields to the latest record whenever the dialog opens.
+      setName(member.name)
+      setEmail(member.email ?? "")
+      setRole(member.role)
+      setStatus(member.status)
+      setError(null)
+    }
+    setOpen(next)
+  }
+
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault()
+    if (!name.trim()) return setError("Name is required.")
+    setSaving(true)
+    setError(null)
+    try {
+      await updateStaffMember(member.id, {
+        name: name.trim(),
+        role,
+        status,
+        email: email.trim() || undefined,
+      })
+      setOpen(false)
+      router.refresh()
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to update member.")
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  return (
+    <Dialog open={open} onOpenChange={handleOpenChange}>
+      <DialogTrigger
+        render={
+          <Button variant="ghost" size="icon" aria-label={`Edit ${member.name}`}>
+            <Pencil className="size-4 text-muted-foreground" />
+          </Button>
+        }
+      />
+      <DialogContent className="sm:max-w-md">
+        <DialogHeader>
+          <DialogTitle>Edit team member</DialogTitle>
+          <DialogDescription>
+            Update this person&apos;s details. Changes apply everywhere they appear, including HR.
+          </DialogDescription>
+        </DialogHeader>
+        <form onSubmit={handleSubmit} className="grid gap-4">
+          <div className="grid gap-2">
+            <Label htmlFor={`edit-name-${member.id}`}>Full name</Label>
+            <Input id={`edit-name-${member.id}`} value={name} onChange={(e) => setName(e.target.value)} />
+          </div>
+          <div className="grid gap-2">
+            <Label htmlFor={`edit-email-${member.id}`}>Email</Label>
+            <Input
+              id={`edit-email-${member.id}`}
+              type="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              placeholder="name@venue.co.uk"
+            />
+          </div>
+          <div className="grid grid-cols-2 gap-4">
+            <div className="grid gap-2">
+              <Label htmlFor={`edit-role-${member.id}`}>Role</Label>
+              <Select value={role} onValueChange={(v) => setRole(v ?? role)}>
+                <SelectTrigger id={`edit-role-${member.id}`}>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {roles.map((r) => (
+                    <SelectItem key={r} value={r}>
+                      {r}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="grid gap-2">
+              <Label htmlFor={`edit-status-${member.id}`}>Status</Label>
+              <Select value={status} onValueChange={(v) => setStatus(v ?? status)}>
+                <SelectTrigger id={`edit-status-${member.id}`}>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {["Off", "On shift", "On leave"].map((s) => (
+                    <SelectItem key={s} value={s}>
+                      {s}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+          {error && <p className="text-sm text-destructive">{error}</p>}
+          <DialogFooter>
+            <Button type="button" variant="outline" onClick={() => setOpen(false)} disabled={saving}>
+              Cancel
+            </Button>
+            <Button type="submit" disabled={saving}>
+              {saving ? "Saving..." : "Save changes"}
             </Button>
           </DialogFooter>
         </form>
@@ -297,6 +418,7 @@ export function TeamSettings({
                       {invitingId === m.id ? "Creating..." : "Invite"}
                     </Button>
                   )}
+                  <EditMemberDialog member={m} />
                   <Button
                     variant="ghost"
                     size="icon"

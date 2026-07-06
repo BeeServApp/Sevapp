@@ -50,6 +50,7 @@ import {
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import {
   createStaffMember,
+  updateStaffMember,
   updateLeaveStatus,
   clockIn,
   clockOut,
@@ -231,41 +232,71 @@ export function StaffView({
   const pendingLeave = useMemo(() => leaveReqs.filter((l) => l.status === "Pending").length, [leaveReqs])
 
   // ── Add staff dialog ──────────────────────────────────────────────────────
+  const emptyStaffForm = { name: "", role: "Staff", contract: "Full-time", hoursWk: "40", status: "Off", email: "", phone: "" }
   const [addStaffOpen, setAddStaffOpen] = useState(false)
-  const [staffForm, setStaffForm] = useState({
-    name: "",
-    role: "Staff",
-    contract: "Full-time",
-    hoursWk: "40",
-    status: "Off",
-    email: "",
-    phone: "",
-  })
+  const [editingStaffId, setEditingStaffId] = useState<number | null>(null)
+  const [staffForm, setStaffForm] = useState(emptyStaffForm)
   const [staffError, setStaffError] = useState<string | null>(null)
   const [staffSaving, setStaffSaving] = useState(false)
 
-  async function handleAddStaff() {
+  function openAddStaff() {
+    setEditingStaffId(null)
+    setStaffForm(emptyStaffForm)
+    setStaffError(null)
+    setAddStaffOpen(true)
+  }
+
+  function openEditStaff(s: DbStaffMember) {
+    setEditingStaffId(s.id)
+    setStaffForm({
+      name: s.name,
+      role: s.role,
+      contract: s.contract,
+      hoursWk: String(s.hoursWk),
+      status: s.status,
+      email: s.email ?? "",
+      phone: s.phone ?? "",
+    })
+    setStaffError(null)
+    setAddStaffOpen(true)
+  }
+
+  async function handleSaveStaff() {
     if (!staffForm.name.trim()) return setStaffError("Name is required.")
     const hrs = Number.parseInt(staffForm.hoursWk, 10)
     if (Number.isNaN(hrs) || hrs < 0) return setStaffError("Enter valid hours.")
     setStaffError(null)
     setStaffSaving(true)
     try {
-      const created = await createStaffMember({
-        venueId,
-        name: staffForm.name.trim(),
-        role: staffForm.role,
-        contract: staffForm.contract,
-        hoursWk: hrs,
-        status: staffForm.status,
-        email: staffForm.email.trim() || undefined,
-        phone: staffForm.phone.trim() || undefined,
-      })
-      setStaff((prev) => [...prev, created])
+      if (editingStaffId != null) {
+        const updated = await updateStaffMember(editingStaffId, {
+          name: staffForm.name.trim(),
+          role: staffForm.role,
+          contract: staffForm.contract,
+          hoursWk: hrs,
+          status: staffForm.status,
+          email: staffForm.email.trim() || undefined,
+          phone: staffForm.phone.trim() || undefined,
+        })
+        setStaff((prev) => prev.map((s) => (s.id === editingStaffId ? { ...s, ...updated } : s)))
+      } else {
+        const created = await createStaffMember({
+          venueId,
+          name: staffForm.name.trim(),
+          role: staffForm.role,
+          contract: staffForm.contract,
+          hoursWk: hrs,
+          status: staffForm.status,
+          email: staffForm.email.trim() || undefined,
+          phone: staffForm.phone.trim() || undefined,
+        })
+        setStaff((prev) => [...prev, created])
+      }
       setAddStaffOpen(false)
-      setStaffForm({ name: "", role: "Staff", contract: "Full-time", hoursWk: "40", status: "Off", email: "", phone: "" })
+      setEditingStaffId(null)
+      setStaffForm(emptyStaffForm)
     } catch {
-      setStaffError("Failed to add staff member.")
+      setStaffError(editingStaffId != null ? "Failed to update staff member." : "Failed to add staff member.")
     } finally {
       setStaffSaving(false)
     }
@@ -644,7 +675,7 @@ export function StaffView({
           <Card>
             <CardHeader className="flex flex-row items-center justify-between">
               <CardTitle>Team directory</CardTitle>
-              <Button size="sm" onClick={() => setAddStaffOpen(true)}>
+              <Button size="sm" onClick={openAddStaff}>
                 <Plus className="size-4" /> Add staff
               </Button>
             </CardHeader>
@@ -731,15 +762,26 @@ export function StaffView({
                           )}
                         </TableCell>
                         <TableCell>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="size-8 text-muted-foreground hover:text-destructive"
-                            onClick={() => handleDeleteStaff(s.id)}
-                          >
-                            <Trash2 className="size-4" />
-                            <span className="sr-only">Remove</span>
-                          </Button>
+                          <div className="flex items-center justify-end gap-1">
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="size-8 text-muted-foreground hover:text-foreground"
+                              onClick={() => openEditStaff(s)}
+                            >
+                              <Pencil className="size-4" />
+                              <span className="sr-only">Edit {s.name}</span>
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="size-8 text-muted-foreground hover:text-destructive"
+                              onClick={() => handleDeleteStaff(s.id)}
+                            >
+                              <Trash2 className="size-4" />
+                              <span className="sr-only">Remove {s.name}</span>
+                            </Button>
+                          </div>
                         </TableCell>
                       </TableRow>
                       )
@@ -892,8 +934,12 @@ export function StaffView({
       <Dialog open={addStaffOpen} onOpenChange={setAddStaffOpen}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
-            <DialogTitle>Add staff member</DialogTitle>
-            <DialogDescription>Add a new team member to the venue roster.</DialogDescription>
+            <DialogTitle>{editingStaffId != null ? "Edit staff member" : "Add staff member"}</DialogTitle>
+            <DialogDescription>
+              {editingStaffId != null
+                ? "Update this team member's details. Changes apply everywhere they appear."
+                : "Add a new team member to the venue roster."}
+            </DialogDescription>
           </DialogHeader>
           <div className="grid gap-4">
             <div className="grid gap-2">
@@ -988,8 +1034,8 @@ export function StaffView({
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setAddStaffOpen(false)} disabled={staffSaving}>Cancel</Button>
-            <Button onClick={handleAddStaff} disabled={staffSaving}>
-              {staffSaving ? "Saving..." : "Add staff member"}
+            <Button onClick={handleSaveStaff} disabled={staffSaving}>
+              {staffSaving ? "Saving..." : editingStaffId != null ? "Save changes" : "Add staff member"}
             </Button>
           </DialogFooter>
         </DialogContent>
