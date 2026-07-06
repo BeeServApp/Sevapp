@@ -17,6 +17,7 @@ import type { VenueSummary } from "@/components/venue-provider"
 import type { CompanyData } from "@/app/actions/company"
 import type { BillingState } from "@/app/actions/billing"
 import type { SquareConnectionState, SquareLocation } from "@/app/actions/square"
+import type { SecurityState } from "@/app/actions/account"
 
 export interface SquareSettingsData {
   connection: SquareConnectionState
@@ -38,6 +39,7 @@ export function SettingsView({
   square,
   allowedTabIds,
   personalPreferences,
+  security,
 }: {
   user: { name: string; email: string }
   company: CompanyData
@@ -54,6 +56,8 @@ export function SettingsView({
   /** When provided (staff), the Preferences tab manages personal, per-user
    * settings instead of the owner's company-wide configuration. */
   personalPreferences?: { hiddenModules: string[] }
+  /** Current user's email-verification and 2FA status for the Account tab. */
+  security?: SecurityState
 }) {
   // A tab is shown if it is not lockable (core) or not in the hidden list, and —
   // when an allow-list is provided (staff) — only if it is explicitly allowed.
@@ -81,7 +85,7 @@ export function SettingsView({
 
         {visibleIds.has("account") && (
           <TabsContent value="account">
-            <AccountSettings user={user} />
+            <AccountSettings user={user} security={security} />
           </TabsContent>
         )}
         {visibleIds.has("company") && (

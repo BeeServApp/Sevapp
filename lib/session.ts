@@ -26,6 +26,8 @@ export interface CurrentUser {
   accountId: string
   /** Linked staff_member.id for staff accounts, else null. */
   staffMemberId: number | null
+  /** When the owner finished the first-run setup wizard. Null = not yet done. */
+  setupCompletedAt: Date | null
 }
 
 export async function getSession() {
@@ -79,6 +81,7 @@ export async function getCurrentUser(): Promise<CurrentUser> {
     managerRole,
     accountId,
     staffMemberId: row?.staffMemberId ?? null,
+    setupCompletedAt: row?.setupCompletedAt ?? null,
   }
 }
 
