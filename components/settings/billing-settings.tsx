@@ -20,6 +20,7 @@ import {
   createPortalSession,
   syncLocationQuantity,
 } from "@/app/actions/billing"
+import { UpdateCardDialog } from "@/components/settings/update-card-dialog"
 
 const STATUS_LABELS: Record<string, { label: string; tone: "brand" | "warn" | "muted" }> = {
   trialing: { label: "Free trial", tone: "brand" },
@@ -39,6 +40,19 @@ function daysUntil(iso: string | null): number | null {
   if (!iso) return null
   const ms = new Date(iso).getTime() - Date.now()
   return ms <= 0 ? 0 : Math.ceil(ms / (1000 * 60 * 60 * 24))
+}
+
+function formatCardBrand(brand: string): string {
+  const map: Record<string, string> = {
+    visa: "Visa",
+    mastercard: "Mastercard",
+    amex: "American Express",
+    discover: "Discover",
+    diners: "Diners Club",
+    jcb: "JCB",
+    unionpay: "UnionPay",
+  }
+  return map[brand] ?? brand.charAt(0).toUpperCase() + brand.slice(1)
 }
 
 export function BillingSettings({ billing }: { billing: BillingState }) {
@@ -181,8 +195,8 @@ export function BillingSettings({ billing }: { billing: BillingState }) {
 
           {billing.hasSubscription && (
             <div>
-              <Button variant="outline" onClick={handlePortal} disabled={pending}>
-                Manage billing &amp; payment method
+              <Button variant="ghost" onClick={handlePortal} disabled={pending}>
+                Open Stripe billing portal
               </Button>
             </div>
           )}
@@ -192,6 +206,44 @@ export function BillingSettings({ billing }: { billing: BillingState }) {
               <AlertCircle className="size-4" /> {error}
             </p>
           )}
+        </CardContent>
+      </Card>
+
+      {/* ── Payment method ───────────────────────────────────────── */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <CreditCard className="size-4 text-muted-foreground" />
+            Payment card
+          </CardTitle>
+          <p className="mt-1 text-sm text-muted-foreground">
+            The card charged when your free trial ends and for monthly renewals.
+          </p>
+        </CardHeader>
+        <CardContent className="flex flex-wrap items-center justify-between gap-4">
+          {billing.card ? (
+            <div className="flex items-center gap-3">
+              <div className="flex size-10 items-center justify-center rounded-lg border border-border bg-muted">
+                <CreditCard className="size-5 text-muted-foreground" />
+              </div>
+              <div>
+                <p className="font-medium text-foreground">
+                  {formatCardBrand(billing.card.brand)} •••• {billing.card.last4}
+                </p>
+                <p className="text-xs text-muted-foreground">
+                  Expires {String(billing.card.expMonth).padStart(2, "0")}/{billing.card.expYear}
+                </p>
+              </div>
+            </div>
+          ) : (
+            <div className="flex items-center gap-3">
+              <div className="flex size-10 items-center justify-center rounded-lg border border-dashed border-border">
+                <CreditCard className="size-5 text-muted-foreground" />
+              </div>
+              <p className="text-sm text-muted-foreground">No card on file yet.</p>
+            </div>
+          )}
+          <UpdateCardDialog hasCard={Boolean(billing.card)} />
         </CardContent>
       </Card>
 
