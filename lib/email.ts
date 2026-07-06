@@ -16,7 +16,7 @@ export async function sendEmail(opts: {
     console.log("[v0] sendEmail skipped (no RESEND_API_KEY):", opts.subject)
     return { sent: false, reason: "no_api_key" }
   }
-  const from = process.env.EMAIL_FROM || "TapSheet <onboarding@resend.dev>"
+  const from = process.env.EMAIL_FROM || "BeeServ <onboarding@resend.dev>"
 
   try {
     const res = await fetch("https://api.resend.com/emails", {

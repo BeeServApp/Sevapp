@@ -29,13 +29,21 @@ export function AuthForm({ mode, plan }: { mode: "sign-in" | "sign-up"; plan?: s
     setError(null)
     setLoading(true)
 
-    const { error } = isSignUp
+    const { data, error } = isSignUp
       ? await authClient.signUp.email({ email, password, name })
       : await authClient.signIn.email({ email, password })
 
     if (error) {
       setLoading(false)
       setError(error.message ?? "Something went wrong")
+      return
+    }
+
+    // Sign-in with 2FA enabled: Better Auth returns a redirect flag instead of a
+    // full session. Send the user to the dedicated challenge page.
+    if (!isSignUp && (data as { twoFactorRedirect?: boolean } | null)?.twoFactorRedirect) {
+      setLoading(false)
+      router.push("/two-factor")
       return
     }
 
@@ -50,7 +58,8 @@ export function AuthForm({ mode, plan }: { mode: "sign-in" | "sign-up"; plan?: s
     }
 
     setLoading(false)
-    router.push("/")
+    // New owners land in the first-run setup wizard; returning users go home.
+    router.push(isSignUp ? "/welcome" : "/")
     router.refresh()
   }
 

@@ -56,7 +56,7 @@ export async function notify(opts: {
       html: `<div style="font-family:system-ui,sans-serif;font-size:15px;color:#111">
         <h2 style="margin:0 0 8px">${escapeHtml(opts.title)}</h2>
         ${opts.body ? `<p style="margin:0 0 12px;color:#444">${escapeHtml(opts.body)}</p>` : ""}
-        <p style="margin:0;color:#888;font-size:13px">Sent from your TapSheet workspace.</p>
+        <p style="margin:0;color:#888;font-size:13px">Sent from your BeeServ workspace.</p>
       </div>`,
       text: `${opts.title}\n\n${opts.body ?? ""}`,
     })

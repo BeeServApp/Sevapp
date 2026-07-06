@@ -29,6 +29,15 @@ export interface BillingState {
   pricePerLocationPence: number | null
   /** locations * price, in pence. */
   monthlyTotalPence: number | null
+  /** Summary of the default card on file, if any. */
+  card: CardSummary | null
+}
+
+export interface CardSummary {
+  brand: string
+  last4: string
+  expMonth: number
+  expYear: number
 }
 
 async function getCompanyRow(userId: string) {
@@ -103,6 +112,45 @@ export async function refreshSubscription(): Promise<void> {
   revalidatePath("/settings")
 }
 
+/**
+ * Reads the default card on file for a Stripe customer. Falls back to the
+ * subscription's default payment method, then the customer's invoice-settings
+ * default. Returns null when no card is attached yet.
+ */
+async function readDefaultCard(customerId: string): Promise<CardSummary | null> {
+  try {
+    const customer = await stripe.customers.retrieve(customerId, {
+      expand: ["invoice_settings.default_payment_method"],
+    })
+    if (!customer || customer.deleted) return null
+
+    const invoiceDefault = (customer as import("stripe").Stripe.Customer).invoice_settings
+      ?.default_payment_method
+    let pm: import("stripe").Stripe.PaymentMethod | null =
+      invoiceDefault && typeof invoiceDefault !== "string" ? invoiceDefault : null
+
+    // Fall back to the first attached card if there is no explicit default.
+    if (!pm) {
+      const cards = await stripe.paymentMethods.list({
+        customer: customerId,
+        type: "card",
+        limit: 1,
+      })
+      pm = cards.data[0] ?? null
+    }
+
+    if (!pm?.card) return null
+    return {
+      brand: pm.card.brand,
+      last4: pm.card.last4,
+      expMonth: pm.card.exp_month,
+      expYear: pm.card.exp_year,
+    }
+  } catch {
+    return null
+  }
+}
+
 export async function getBillingState(): Promise<BillingState> {
   await requireOwner()
   const userId = await getUserId()
@@ -112,6 +160,8 @@ export async function getBillingState(): Promise<BillingState> {
   const plan = (row.subscriptionPlan as PlanId | null) ?? null
   const tier = plan ? getTier(plan) : undefined
   const price = tier?.pricePerLocationPence ?? null
+
+  const card = row.stripeCustomerId ? await readDefaultCard(row.stripeCustomerId) : null
 
   return {
     plan,
@@ -124,6 +174,7 @@ export async function getBillingState(): Promise<BillingState> {
     hasCustomer: Boolean(row.stripeCustomerId),
     pricePerLocationPence: price,
     monthlyTotalPence: price != null ? price * Math.max(locations, 1) : null,
+    card,
   }
 }
 
@@ -267,6 +318,76 @@ export async function syncLocationQuantity(): Promise<void> {
     .update(company)
     .set({ subscriptionQuantity: quantity, updatedAt: new Date() })
     .where(eq(company.userId, userId))
+
+  revalidatePath("/settings")
+}
+
+/**
+ * Ensures a Stripe customer exists for this account, then creates a SetupIntent
+ * so the owner can enter (or replace) their card via Stripe Elements — without
+ * leaving the app and even during the card-less free trial. Returns the client
+ * secret used to confirm the card on the client.
+ */
+export async function createCardSetupIntent(): Promise<{ clientSecret: string }> {
+  const me = await requireOwner()
+  const userId = await getUserId()
+  const row = await getCompanyRow(userId)
+
+  let customerId = row.stripeCustomerId
+  if (!customerId) {
+    const customer = await stripe.customers.create({
+      email: me.email,
+      name: row.name || me.name,
+      metadata: { userId },
+    })
+    customerId = customer.id
+    await db
+      .update(company)
+      .set({ stripeCustomerId: customerId, updatedAt: new Date() })
+      .where(eq(company.userId, userId))
+  }
+
+  const intent = await stripe.setupIntents.create({
+    customer: customerId,
+    usage: "off_session",
+    payment_method_types: ["card"],
+    metadata: { userId },
+  })
+
+  if (!intent.client_secret) throw new Error("Failed to start card setup")
+  return { clientSecret: intent.client_secret }
+}
+
+/**
+ * Called after the client confirms a SetupIntent. Sets the new card as the
+ * customer's default for invoices and, when a subscription exists, as the
+ * subscription's default payment method so renewals use the new card.
+ */
+export async function saveDefaultCard(paymentMethodId: string): Promise<void> {
+  await requireOwner()
+  const userId = await getUserId()
+  const row = await getCompanyRow(userId)
+  if (!row.stripeCustomerId) throw new Error("No billing account yet")
+
+  // Make sure the payment method is attached to this customer.
+  const pm = await stripe.paymentMethods.retrieve(paymentMethodId)
+  const attachedTo = typeof pm.customer === "string" ? pm.customer : pm.customer?.id
+  if (attachedTo && attachedTo !== row.stripeCustomerId) {
+    throw new Error("Payment method does not belong to this account")
+  }
+  if (!attachedTo) {
+    await stripe.paymentMethods.attach(paymentMethodId, { customer: row.stripeCustomerId })
+  }
+
+  await stripe.customers.update(row.stripeCustomerId, {
+    invoice_settings: { default_payment_method: paymentMethodId },
+  })
+
+  if (row.stripeSubscriptionId) {
+    await stripe.subscriptions
+      .update(row.stripeSubscriptionId, { default_payment_method: paymentMethodId })
+      .catch(() => {})
+  }
 
   revalidatePath("/settings")
 }

@@ -9,6 +9,7 @@ import { getBillingState, syncSubscriptionFromCheckout } from "@/app/actions/bil
 import { getSquareConnection, listSquareLocations } from "@/app/actions/square"
 import { getMyPreferences } from "@/app/actions/preferences"
 import { getReminderSettings } from "@/app/actions/reminders"
+import { getSecurityState } from "@/app/actions/account"
 import { SETTINGS_TABS, STAFF_ALLOWED_SETTINGS_TABS } from "@/lib/nav-config"
 
 export default async function SettingsPage({
@@ -32,7 +33,11 @@ export default async function SettingsPage({
   if (me.appRole === "staff") {
     const staffDefault =
       tab && STAFF_ALLOWED_SETTINGS_TABS.includes(tab) ? tab : "account"
-    const [company, prefs] = await Promise.all([getCompany(), getMyPreferences()])
+    const [company, prefs, security] = await Promise.all([
+      getCompany(),
+      getMyPreferences(),
+      getSecurityState(),
+    ])
     return (
       <SettingsView
         user={{ name: me.name, email: me.email }}
@@ -40,6 +45,7 @@ export default async function SettingsPage({
         defaultTab={staffDefault}
         allowedTabIds={STAFF_ALLOWED_SETTINGS_TABS}
         personalPreferences={{ hiddenModules: prefs.hiddenModules }}
+        security={security}
       />
     )
   }
@@ -65,11 +71,13 @@ export default async function SettingsPage({
   const members = activeVenueId ? await getMembers(activeVenueId) : []
   const managerAccess = await getManagerAccess()
   const reminderSettings = await getReminderSettings()
+  const security = await getSecurityState()
 
   return (
     <SettingsView
       user={{ name: session.user.name, email: session.user.email }}
       company={company}
+      security={security}
       venues={venues.map((v) => ({
         id: v.id,
         name: v.name,
