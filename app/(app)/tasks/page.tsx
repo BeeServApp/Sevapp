@@ -1,5 +1,6 @@
 import type { Metadata } from "next"
 import { redirect } from "next/navigation"
+import { Suspense } from "react"
 
 import { TasksView } from "@/components/tasks-view"
 import { getActiveVenueId, getSession } from "@/lib/session"
@@ -36,14 +37,16 @@ export default async function TasksPage() {
   ])
 
   return (
-    <TasksView
-      venueId={venueId}
-      initialTasks={tasks}
-      initialActions={actions}
-      staff={staff}
-      initialMeetings={meetings}
-      initialMeterReadings={meterReadings}
-      initialDocuments={documents}
-    />
+    <Suspense>
+      <TasksView
+        venueId={venueId}
+        initialTasks={tasks}
+        initialActions={actions}
+        staff={staff}
+        initialMeetings={meetings}
+        initialMeterReadings={meterReadings}
+        initialDocuments={documents}
+      />
+    </Suspense>
   )
 }

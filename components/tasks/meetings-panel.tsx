@@ -1,6 +1,6 @@
 "use client"
 
-import { useMemo, useRef, useState, useTransition } from "react"
+import { useEffect, useMemo, useRef, useState, useTransition } from "react"
 import {
   CalendarClock,
   CheckCircle2,
@@ -8,7 +8,9 @@ import {
   Eraser,
   Loader2,
   MessagesSquare,
+  Pencil,
   PenLine,
+  Play,
   Plus,
   Trash2,
   User,
@@ -43,7 +45,10 @@ import {
   createMeeting,
   deleteMeeting,
   signMeeting,
+  startMeeting,
+  updateMeeting,
   updateMeetingActionStatus,
+  updateMeetingNotes,
   type MeetingWithActions,
 } from "@/app/actions/oversight"
 import type { DbMeetingAction, DbStaffMember } from "@/lib/db/schema"
@@ -74,10 +79,13 @@ export function MeetingsPanel({
   venueId,
   initialMeetings,
   staff,
+  startMeetingId = null,
 }: {
   venueId: number
   initialMeetings: MeetingWithActions[]
   staff: DbStaffMember[]
+  /** When set (deep-link from the calendar), auto-open that meeting's workspace. */
+  startMeetingId?: number | null
 }) {
   const [meetings, setMeetings] = useState<MeetingWithActions[]>(initialMeetings)
 
@@ -99,7 +107,7 @@ export function MeetingsPanel({
     return { held, completedActions, overdueActions }
   }, [meetings, allActions])
 
-  function updateMeeting(updated: MeetingWithActions) {
+  function applyMeetingUpdate(updated: MeetingWithActions) {
     setMeetings((prev) => prev.map((m) => (m.id === updated.id ? updated : m)))
   }
 
@@ -157,7 +165,9 @@ export function MeetingsPanel({
                 <MeetingCard
                   key={m.id}
                   meeting={m}
-                  onChange={updateMeeting}
+                  staff={staff}
+                  autoStart={startMeetingId === m.id}
+                  onChange={applyMeetingUpdate}
                   onDelete={(id) => setMeetings((prev) => prev.filter((x) => x.id !== id))}
                   onActionStatus={setActionStatus}
                 />
@@ -237,23 +247,47 @@ function EmptyRow({
 
 function MeetingCard({
   meeting,
+  staff,
   onChange,
   onDelete,
   onActionStatus,
+  autoStart = false,
 }: {
   meeting: MeetingWithActions
+  staff: DbStaffMember[]
   onChange: (m: MeetingWithActions) => void
   onDelete: (id: number) => void
   onActionStatus: (actionId: number, status: string) => void
+  autoStart?: boolean
 }) {
   const [pending, startTransition] = useTransition()
+  const [runOpen, setRunOpen] = useState(false)
   const doneCount = meeting.actions.filter((a) => a.status === "Completed").length
+  const started = !!meeting.startedAt
+  const signed = !!meeting.signatureUrl
+
+  // Deep-link: when arriving from the calendar's "Start meeting" we open the
+  // live workspace automatically once (and kick off the start if still pending).
+  useEffect(() => {
+    if (autoStart && !signed) setRunOpen(true)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [autoStart])
 
   function handleDelete() {
     onDelete(meeting.id)
     startTransition(() => {
       deleteMeeting(meeting.id)
     })
+  }
+
+  function handleStart() {
+    setRunOpen(true)
+    if (!started) {
+      onChange({ ...meeting, startedAt: new Date(), status: "In Progress" })
+      startTransition(async () => {
+        await startMeeting(meeting.id)
+      })
+    }
   }
 
   function handleSigned(signatureUrl: string, signedBy: string) {
@@ -265,6 +299,7 @@ function MeetingCard({
       reviewedAt: new Date(),
       status: "Held",
     })
+    setRunOpen(false)
   }
 
   return (
@@ -297,16 +332,21 @@ function MeetingCard({
             )}
           </div>
         </div>
-        <Button
-          size="sm"
-          variant="ghost"
-          className="text-muted-foreground hover:text-destructive"
-          onClick={handleDelete}
-          disabled={pending}
-          aria-label="Delete meeting"
-        >
-          <Trash2 className="size-4" />
-        </Button>
+        <div className="flex shrink-0 items-center gap-1">
+          {!signed && (
+            <EditMeetingDialog meeting={meeting} staff={staff} onSaved={onChange} />
+          )}
+          <Button
+            size="sm"
+            variant="ghost"
+            className="text-muted-foreground hover:text-destructive"
+            onClick={handleDelete}
+            disabled={pending}
+            aria-label="Delete meeting"
+          >
+            <Trash2 className="size-4" />
+          </Button>
+        </div>
       </div>
 
       {meeting.notes && <p className="mt-3 whitespace-pre-wrap text-sm text-muted-foreground">{meeting.notes}</p>}
@@ -330,15 +370,18 @@ function MeetingCard({
       )}
 
       <div className="mt-3 flex flex-wrap items-center gap-2">
-        {meeting.signatureUrl ? (
+        {signed ? (
           <span className="inline-flex items-center gap-1.5 text-sm text-chart-2">
             <CheckCircle2 className="size-4" />
             Reviewed &amp; signed{meeting.signedBy ? ` by ${meeting.signedBy}` : ""}
           </span>
         ) : (
-          <SignMeetingDialog meetingId={meeting.id} onSigned={handleSigned} />
+          <Button size="sm" onClick={handleStart} disabled={pending}>
+            <Play className="size-4" />
+            {started ? "Resume meeting" : "Start meeting"}
+          </Button>
         )}
-        {meeting.signatureUrl && (
+        {signed && (
           // eslint-disable-next-line @next/next/no-img-element
           <img
             src={meeting.signatureUrl || "/placeholder.svg"}
@@ -347,7 +390,282 @@ function MeetingCard({
           />
         )}
       </div>
+
+      <RunMeetingDialog
+        open={runOpen}
+        onOpenChange={setRunOpen}
+        meeting={meeting}
+        onChange={onChange}
+        onActionStatus={onActionStatus}
+        onSigned={handleSigned}
+      />
     </Card>
+  )
+}
+
+/**
+ * The live meeting workspace: opens when you press Start meeting. Shows the
+ * agreed notes and actions inline so they can be worked through, lets you jot
+ * live notes, and captures the closing signature review at the end.
+ */
+function RunMeetingDialog({
+  open,
+  onOpenChange,
+  meeting,
+  onChange,
+  onActionStatus,
+  onSigned,
+}: {
+  open: boolean
+  onOpenChange: (o: boolean) => void
+  meeting: MeetingWithActions
+  onChange: (m: MeetingWithActions) => void
+  onActionStatus: (actionId: number, status: string) => void
+  onSigned: (signatureUrl: string, signedBy: string) => void
+}) {
+  const [notes, setNotes] = useState(meeting.notes ?? "")
+  const [savingNotes, startNotes] = useTransition()
+  const [signing, setSigning] = useState(false)
+  const doneCount = meeting.actions.filter((a) => a.status === "Completed").length
+
+  // Keep the local notes buffer in sync when the underlying meeting changes.
+  useEffect(() => {
+    if (open) setNotes(meeting.notes ?? "")
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, meeting.id])
+
+  function saveNotes() {
+    if (notes === (meeting.notes ?? "")) return
+    onChange({ ...meeting, notes })
+    startNotes(async () => {
+      await updateMeetingNotes(meeting.id, notes)
+    })
+  }
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-lg">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2">
+            <span className="inline-flex size-6 items-center justify-center rounded-full bg-chart-3/15 text-chart-3">
+              <Play className="size-3.5" />
+            </span>
+            {meeting.title}
+          </DialogTitle>
+          <DialogDescription>
+            {signing
+              ? "Capture the operator's signature to close out and file this meeting."
+              : "Work through the agreed notes and follow-up actions live, then capture a signature to finish."}
+          </DialogDescription>
+        </DialogHeader>
+
+        {signing ? (
+          <SignMeetingForm
+            meetingId={meeting.id}
+            onSigned={onSigned}
+            onBack={() => setSigning(false)}
+          />
+        ) : (
+          <div className="flex flex-col gap-5">
+            <div className="flex flex-col gap-2">
+              <Label htmlFor="run-notes">Meeting notes</Label>
+              <Textarea
+                id="run-notes"
+                value={notes}
+                onChange={(e) => setNotes(e.target.value)}
+                onBlur={saveNotes}
+                placeholder="Agenda, discussion points and decisions captured live."
+                rows={5}
+              />
+              <span className="text-xs text-muted-foreground">
+                {savingNotes ? "Saving notes…" : "Notes save automatically."}
+              </span>
+            </div>
+
+            <div className="flex flex-col gap-2">
+              <div className="flex items-center justify-between">
+                <Label>Follow-up actions</Label>
+                {meeting.actions.length > 0 && (
+                  <span className="text-xs text-muted-foreground">
+                    {doneCount}/{meeting.actions.length} done
+                  </span>
+                )}
+              </div>
+              {meeting.actions.length === 0 ? (
+                <p className="rounded-md border border-dashed border-border p-3 text-sm text-muted-foreground">
+                  No actions were agreed when scheduling. You can add them from the meeting card after finishing.
+                </p>
+              ) : (
+                <ul className="flex flex-col gap-1.5 rounded-md border border-border p-3">
+                  {meeting.actions.map((a) => (
+                    <li key={a.id} className="flex items-center justify-between gap-3 text-sm">
+                      <div className="min-w-0">
+                        <span className={cn(a.status === "Completed" && "text-muted-foreground line-through")}>
+                          {a.title}
+                        </span>
+                        {a.dueDate && (
+                          <span className="ml-2 text-xs text-muted-foreground">Due {fmtDate(a.dueDate)}</span>
+                        )}
+                      </div>
+                      <Button
+                        size="sm"
+                        variant={a.status === "Completed" ? "outline" : "default"}
+                        className="h-7 shrink-0"
+                        onClick={() => onActionStatus(a.id, a.status === "Completed" ? "Open" : "Completed")}
+                      >
+                        {a.status === "Completed" ? "Reopen" : "Done"}
+                      </Button>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+
+            <DialogFooter>
+              <Button variant="outline" onClick={() => onOpenChange(false)}>
+                Close
+              </Button>
+              <Button
+                onClick={() => {
+                  saveNotes()
+                  setSigning(true)
+                }}
+              >
+                <PenLine className="size-4" />
+                End &amp; capture signature
+              </Button>
+            </DialogFooter>
+          </div>
+        )}
+      </DialogContent>
+    </Dialog>
+  )
+}
+
+/** Edit a scheduled meeting's title, date, creator and notes. */
+function EditMeetingDialog({
+  meeting,
+  staff,
+  onSaved,
+}: {
+  meeting: MeetingWithActions
+  staff: DbStaffMember[]
+  onSaved: (m: MeetingWithActions) => void
+}) {
+  const [open, setOpen] = useState(false)
+  const [pending, startTransition] = useTransition()
+  const [error, setError] = useState<string | null>(null)
+  const [title, setTitle] = useState(meeting.title)
+  const [scheduledDate, setScheduledDate] = useState(meeting.scheduledDate ?? "")
+  const [createdById, setCreatedById] = useState<string>(
+    meeting.createdByStaffMemberId ? String(meeting.createdByStaffMemberId) : NO_ASSIGNEE,
+  )
+  const [notes, setNotes] = useState(meeting.notes ?? "")
+
+  function reset() {
+    setTitle(meeting.title)
+    setScheduledDate(meeting.scheduledDate ?? "")
+    setCreatedById(meeting.createdByStaffMemberId ? String(meeting.createdByStaffMemberId) : NO_ASSIGNEE)
+    setNotes(meeting.notes ?? "")
+    setError(null)
+  }
+
+  function submit() {
+    if (!title.trim()) {
+      setError("Meeting title is required")
+      return
+    }
+    const staffId = createdById === NO_ASSIGNEE ? null : Number(createdById)
+    const creator = staff.find((s) => s.id === staffId)
+    startTransition(async () => {
+      try {
+        await updateMeeting({
+          meetingId: meeting.id,
+          title: title.trim(),
+          scheduledDate: scheduledDate || null,
+          createdByStaffMemberId: staffId,
+          notes: notes.trim() || null,
+        })
+        onSaved({
+          ...meeting,
+          title: title.trim(),
+          scheduledDate: scheduledDate || null,
+          createdByStaffMemberId: staffId,
+          createdBy: creator ? creator.name : null,
+          notes: notes.trim() || null,
+        })
+        setOpen(false)
+      } catch (err) {
+        setError(err instanceof Error ? err.message : "Could not update meeting")
+      }
+    })
+  }
+
+  return (
+    <Dialog
+      open={open}
+      onOpenChange={(o) => {
+        setOpen(o)
+        if (o) reset()
+      }}
+    >
+      <DialogTrigger
+        render={
+          <Button size="sm" variant="ghost" className="text-muted-foreground" aria-label="Edit meeting">
+            <Pencil className="size-4" />
+          </Button>
+        }
+      />
+      <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-lg">
+        <DialogHeader>
+          <DialogTitle>Edit meeting</DialogTitle>
+          <DialogDescription>Update the meeting details, owner and notes.</DialogDescription>
+        </DialogHeader>
+        <div className="flex flex-col gap-4">
+          <div className="flex flex-col gap-2">
+            <Label htmlFor="e-title">Title</Label>
+            <Input id="e-title" value={title} onChange={(e) => setTitle(e.target.value)} />
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div className="flex flex-col gap-2">
+              <Label htmlFor="e-date">Scheduled date</Label>
+              <Input id="e-date" type="date" value={scheduledDate} onChange={(e) => setScheduledDate(e.target.value)} />
+            </div>
+            <div className="flex flex-col gap-2">
+              <Label htmlFor="e-by">Created by</Label>
+              <Select value={createdById} onValueChange={(v) => setCreatedById(v ?? NO_ASSIGNEE)}>
+                <SelectTrigger id="e-by">
+                  <SelectValue placeholder="Select staff member" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value={NO_ASSIGNEE}>Unassigned</SelectItem>
+                  {staff.map((s) => (
+                    <SelectItem key={s.id} value={String(s.id)}>
+                      {s.name}
+                      {s.role ? ` — ${s.role}` : ""}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+          <div className="flex flex-col gap-2">
+            <Label htmlFor="e-notes">Meeting notes</Label>
+            <Textarea id="e-notes" value={notes} onChange={(e) => setNotes(e.target.value)} rows={4} />
+          </div>
+          {error && <p className="text-sm text-destructive">{error}</p>}
+        </div>
+        <DialogFooter>
+          <Button variant="outline" onClick={() => setOpen(false)}>
+            Cancel
+          </Button>
+          <Button onClick={submit} disabled={pending}>
+            {pending && <Loader2 className="size-4 animate-spin" />}
+            Save changes
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   )
 }
 
@@ -416,7 +734,7 @@ function CreateMeetingDialog({
   const [error, setError] = useState<string | null>(null)
   const [title, setTitle] = useState("")
   const [scheduledDate, setScheduledDate] = useState("")
-  const [createdBy, setCreatedBy] = useState("")
+  const [createdById, setCreatedById] = useState<string>(NO_ASSIGNEE)
   const [notes, setNotes] = useState("")
   const [assignedStaffId, setAssignedStaffId] = useState<string>(NO_ASSIGNEE)
   const [actions, setActions] = useState<DraftAction[]>([{ title: "", assignee: "", dueDate: "" }])
@@ -428,7 +746,7 @@ function CreateMeetingDialog({
   function reset() {
     setTitle("")
     setScheduledDate("")
-    setCreatedBy("")
+    setCreatedById(NO_ASSIGNEE)
     setNotes("")
     setAssignedStaffId(NO_ASSIGNEE)
     setActions([{ title: "", assignee: "", dueDate: "" }])
@@ -453,7 +771,7 @@ function CreateMeetingDialog({
           venueId,
           title: title.trim(),
           scheduledDate: scheduledDate || undefined,
-          createdBy: createdBy.trim() || undefined,
+          createdByStaffMemberId: createdById === NO_ASSIGNEE ? null : Number(createdById),
           notes: notes.trim() || undefined,
           assignedStaffMemberId:
             assignedStaffId === NO_ASSIGNEE ? null : Number(assignedStaffId),
@@ -520,12 +838,20 @@ function CreateMeetingDialog({
             </div>
             <div className="flex flex-col gap-2">
               <Label htmlFor="m-by">Created by</Label>
-              <Input
-                id="m-by"
-                value={createdBy}
-                onChange={(e) => setCreatedBy(e.target.value)}
-                placeholder="e.g. Matt"
-              />
+              <Select value={createdById} onValueChange={(v) => setCreatedById(v ?? NO_ASSIGNEE)}>
+                <SelectTrigger id="m-by">
+                  <SelectValue placeholder="Select staff member" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value={NO_ASSIGNEE}>Unassigned</SelectItem>
+                  {staff.map((s) => (
+                    <SelectItem key={s.id} value={String(s.id)}>
+                      {s.name}
+                      {s.role ? ` — ${s.role}` : ""}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
           </div>
           <div className="flex flex-col gap-2">
@@ -625,14 +951,15 @@ function CreateMeetingDialog({
   )
 }
 
-function SignMeetingDialog({
+function SignMeetingForm({
   meetingId,
   onSigned,
+  onBack,
 }: {
   meetingId: number
   onSigned: (signatureUrl: string, signedBy: string) => void
+  onBack: () => void
 }) {
-  const [open, setOpen] = useState(false)
   const [pending, startTransition] = useTransition()
   const [signedBy, setSignedBy] = useState("")
   const [error, setError] = useState<string | null>(null)
@@ -691,7 +1018,6 @@ function SignMeetingDialog({
       try {
         await signMeeting({ meetingId, signatureUrl: dataUrl, signedBy: signedBy.trim() })
         onSigned(dataUrl, signedBy.trim())
-        setOpen(false)
         setSignedBy("")
         clear()
       } catch (err) {
@@ -701,69 +1027,40 @@ function SignMeetingDialog({
   }
 
   return (
-    <Dialog
-      open={open}
-      onOpenChange={(o) => {
-        setOpen(o)
-        setError(null)
-      }}
-    >
-      <DialogTrigger
-        render={
-          <Button size="sm" variant="outline">
-            <PenLine className="size-4" />
-            Capture signature review
-          </Button>
-        }
-      />
-      <DialogContent className="sm:max-w-md">
-        <DialogHeader>
-          <DialogTitle>Signature review</DialogTitle>
-          <DialogDescription>
-            Confirm the operator has read the meeting notes by capturing their signature.
-          </DialogDescription>
-        </DialogHeader>
-        <div className="flex flex-col gap-4">
-          <div className="flex flex-col gap-2">
-            <Label htmlFor="s-name">Reviewed by</Label>
-            <Input
-              id="s-name"
-              value={signedBy}
-              onChange={(e) => setSignedBy(e.target.value)}
-              placeholder="Full name"
-            />
-          </div>
-          <div className="flex flex-col gap-2">
-            <Label>Signature</Label>
-            <div className="rounded-md border border-border bg-card">
-              <canvas
-                ref={canvasRef}
-                width={440}
-                height={180}
-                className="h-[180px] w-full touch-none rounded-md"
-                onPointerDown={start}
-                onPointerMove={move}
-                onPointerUp={end}
-                onPointerLeave={end}
-              />
-            </div>
-            <Button size="sm" variant="ghost" className="self-start text-muted-foreground" onClick={clear}>
-              <Eraser className="size-4" />
-              Clear
-            </Button>
-          </div>
-          {error && <p className="text-sm text-destructive">{error}</p>}
+    <div className="flex flex-col gap-4">
+      <div className="flex flex-col gap-2">
+        <Label htmlFor="s-name">Reviewed by</Label>
+        <Input id="s-name" value={signedBy} onChange={(e) => setSignedBy(e.target.value)} placeholder="Full name" />
+      </div>
+      <div className="flex flex-col gap-2">
+        <Label>Signature</Label>
+        <div className="rounded-md border border-border bg-card">
+          <canvas
+            ref={canvasRef}
+            width={440}
+            height={180}
+            className="h-[180px] w-full touch-none rounded-md"
+            onPointerDown={start}
+            onPointerMove={move}
+            onPointerUp={end}
+            onPointerLeave={end}
+          />
         </div>
-        <DialogFooter>
-          <Button variant="outline" onClick={() => setOpen(false)}>
-            Cancel
-          </Button>
-          <Button onClick={submit} disabled={pending}>
-            {pending && <Loader2 className="size-4 animate-spin" />}
-            Save review
-          </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+        <Button size="sm" variant="ghost" className="self-start text-muted-foreground" onClick={clear}>
+          <Eraser className="size-4" />
+          Clear
+        </Button>
+      </div>
+      {error && <p className="text-sm text-destructive">{error}</p>}
+      <DialogFooter>
+        <Button variant="outline" onClick={onBack}>
+          Back
+        </Button>
+        <Button onClick={submit} disabled={pending}>
+          {pending && <Loader2 className="size-4 animate-spin" />}
+          Save review &amp; finish
+        </Button>
+      </DialogFooter>
+    </div>
   )
 }

@@ -16,6 +16,7 @@ import {
   ListChecks,
   MapPin,
   Pencil,
+  Play,
   Plus,
   Trash2,
 } from "lucide-react"
@@ -311,7 +312,7 @@ export function CalendarView({
         location: null,
         linkType: "meeting",
         linkId: m.id,
-        href: "/tasks",
+        href: `/tasks?tab=meetings&startMeeting=${m.id}`,
         source: null,
         venueId: m.venueId,
         assignedToMe: m.assignedToMe,
@@ -735,7 +736,19 @@ function DayItemRow({
         </div>
       </div>
       <div className="flex shrink-0 items-center gap-0.5">
-        {isLinkedSource ? (
+        {item.kind === "meeting" ? (
+          item.status !== "Held" &&
+          item.status !== "Completed" && (
+            <Button
+              size="sm"
+              className="h-7"
+              render={<Link href={item.href ?? "/tasks"} aria-label="Start meeting" />}
+            >
+              <Play className="size-3.5" />
+              {item.status === "In Progress" ? "Resume" : "Start meeting"}
+            </Button>
+          )
+        ) : isLinkedSource ? (
           item.href && (
             <Button
               variant="ghost"
