@@ -3,7 +3,7 @@
 import { db } from "@/lib/db"
 import { company, venue } from "@/lib/db/schema"
 import { requireOwner, getAccountId as getUserId } from "@/lib/session"
-import { stripe } from "@/lib/stripe"
+import { stripe, isStripeConfigured } from "@/lib/stripe"
 import { ensureCompanyRow } from "@/lib/trial"
 import {
   getTier,
@@ -330,6 +330,11 @@ export async function syncLocationQuantity(): Promise<void> {
  */
 export async function createCardSetupIntent(): Promise<{ clientSecret: string }> {
   const me = await requireOwner()
+  if (!isStripeConfigured()) {
+    throw new Error(
+      "Payments aren't set up yet. The Stripe integration needs to be connected before you can add a card.",
+    )
+  }
   const userId = await getUserId()
   const row = await getCompanyRow(userId)
 
