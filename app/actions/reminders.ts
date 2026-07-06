@@ -15,6 +15,7 @@ import {
   taskCheck,
   venue,
 } from "@/lib/db/schema"
+import { getOnShiftStaffIds } from "@/app/actions/tasks"
 import { getCurrentUser, requireOwner } from "@/lib/session"
 import { notify } from "@/app/actions/notifications"
 import { weekStartOf, dayLabelOf } from "@/lib/rota"
@@ -354,6 +355,13 @@ async function processVenueDueItems(v: VenueCtx, dateISO: string, now: Date): Pr
       if (m?.linkedUserId) recipients.push(m)
     } else if (t.assigneeRole) {
       for (const m of withLogin) if (m.role === t.assigneeRole) recipients.push(m)
+    } else if (t.assignOnShift) {
+      // Remind whoever is rostered on shift for this task's due date/time.
+      const ids = await getOnShiftStaffIds(v.userId, v.id, dateISO, t.dueTime)
+      for (const id of ids) {
+        const m = byId.get(id)
+        if (m?.linkedUserId) recipients.push(m)
+      }
     }
     for (const m of recipients) {
       await fire({

@@ -79,13 +79,14 @@ type Props = {
   initialDocuments: DbOpsDocument[]
 }
 
-/** Friendly assignment label from a task's staff/role/legacy fields. */
+/** Friendly assignment label from a task's staff/role/on-shift/legacy fields. */
 function assigneeLabel(
-  task: Pick<TaskWithItems, "assigneeStaffId" | "assigneeRole" | "assignee">,
+  task: Pick<TaskWithItems, "assigneeStaffId" | "assigneeRole" | "assignOnShift" | "assignee">,
   staffById: Map<number, string>,
 ): string | null {
   if (task.assigneeStaffId != null) return staffById.get(task.assigneeStaffId) ?? "Staff member"
   if (task.assigneeRole) return `${task.assigneeRole} (role)`
+  if (task.assignOnShift) return "Whoever's on shift"
   return task.assignee || null
 }
 
@@ -836,7 +837,7 @@ function CreateTaskDialog({
   const initialForm = {
     title: "",
     category: "Opening",
-    assignMode: "unassigned" as "unassigned" | "person" | "role",
+    assignMode: "unassigned" as "unassigned" | "person" | "role" | "on-shift",
     assigneeStaffId: "",
     assigneeRole: roles[0] ?? "",
     dueDate: "",
@@ -875,6 +876,10 @@ function CreateTaskDialog({
       setError("Choose a role, or change who it's assigned to")
       return
     }
+    if (form.assignMode === "on-shift" && !form.dueDate) {
+      setError("Add a due date so we can tell who's on shift then")
+      return
+    }
     startTransition(async () => {
       try {
         const items = itemsText
@@ -890,6 +895,7 @@ function CreateTaskDialog({
           category: form.category,
           assigneeStaffId,
           assigneeRole,
+          assignOnShift: form.assignMode === "on-shift",
           dueDate: form.dueDate || undefined,
           dueTime: form.dueTime || undefined,
           frequency: form.frequency,
@@ -996,6 +1002,7 @@ function CreateTaskDialog({
                   <SelectItem value="role" disabled={roles.length === 0}>
                     A whole role
                   </SelectItem>
+                  <SelectItem value="on-shift">Whoever is on shift</SelectItem>
                 </SelectContent>
               </Select>
 
@@ -1034,6 +1041,10 @@ function CreateTaskDialog({
                     ))}
                   </SelectContent>
                 </Select>
+              ) : form.assignMode === "on-shift" ? (
+                <div className="flex items-center text-xs text-muted-foreground">
+                  Assigned to staff rostered on the published rota at the due date &amp; time.
+                </div>
               ) : (
                 <div className="flex items-center text-xs text-muted-foreground">
                   Any team member can pick this up.

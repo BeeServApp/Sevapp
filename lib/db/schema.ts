@@ -661,6 +661,9 @@ export const taskCheck = pgTable("task_check", {
   assigneeStaffId: integer("assigneeStaffId"),
   // Role this task is assigned to, e.g. "Bar" (null = none).
   assigneeRole: text("assigneeRole"),
+  // When true, the task is dynamically assigned to whoever is rostered on shift
+  // at its due date/time (resolved from the published rota), not a fixed person.
+  assignOnShift: boolean("assignOnShift").notNull().default(false),
   dueDate: text("dueDate"),
   dueTime: text("dueTime"),
   frequency: text("frequency").notNull().default("Daily"),
