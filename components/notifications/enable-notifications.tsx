@@ -9,7 +9,14 @@ import {
   removePushSubscription,
 } from "@/app/actions/reminders"
 
-type Status = "loading" | "unsupported" | "denied" | "off" | "on"
+type Status =
+  | "loading"
+  | "ios-needs-install"
+  | "in-iframe"
+  | "unsupported"
+  | "denied"
+  | "off"
+  | "on"
 
 function urlBase64ToUint8Array(base64String: string): Uint8Array {
   const padding = "=".repeat((4 - (base64String.length % 4)) % 4)
@@ -18,6 +25,37 @@ function urlBase64ToUint8Array(base64String: string): Uint8Array {
   const output = new Uint8Array(raw.length)
   for (let i = 0; i < raw.length; i++) output[i] = raw.charCodeAt(i)
   return output
+}
+
+// iPhone/iPad — includes iPadOS which reports as "MacIntel" but has touch.
+function isIOS(): boolean {
+  if (typeof navigator === "undefined") return false
+  const ua = navigator.userAgent || ""
+  return (
+    /iPad|iPhone|iPod/.test(ua) ||
+    (navigator.platform === "MacIntel" && (navigator.maxTouchPoints ?? 0) > 1)
+  )
+}
+
+// True when launched from the Home Screen (installed PWA) rather than a tab.
+function isStandalone(): boolean {
+  if (typeof window === "undefined") return false
+  return (
+    window.matchMedia?.("(display-mode: standalone)").matches ||
+    // iOS Safari exposes this non-standard flag on navigator.
+    (navigator as unknown as { standalone?: boolean }).standalone === true
+  )
+}
+
+// The v0 preview and other embeds run in a cross-origin iframe where the
+// browser blocks service-worker registration and Notification permission.
+function inIframe(): boolean {
+  if (typeof window === "undefined") return false
+  try {
+    return window.self !== window.top
+  } catch {
+    return true
+  }
 }
 
 export function EnableNotifications({ compact = false }: { compact?: boolean }) {
@@ -33,7 +71,19 @@ export function EnableNotifications({ compact = false }: { compact?: boolean }) 
 
   // Determine the current subscription state on mount.
   const refresh = useCallback(async () => {
+    // Cross-origin iframe (e.g. the in-app preview): push APIs are blocked
+    // here even on capable browsers, so guide the user to open it directly.
+    if (inIframe()) {
+      setStatus("in-iframe")
+      return
+    }
     if (!supported) {
+      // On iOS, PushManager only exists once the app is added to the Home
+      // Screen. A plain Safari/Chrome tab needs installing first.
+      if (isIOS() && !isStandalone()) {
+        setStatus("ios-needs-install")
+        return
+      }
       setStatus("unsupported")
       return
     }
@@ -122,10 +172,36 @@ export function EnableNotifications({ compact = false }: { compact?: boolean }) 
     )
   }
 
+  if (status === "in-iframe") {
+    return (
+      <p className="text-sm text-muted-foreground">
+        Open Beeserv in your browser (not this embedded preview) to turn on phone alerts.
+      </p>
+    )
+  }
+
+  if (status === "ios-needs-install") {
+    return (
+      <div className="flex flex-col gap-2 text-sm text-muted-foreground">
+        <p>To get alerts on your iPhone or iPad, add Beeserv to your Home Screen first:</p>
+        <ol className="ml-4 list-decimal space-y-1">
+          <li>
+            Tap the <span className="font-medium text-foreground">Share</span> icon in Safari (the square with an
+            up arrow).
+          </li>
+          <li>
+            Choose <span className="font-medium text-foreground">Add to Home Screen</span>.
+          </li>
+          <li>Open Beeserv from your Home Screen, then return here to enable alerts.</li>
+        </ol>
+      </div>
+    )
+  }
+
   if (status === "unsupported") {
     return (
       <p className="text-sm text-muted-foreground">
-        Push notifications aren&apos;t supported on this device or browser.
+        Push notifications aren&apos;t supported on this device or browser. Try the latest Chrome or Safari.
       </p>
     )
   }
