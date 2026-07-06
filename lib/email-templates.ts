@@ -1,7 +1,7 @@
 import "server-only"
 
 /**
- * Lightweight, dependency-free HTML email templates for TapSheet's transactional
+ * Lightweight, dependency-free HTML email templates for BeeServ's transactional
  * emails (email verification, two-factor codes, team invites). Each builder
  * returns a subject-agnostic body; `renderEmail` wraps the inner HTML in a shared
  * branded shell and derives a plain-text fallback.
@@ -16,7 +16,7 @@ interface EmailBody {
   preheader?: string
 }
 
-const BRAND = "TapSheet"
+const BRAND = "BeeServ"
 const BRAND_COLOR = "#16a34a"
 
 /** Wraps an email body in a responsive, branded HTML shell. */
@@ -67,7 +67,7 @@ export function renderEmail(body: EmailBody): { html: string; text: string } {
 export function verifyEmailTemplate({ name, url }: { name?: string | null; url: string }): EmailBody {
   const greeting = name ? `Hi ${name},` : "Hi there,"
   return {
-    preheader: "Confirm your email address to secure your TapSheet account.",
+    preheader: "Confirm your email address to secure your BeeServ account.",
     html: `
       <h1 style="margin:0 0 16px;font-size:22px;line-height:28px;font-weight:700;color:#111827;">Verify your email</h1>
       <p style="margin:0 0 16px;font-size:15px;line-height:24px;color:#374151;">${greeting}</p>
@@ -84,7 +84,7 @@ export function verifyEmailTemplate({ name, url }: { name?: string | null; url: 
       <p style="margin:0 0 8px;font-size:13px;line-height:20px;color:#6b7280;">Or paste this link into your browser:</p>
       <p style="margin:0;font-size:13px;line-height:20px;word-break:break-all;"><a href="${url}" style="color:${BRAND_COLOR};">${url}</a></p>
     `,
-    text: `${greeting}\n\nConfirm your email address for TapSheet by opening this link:\n${url}\n\nIf you didn't create an account, you can ignore this email.`,
+    text: `${greeting}\n\nConfirm your email address for BeeServ by opening this link:\n${url}\n\nIf you didn't create an account, you can ignore this email.`,
   }
 }
 
@@ -106,7 +106,7 @@ export function twoFactorOtpTemplate({ name, otp }: { name?: string | null; otp:
         If you didn't try to sign in, someone may have your password. Change it as soon as possible.
       </p>
     `,
-    text: `${greeting}\n\nYour TapSheet verification code is: ${otp}\n\nIt expires shortly. If you didn't try to sign in, change your password.`,
+    text: `${greeting}\n\nYour BeeServ verification code is: ${otp}\n\nIt expires shortly. If you didn't try to sign in, change your password.`,
   }
 }
 
@@ -126,11 +126,11 @@ export function teamInviteTemplate({
 }): EmailBody {
   const from = inviterName ? `${inviterName} has` : "You've been"
   return {
-    preheader: `Join ${companyName} on TapSheet.`,
+    preheader: `Join ${companyName} on BeeServ.`,
     html: `
       <h1 style="margin:0 0 16px;font-size:22px;line-height:28px;font-weight:700;color:#111827;">You're invited to join ${companyName}</h1>
       <p style="margin:0 0 16px;font-size:15px;line-height:24px;color:#374151;">
-        ${from} invited to join <strong>${companyName}</strong> on TapSheet as a <strong>${roleLabel}</strong> at <strong>${venueName}</strong>.
+        ${from} invited to join <strong>${companyName}</strong> on BeeServ as a <strong>${roleLabel}</strong> at <strong>${venueName}</strong>.
       </p>
       <p style="margin:0 0 24px;font-size:15px;line-height:24px;color:#374151;">
         Set up your login to view your rota, clock in and out, and manage your shifts.
@@ -145,6 +145,6 @@ export function teamInviteTemplate({
       <p style="margin:0 0 8px;font-size:13px;line-height:20px;color:#6b7280;">Or paste this link into your browser:</p>
       <p style="margin:0;font-size:13px;line-height:20px;word-break:break-all;"><a href="${url}" style="color:${BRAND_COLOR};">${url}</a></p>
     `,
-    text: `${from} invited to join ${companyName} on TapSheet as a ${roleLabel} at ${venueName}.\n\nAccept your invitation:\n${url}`,
+    text: `${from} invited to join ${companyName} on BeeServ as a ${roleLabel} at ${venueName}.\n\nAccept your invitation:\n${url}`,
   }
 }

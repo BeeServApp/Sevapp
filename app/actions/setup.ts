@@ -206,7 +206,7 @@ export async function inviteSetupTeam(invites: InviteInput[]): Promise<{ invited
     if (origin) {
       await sendEmail({
         to: invite.email,
-        subject: `You're invited to join ${companyName} on TapSheet`,
+        subject: `You're invited to join ${companyName} on Beeserv`,
         ...renderEmail(
           teamInviteTemplate({
             inviterName: me.name,

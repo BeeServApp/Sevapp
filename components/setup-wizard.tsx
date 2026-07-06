@@ -245,7 +245,7 @@ export function SetupWizard({ initial }: { initial: SetupState }) {
                 <div className="grid gap-4 sm:grid-cols-3">
                   <div className="grid gap-2">
                     <Label>Country</Label>
-                    <Select value={country} onValueChange={setCountry}>
+                    <Select value={country} onValueChange={(v) => setCountry(v ?? "")}>
                       <SelectTrigger>
                         <SelectValue />
                       </SelectTrigger>
@@ -260,7 +260,7 @@ export function SetupWizard({ initial }: { initial: SetupState }) {
                   </div>
                   <div className="grid gap-2">
                     <Label>Currency</Label>
-                    <Select value={currency} onValueChange={setCurrency}>
+                    <Select value={currency} onValueChange={(v) => setCurrency(v ?? "")}>
                       <SelectTrigger>
                         <SelectValue />
                       </SelectTrigger>
@@ -275,7 +275,7 @@ export function SetupWizard({ initial }: { initial: SetupState }) {
                   </div>
                   <div className="grid gap-2">
                     <Label>Timezone</Label>
-                    <Select value={timezone} onValueChange={setTimezone}>
+                    <Select value={timezone} onValueChange={(v) => setTimezone(v ?? "")}>
                       <SelectTrigger>
                         <SelectValue />
                       </SelectTrigger>
@@ -308,7 +308,7 @@ export function SetupWizard({ initial }: { initial: SetupState }) {
                   </div>
                   <div className="grid gap-2">
                     <Label>Type</Label>
-                    <Select value={venueType} onValueChange={setVenueType}>
+                    <Select value={venueType} onValueChange={(v) => setVenueType(v ?? "")}>
                       <SelectTrigger>
                         <SelectValue />
                       </SelectTrigger>
@@ -373,7 +373,7 @@ export function SetupWizard({ initial }: { initial: SetupState }) {
                     </div>
                     <div className="grid gap-1.5">
                       {i === 0 && <Label className="text-xs">Role</Label>}
-                      <Select value={inv.role} onValueChange={(v) => updateInvite(i, { role: v })}>
+                      <Select value={inv.role} onValueChange={(v) => updateInvite(i, { role: v ?? "Staff" })}>
                         <SelectTrigger>
                           <SelectValue />
                         </SelectTrigger>

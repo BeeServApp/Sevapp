@@ -58,12 +58,12 @@ export const auth = betterAuth({
     // Two-factor auth: users can enable an authenticator app (TOTP) and/or
     // email one-time codes, with backup codes for recovery.
     twoFactor({
-      issuer: "TapSheet",
+      issuer: "Beeserv",
       otpOptions: {
         async sendOTP({ user: u, otp }) {
           await sendEmail({
             to: u.email,
-            subject: "Your TapSheet verification code",
+            subject: "Your Beeserv verification code",
             ...renderEmail(twoFactorOtpTemplate({ name: u.name, otp })),
           })
         },

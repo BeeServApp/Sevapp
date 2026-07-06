@@ -22,6 +22,13 @@ export default async function AppLayout({ children }: { children: React.ReactNod
 
   const me = await getCurrentUser()
 
+  // Brand-new owners must finish the first-run setup wizard before entering the
+  // app. We check this before seeding so their real venue (created in the
+  // wizard) takes the place of demo data. Staff never see the wizard.
+  if (me.appRole === "owner" && !me.setupCompletedAt) {
+    redirect("/welcome")
+  }
+
   // Only owners get demo data seeded; staff read their owner's data.
   if (me.appRole === "owner") {
     await ensureSeeded(session.user.id, session.user.name, session.user.email)

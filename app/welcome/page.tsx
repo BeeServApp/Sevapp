@@ -4,7 +4,7 @@ import { getSetupState } from "@/app/actions/setup"
 import { SetupWizard } from "@/components/setup-wizard"
 
 export const metadata = {
-  title: "Welcome to TapSheet",
+  title: "Welcome to Beeserv",
 }
 
 export default async function WelcomePage() {
