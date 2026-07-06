@@ -66,6 +66,28 @@ export function shiftHours(startTime: string | null, endTime: string | null, bre
   return mins / 60
 }
 
+/**
+ * Whether a "HH:MM" time falls within a shift's start/end window. Handles
+ * overnight shifts (end before start). If the target time is null, or the shift
+ * has no parseable start/end (legacy free-text `shiftTime`), the shift is
+ * treated as covering the whole day so on-shift assignment still resolves.
+ */
+export function isTimeWithinShift(
+  startTime: string | null | undefined,
+  endTime: string | null | undefined,
+  target: string | null | undefined,
+): boolean {
+  if (!target) return true
+  const t = toMinutes(target)
+  const s = toMinutes(startTime)
+  let e = toMinutes(endTime)
+  if (t == null || s == null || e == null) return true
+  if (e < s) e += 24 * 60 // overnight
+  let tt = t
+  if (tt < s) tt += 24 * 60
+  return tt >= s && tt <= e
+}
+
 export function formatHours(hours: number): string {
   if (hours <= 0) return "0h"
   const whole = Math.floor(hours)

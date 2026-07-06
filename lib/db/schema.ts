@@ -661,9 +661,15 @@ export const taskCheck = pgTable("task_check", {
   assigneeStaffId: integer("assigneeStaffId"),
   // Role this task is assigned to, e.g. "Bar" (null = none).
   assigneeRole: text("assigneeRole"),
+  // When true, the task is dynamically assigned to whoever is rostered on shift
+  // at its due date/time (resolved from the published rota), not a fixed person.
+  assignOnShift: boolean("assignOnShift").notNull().default(false),
   dueDate: text("dueDate"),
   dueTime: text("dueTime"),
   frequency: text("frequency").notNull().default("Daily"),
+  // For the "Set days" frequency: comma-separated day labels (e.g. "Mon,Wed,Fri")
+  // that a template repeats on. Null/empty for other frequencies.
+  repeatDays: text("repeatDays"),
   priority: text("priority").notNull().default("Medium"),
   requiresPhoto: boolean("requiresPhoto").notNull().default(false),
   status: text("status").notNull().default("Pending"),

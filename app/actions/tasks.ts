@@ -1,14 +1,14 @@
 "use server"
 
 import { revalidatePath } from "next/cache"
-import { and, asc, desc, eq, or } from "drizzle-orm"
+import { and, asc, desc, eq, or, inArray } from "drizzle-orm"
 import { db } from "@/lib/db"
-import { taskCheck, taskCheckItem, correctiveAction, staffMember, venue } from "@/lib/db/schema"
+import { taskCheck, taskCheckItem, correctiveAction, staffMember, venue, rotaShift } from "@/lib/db/schema"
 // Tasks are always scoped to the business account. `getUserId` is aliased to
 // `getAccountId` so every query uses the owner/business scope (and works for staff).
 import { getAccountId, getAccountId as getUserId, getCurrentUser } from "@/lib/session"
 import { notify } from "@/app/actions/notifications"
-import { weekStartOf } from "@/lib/rota"
+import { weekStartOf, dayLabelOf, isTimeWithinShift } from "@/lib/rota"
 
 export type TaskWithItems = typeof taskCheck.$inferSelect & {
   items: (typeof taskCheckItem.$inferSelect)[]
@@ -71,9 +71,11 @@ type CreateTaskInput = {
   assignee?: string
   assigneeStaffId?: number | null
   assigneeRole?: string | null
+  assignOnShift?: boolean
   dueDate?: string
   dueTime?: string
   frequency: string
+  repeatDays?: string | null
   priority: string
   requiresPhoto: boolean
   recurring?: boolean
@@ -95,9 +97,11 @@ export async function createTaskCheck(input: CreateTaskInput) {
       assignee: input.assignee || null,
       assigneeStaffId: input.assigneeStaffId ?? null,
       assigneeRole: input.assigneeRole || null,
+      assignOnShift: input.assignOnShift ?? false,
       dueDate: input.dueDate || null,
       dueTime: input.dueTime || null,
       frequency: input.frequency,
+      repeatDays: input.frequency === "Set days" ? input.repeatDays || null : null,
       priority: input.priority,
       requiresPhoto: input.requiresPhoto,
       recurring: isRecurring,
@@ -131,10 +135,46 @@ export async function createTaskCheck(input: CreateTaskInput) {
 }
 
 /**
+ * Staff member ids rostered on shift at a given date/time, from PUBLISHED rota
+ * shifts only. Optionally filters to a single day time; when no time is given,
+ * any shift on that day qualifies. Excludes unassigned "open" shifts (id 0).
+ */
+export async function getOnShiftStaffIds(
+  accountId: string,
+  venueId: number,
+  dueDate: string,
+  dueTime?: string | null,
+): Promise<number[]> {
+  const [y, m, d] = dueDate.split("-").map(Number)
+  if (!y || !m || !d) return []
+  const weekStart = weekStartOf(new Date(y, m - 1, d))
+  const dayLabel = dayLabelOf(dueDate)
+  const shifts = await db
+    .select()
+    .from(rotaShift)
+    .where(
+      and(
+        eq(rotaShift.userId, accountId),
+        eq(rotaShift.venueId, venueId),
+        eq(rotaShift.weekStart, weekStart),
+        eq(rotaShift.day, dayLabel),
+        eq(rotaShift.status, "published"),
+      ),
+    )
+  const ids = new Set<number>()
+  for (const s of shifts) {
+    if (!s.staffMemberId) continue // skip open shifts
+    if (isTimeWithinShift(s.startTime, s.endTime, dueTime)) ids.add(s.staffMemberId)
+  }
+  return Array.from(ids)
+}
+
+/**
  * Notify the people responsible for a task check: a specific staff member
- * (assigneeStaffId) or everyone holding the assigned role (assigneeRole). Only
- * staff with a linked login receive an in-app notification + Web Push. Safe to
- * call for templates and one-offs alike.
+ * (assigneeStaffId), everyone holding the assigned role (assigneeRole), or
+ * whoever is rostered on shift at its due date/time (assignOnShift). Only staff
+ * with a linked login receive an in-app notification + Web Push. Safe to call
+ * for templates and one-offs alike.
  */
 async function notifyTaskAssignees(accountId: string, task: typeof taskCheck.$inferSelect) {
   let recipients: (typeof staffMember.$inferSelect)[] = []
@@ -157,6 +197,16 @@ async function notifyTaskAssignees(accountId: string, task: typeof taskCheck.$in
         ),
       )
     recipients = rows.filter((m) => m.linkedUserId)
+  } else if (task.assignOnShift && task.dueDate) {
+    // Notify whoever is currently rostered on shift for the due date/time.
+    const ids = await getOnShiftStaffIds(accountId, task.venueId, task.dueDate, task.dueTime)
+    if (ids.length > 0) {
+      const rows = await db
+        .select()
+        .from(staffMember)
+        .where(and(eq(staffMember.userId, accountId), inArray(staffMember.id, ids)))
+      recipients = rows.filter((m) => m.linkedUserId)
+    }
   }
   if (recipients.length === 0) return
 
@@ -196,6 +246,11 @@ export async function generateRecurringTaskInstances(venueId: number) {
 
   for (const t of templates) {
     const periodDate = currentPeriodDate(t.frequency)
+    // "Set days" templates only spawn on their chosen weekdays (e.g. Mon/Wed/Fri).
+    if (t.frequency === "Set days") {
+      const days = (t.repeatDays ?? "").split(",").map((s) => s.trim()).filter(Boolean)
+      if (!days.includes(dayLabelOf(periodDate))) continue
+    }
     if (t.lastGeneratedDate === periodDate) continue
 
     const [existing] = await db
@@ -215,9 +270,11 @@ export async function generateRecurringTaskInstances(venueId: number) {
           assignee: t.assignee,
           assigneeStaffId: t.assigneeStaffId,
           assigneeRole: t.assigneeRole,
+          assignOnShift: t.assignOnShift,
           dueDate: periodDate,
           dueTime: t.dueTime,
           frequency: t.frequency,
+          repeatDays: t.repeatDays,
           priority: t.priority,
           requiresPhoto: t.requiresPhoto,
           recurring: false,
@@ -326,16 +383,48 @@ export async function getMyTasks(): Promise<TaskWithItems[]> {
         eq(taskCheck.userId, me.accountId),
         eq(taskCheck.venueId, m.venueId),
         eq(taskCheck.recurring, false),
-        or(eq(taskCheck.assigneeStaffId, m.id), eq(taskCheck.assigneeRole, m.role)),
+        or(
+          eq(taskCheck.assigneeStaffId, m.id),
+          eq(taskCheck.assigneeRole, m.role),
+          eq(taskCheck.assignOnShift, true),
+        ),
       ),
     )
     .orderBy(asc(taskCheck.dueDate), desc(taskCheck.createdAt))
 
-  if (rows.length === 0) return []
+  // For on-shift tasks, only keep the ones whose due date/time falls on one of
+  // this member's own published shifts. Directly/role-assigned tasks always show.
+  const myShifts = await db
+    .select()
+    .from(rotaShift)
+    .where(
+      and(
+        eq(rotaShift.userId, me.accountId),
+        eq(rotaShift.venueId, m.venueId),
+        eq(rotaShift.staffMemberId, m.id),
+        eq(rotaShift.status, "published"),
+      ),
+    )
+  const memberOnShift = (dueDate: string, dueTime: string | null) => {
+    const [y, mo, d] = dueDate.split("-").map(Number)
+    if (!y || !mo || !d) return false
+    const weekStart = weekStartOf(new Date(y, mo - 1, d))
+    const dayLabel = dayLabelOf(dueDate)
+    return myShifts.some(
+      (s) => s.weekStart === weekStart && s.day === dayLabel && isTimeWithinShift(s.startTime, s.endTime, dueTime),
+    )
+  }
+  const visible = rows.filter((t) => {
+    const direct = t.assigneeStaffId === m.id || (t.assigneeRole != null && t.assigneeRole === m.role)
+    if (direct) return true
+    return t.assignOnShift && t.dueDate != null && memberOnShift(t.dueDate, t.dueTime)
+  })
+
+  if (visible.length === 0) return []
 
   const items = await db.select().from(taskCheckItem).where(eq(taskCheckItem.userId, me.accountId))
 
-  return rows.map((t) => ({
+  return visible.map((t) => ({
     ...t,
     items: items.filter((i) => i.taskId === t.id).sort((a, b) => a.sortOrder - b.sortOrder),
   }))
@@ -357,7 +446,12 @@ async function assertAssignedToMe(taskId: number) {
     .where(and(eq(taskCheck.id, taskId), eq(taskCheck.userId, me.accountId)))
     .limit(1)
   if (!task) throw new Error("Task not found")
-  const mine = task.assigneeStaffId === m.id || (task.assigneeRole && task.assigneeRole === m.role)
+  let mine = task.assigneeStaffId === m.id || (task.assigneeRole && task.assigneeRole === m.role)
+  // On-shift tasks belong to whoever is rostered for the due date/time.
+  if (!mine && task.assignOnShift && task.dueDate) {
+    const ids = await getOnShiftStaffIds(me.accountId, m.venueId, task.dueDate, task.dueTime)
+    mine = ids.includes(m.id)
+  }
   if (!mine) throw new Error("This task is not assigned to you")
   return { me, member: m, task }
 }
