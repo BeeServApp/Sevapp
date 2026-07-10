@@ -89,10 +89,8 @@ export function AdminMenu({
         if (!o) reset()
       }}
     >
-      <DialogTrigger asChild>
-        <button type="button" aria-label="Kiosk menu">
-          {children}
-        </button>
+      <DialogTrigger aria-label="Kiosk menu" className="appearance-none border-0 bg-transparent p-0">
+        {children}
       </DialogTrigger>
       <DialogContent className="max-w-sm">
         {step === "pin" && (
