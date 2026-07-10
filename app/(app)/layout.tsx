@@ -98,6 +98,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
         activeVenueId={activeVenueId}
         user={{ name: me.name, email: me.email }}
         hiddenModules={hiddenModules}
+        installedModules={company.installedModules}
         appRole={me.appRole}
         managerRole={me.managerRole}
         businesses={businesses}

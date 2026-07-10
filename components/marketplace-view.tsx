@@ -12,47 +12,67 @@ import {
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
+import { ModuleInstallButton } from "@/components/marketplace/module-install-button"
+import { getModuleDef } from "@/lib/modules"
 
 const SUPPORT_EMAIL = "support@thebeesgroup.co.uk"
 
 type MarketplaceModule = {
+  id: string
   name: string
   tagline: string
   description: string
   icon: LucideIcon
   points: string[]
+  /** Available to install now (vs. "coming soon"). */
+  installable: boolean
 }
 
-// Beeserv's own first-party modules, launching soon.
+// Beeserv's own first-party modules.
 const OWN_MODULES: MarketplaceModule[] = [
   {
+    id: "epos",
     name: "Beeserv EPOS",
     tagline: "Point of sale, built in",
     description:
-      "A fast, hospitality-first till that syncs sales, menus and stock straight into the modules you already use.",
+      "A fast, hospitality-first till for pubs and restaurants — take orders, tender cash or card, and print receipts on any iPad.",
     icon: Monitor,
-    points: ["Live sales into your dashboard", "Menu & stock sync", "Works offline"],
+    points: ["Order-taking till", "Menu & product management", "Linked card terminals"],
+    installable: true,
   },
   {
+    id: "payments",
     name: "Beeserv Payments",
     tagline: "Take payments anywhere",
     description:
       "Card, tap and online payments with transparent pricing and next-day settlement — reconciled automatically.",
     icon: CreditCard,
     points: ["Card & contactless", "Next-day settlement", "Auto reconciliation"],
+    installable: false,
   },
   {
+    id: "accountancy",
     name: "Beeserv Accountancy",
     tagline: "Books that keep themselves",
     description:
       "Sales, wages and supplier costs flow into tidy, real-time accounts your accountant will actually thank you for.",
     icon: Calculator,
     points: ["Real-time P&L", "Wage & cost sync", "Export to your accountant"],
+    installable: false,
   },
 ]
 
-function ModuleCard({ module: m }: { module: MarketplaceModule }) {
+function ModuleCard({
+  module: m,
+  installed,
+  canManage,
+}: {
+  module: MarketplaceModule
+  installed: boolean
+  canManage: boolean
+}) {
   const Icon = m.icon
+  const openHref = getModuleDef(m.id)?.path ?? "/marketplace"
   return (
     <Card className="flex flex-col">
       <CardHeader>
@@ -60,16 +80,26 @@ function ModuleCard({ module: m }: { module: MarketplaceModule }) {
           <div className="flex size-11 items-center justify-center rounded-lg bg-brand/10 text-brand">
             <Icon className="size-5" />
           </div>
-          <Badge variant="secondary" className="shrink-0">
-            Coming soon
-          </Badge>
+          {m.installable ? (
+            installed ? (
+              <Badge className="shrink-0 bg-brand text-brand-foreground">Installed</Badge>
+            ) : (
+              <Badge variant="secondary" className="shrink-0">
+                Add-on
+              </Badge>
+            )
+          ) : (
+            <Badge variant="secondary" className="shrink-0">
+              Coming soon
+            </Badge>
+          )}
         </div>
         <CardTitle className="mt-3 text-lg">{m.name}</CardTitle>
         <p className="text-sm font-medium text-brand">{m.tagline}</p>
       </CardHeader>
       <CardContent className="flex flex-1 flex-col gap-4">
         <p className="text-sm leading-relaxed text-muted-foreground">{m.description}</p>
-        <ul className="mt-auto flex flex-col gap-2">
+        <ul className="flex flex-col gap-2">
           {m.points.map((point) => (
             <li key={point} className="flex items-center gap-2 text-sm text-foreground">
               <span className="size-1.5 shrink-0 rounded-full bg-brand" aria-hidden="true" />
@@ -77,12 +107,32 @@ function ModuleCard({ module: m }: { module: MarketplaceModule }) {
             </li>
           ))}
         </ul>
+        <div className="mt-auto pt-2">
+          {m.installable ? (
+            <ModuleInstallButton
+              moduleId={m.id}
+              installed={installed}
+              canManage={canManage}
+              openHref={openHref}
+            />
+          ) : (
+            <Button variant="secondary" className="w-full" disabled>
+              Coming soon
+            </Button>
+          )}
+        </div>
       </CardContent>
     </Card>
   )
 }
 
-export function MarketplaceView() {
+export function MarketplaceView({
+  installedModuleIds,
+  canManage,
+}: {
+  installedModuleIds: string[]
+  canManage: boolean
+}) {
   return (
     <div className="flex flex-col gap-8">
       {/* Header */}
@@ -99,20 +149,21 @@ export function MarketplaceView() {
         </p>
       </div>
 
-      {/* Coming soon hero */}
+      {/* Hero */}
       <Card className="overflow-hidden border-brand/20 bg-brand/5">
         <CardContent className="flex flex-col items-start gap-4 py-8 text-center sm:items-center">
           <Badge className="gap-1.5 bg-brand text-brand-foreground">
             <Sparkles className="size-3.5" />
-            Coming soon
+            Beeserv EPOS is live
           </Badge>
           <div className="flex flex-col gap-2 sm:items-center">
             <h2 className="text-balance text-xl font-semibold text-foreground sm:text-2xl">
-              The Beeserv Marketplace is on its way
+              Add a full point-of-sale to your pub in one click
             </h2>
             <p className="max-w-xl text-pretty text-sm leading-relaxed text-muted-foreground">
-              We&apos;re building first-party EPOS, Payments and Accountancy modules — plus the ability to
-              create your own and connect any integration your business relies on.
+              Install Beeserv EPOS to run an iPad till with menu management and linked card terminals.
+              Payments and Accountancy modules are on the way — plus the ability to create your own and
+              connect any integration your business relies on.
             </p>
           </div>
         </CardContent>
@@ -128,7 +179,12 @@ export function MarketplaceView() {
         </div>
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
           {OWN_MODULES.map((m) => (
-            <ModuleCard key={m.name} module={m} />
+            <ModuleCard
+              key={m.id}
+              module={m}
+              installed={installedModuleIds.includes(m.id)}
+              canManage={canManage}
+            />
           ))}
         </div>
       </section>

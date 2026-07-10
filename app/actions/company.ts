@@ -28,6 +28,7 @@ export interface CompanyData {
   dateFormat: string
   hiddenModules: string[]
   hiddenSettingsTabs: string[]
+  installedModules: string[]
 }
 
 function parseList(raw: string | null | undefined): string[] {
@@ -68,6 +69,7 @@ export async function getCompany(): Promise<CompanyData> {
     dateFormat: row.dateFormat ?? "DD/MM/YYYY",
     hiddenModules: parseList(row.hiddenModules),
     hiddenSettingsTabs: parseList(row.hiddenSettingsTabs),
+    installedModules: parseList(row.installedModules),
   }
 }
 

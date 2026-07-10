@@ -38,6 +38,7 @@ interface VenueContextValue {
   activeVenue: VenueSummary | null
   user: SessionUser
   hiddenModules: string[]
+  installedModules: string[]
   appRole: AppRole
   managerRole: ManagerRole
   businesses: BusinessSummary[]
@@ -53,6 +54,7 @@ export function VenueProvider({
   activeVenueId,
   user,
   hiddenModules = [],
+  installedModules = [],
   appRole = "owner",
   managerRole = null,
   businesses = [],
@@ -63,6 +65,7 @@ export function VenueProvider({
   activeVenueId: number | null
   user: SessionUser
   hiddenModules?: string[]
+  installedModules?: string[]
   appRole?: AppRole
   managerRole?: ManagerRole
   businesses?: BusinessSummary[]
@@ -89,6 +92,7 @@ export function VenueProvider({
         activeVenue,
         user,
         hiddenModules,
+        installedModules,
         appRole,
         managerRole,
         businesses,
