@@ -158,6 +158,8 @@ export const company = pgTable("company", {
   // JSON-encoded arrays of hidden sidebar module hrefs / settings tab ids.
   hiddenModules: text("hiddenModules").notNull().default("[]"),
   hiddenSettingsTabs: text("hiddenSettingsTabs").notNull().default("[]"),
+  // JSON-encoded array of installed Marketplace add-on module ids (e.g. ["epos"]).
+  installedModules: text("installedModules").notNull().default("[]"),
   // JSON-encoded { order: string[]; hidden: string[] } for the owner's
   // customizable dashboard (section order + hidden sections).
   dashboardLayout: text("dashboardLayout").notNull().default("{}"),
@@ -1265,3 +1267,80 @@ export type DbFoodCheckLog = typeof foodCheckLog.$inferSelect
 export type DbFoodPolicy = typeof foodPolicy.$inferSelect
 export type DbGamingMachine = typeof gamingMachine.$inferSelect
 export type DbGamingEntry = typeof gamingEntry.$inferSelect
+
+// ── EPOS (Marketplace add-on module) ────────────────────────────────────────
+// Point-of-sale catalog, orders and linked card terminals. All rows are scoped
+// to the owning account (`userId`) and a venue, matching the rest of the app.
+
+export const posCategory = pgTable("pos_category", {
+  id: serial("id").primaryKey(),
+  userId: text("userId").notNull(),
+  venueId: integer("venueId").notNull(),
+  name: text("name").notNull(),
+  color: text("color"),
+  sortOrder: integer("sortOrder").notNull().default(0),
+  createdAt: timestamp("createdAt").notNull().defaultNow(),
+})
+
+export const posProduct = pgTable("pos_product", {
+  id: serial("id").primaryKey(),
+  userId: text("userId").notNull(),
+  venueId: integer("venueId").notNull(),
+  categoryId: integer("categoryId"),
+  name: text("name").notNull(),
+  pricePence: integer("pricePence").notNull().default(0),
+  sku: text("sku"),
+  color: text("color"),
+  active: boolean("active").notNull().default(true),
+  sortOrder: integer("sortOrder").notNull().default(0),
+  createdAt: timestamp("createdAt").notNull().defaultNow(),
+})
+
+export const posOrder = pgTable("pos_order", {
+  id: serial("id").primaryKey(),
+  userId: text("userId").notNull(),
+  venueId: integer("venueId").notNull(),
+  // open | paid | void
+  status: text("status").notNull().default("paid"),
+  subtotalPence: integer("subtotalPence").notNull().default(0),
+  totalPence: integer("totalPence").notNull().default(0),
+  // cash | card | terminal
+  paymentMethod: text("paymentMethod").notNull().default("cash"),
+  tenderedPence: integer("tenderedPence"),
+  changePence: integer("changePence"),
+  terminalId: integer("terminalId"),
+  terminalRef: text("terminalRef"),
+  staffName: text("staffName"),
+  note: text("note"),
+  createdAt: timestamp("createdAt").notNull().defaultNow(),
+  paidAt: timestamp("paidAt"),
+})
+
+export const posOrderItem = pgTable("pos_order_item", {
+  id: serial("id").primaryKey(),
+  userId: text("userId").notNull(),
+  orderId: integer("orderId").notNull(),
+  productId: integer("productId"),
+  name: text("name").notNull(),
+  unitPricePence: integer("unitPricePence").notNull().default(0),
+  qty: integer("qty").notNull().default(1),
+  linePence: integer("linePence").notNull().default(0),
+})
+
+export const posTerminal = pgTable("pos_terminal", {
+  id: serial("id").primaryKey(),
+  userId: text("userId").notNull(),
+  venueId: integer("venueId").notNull(),
+  // Card terminal provider, e.g. "dojo".
+  provider: text("provider").notNull().default("dojo"),
+  label: text("label").notNull(),
+  deviceId: text("deviceId").notNull(),
+  status: text("status").notNull().default("active"),
+  createdAt: timestamp("createdAt").notNull().defaultNow(),
+})
+
+export type DbPosCategory = typeof posCategory.$inferSelect
+export type DbPosProduct = typeof posProduct.$inferSelect
+export type DbPosOrder = typeof posOrder.$inferSelect
+export type DbPosOrderItem = typeof posOrderItem.$inferSelect
+export type DbPosTerminal = typeof posTerminal.$inferSelect

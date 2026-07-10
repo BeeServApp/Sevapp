@@ -18,6 +18,7 @@ import {
   LifeBuoy,
   Building2,
   Store,
+  Monitor,
   type LucideIcon,
 } from "lucide-react"
 import { cn } from "@/lib/utils"
@@ -38,7 +39,8 @@ const moduleIcons: Record<string, LucideIcon> = {
 
 export function AppSidebar({ onNavigate }: { onNavigate?: () => void }) {
   const pathname = usePathname()
-  const { hiddenModules, appRole, managerRole } = useVenue()
+  const { hiddenModules, installedModules, appRole, managerRole } = useVenue()
+  const eposInstalled = installedModules.includes("epos")
   const isStaff = appRole === "staff"
   // Managers and area managers get the workspace Calendar even though they are
   // staff logins.
@@ -120,6 +122,23 @@ export function AppSidebar({ onNavigate }: { onNavigate?: () => void }) {
 
       <div className="border-t border-sidebar-border p-3">
         <ul className="flex flex-col gap-1">
+          {eposInstalled && (
+            <li>
+              <Link
+                href="/pos"
+                onClick={onNavigate}
+                className={cn(
+                  "flex w-full items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition-colors",
+                  pathname.startsWith("/pos")
+                    ? "bg-sidebar-primary text-sidebar-primary-foreground"
+                    : "text-sidebar-foreground/80 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground",
+                )}
+              >
+                <Monitor className="size-4" />
+                EPOS Till
+              </Link>
+            </li>
+          )}
           <li>
             <Link
               href="/marketplace"
