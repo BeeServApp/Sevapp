@@ -31,6 +31,18 @@ export function proxy(request: NextRequest) {
     }
   }
 
+  // The kiosk subdomain (`kiosk.beeserv.app`) is served from the `/kiosk`
+  // route tree in the same way as the POS subdomain above.
+  const isKioskSubdomain = hostname === "kiosk" || hostname.startsWith("kiosk.")
+
+  if (isKioskSubdomain) {
+    const url = request.nextUrl.clone()
+    if (!url.pathname.startsWith("/kiosk")) {
+      url.pathname = url.pathname === "/" ? "/kiosk" : `/kiosk${url.pathname}`
+      return NextResponse.rewrite(url)
+    }
+  }
+
   return NextResponse.next()
 }
 
