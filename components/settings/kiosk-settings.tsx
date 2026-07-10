@@ -1,23 +1,27 @@
 "use client"
 
 import { useCallback, useEffect, useState, useTransition } from "react"
-import { Check, Copy, Loader2, MonitorSmartphone, RefreshCw, Trash2, Music, ShieldCheck } from "lucide-react"
+import { Check, Copy, Loader2, MonitorSmartphone, RefreshCw, Trash2, Music, ShieldCheck, Users } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import {
   generateKioskPairCode,
+  getStaffClockPins,
   getVenueKioskSettings,
   revokeKioskDevice,
   setKioskAdminPin,
   setKioskSpotifyUrl,
+  setStaffClockPin,
 } from "@/app/actions/kiosk"
 
 type KioskData = Awaited<ReturnType<typeof getVenueKioskSettings>>
+type StaffPins = Awaited<ReturnType<typeof getStaffClockPins>>
 
 export function KioskSettings({ venueId, venueName }: { venueId: number; venueName: string }) {
   const [data, setData] = useState<KioskData | null>(null)
+  const [staff, setStaff] = useState<StaffPins>([])
   const [loading, setLoading] = useState(true)
   const [copied, setCopied] = useState(false)
   const [pin, setPin] = useState("")
@@ -31,8 +35,9 @@ export function KioskSettings({ venueId, venueName }: { venueId: number; venueNa
 
   const load = useCallback(async () => {
     try {
-      const d = await getVenueKioskSettings(venueId)
+      const [d, s] = await Promise.all([getVenueKioskSettings(venueId), getStaffClockPins(venueId)])
       setData(d)
+      setStaff(s)
       setSpotify(d.spotifyPlaylistUrl)
     } catch (e) {
       setError(e instanceof Error ? e.message : "Failed to load kiosk settings.")
@@ -250,9 +255,79 @@ export function KioskSettings({ venueId, venueName }: { venueId: number; venueNa
                 </ul>
               )}
             </section>
+
+            {/* Staff clock PINs */}
+            <section className="flex flex-col gap-3">
+              <h3 className="flex items-center gap-2 text-sm font-semibold">
+                <Users className="size-4" /> Staff clock PINs
+              </h3>
+              <p className="text-sm text-muted-foreground">
+                Each employee types their 4-digit PIN on the kiosk to clock in and out. PINs must be unique at this
+                venue.
+              </p>
+              {staff.length === 0 ? (
+                <p className="text-sm text-muted-foreground">No staff at this venue yet.</p>
+              ) : (
+                <ul className="grid gap-2">
+                  {staff.map((s) => (
+                    <StaffPinRow key={s.id} staff={s} onSaved={load} onError={setError} />
+                  ))}
+                </ul>
+              )}
+            </section>
           </>
         )}
       </CardContent>
     </Card>
+  )
+}
+
+function StaffPinRow({
+  staff,
+  onSaved,
+  onError,
+}: {
+  staff: StaffPins[number]
+  onSaved: () => Promise<void> | void
+  onError: (msg: string | null) => void
+}) {
+  const [pin, setPin] = useState(staff.clockPin ?? "")
+  const [saved, setSaved] = useState(false)
+  const [pending, startSave] = useTransition()
+  const dirty = pin !== (staff.clockPin ?? "")
+
+  function save() {
+    onError(null)
+    startSave(async () => {
+      try {
+        await setStaffClockPin(staff.id, pin)
+        setSaved(true)
+        setTimeout(() => setSaved(false), 1500)
+        await onSaved()
+      } catch (e) {
+        onError(e instanceof Error ? e.message : "Could not save PIN.")
+      }
+    })
+  }
+
+  return (
+    <li className="flex flex-wrap items-center gap-3 rounded-lg border border-border p-3">
+      <div className="min-w-40 flex-1">
+        <p className="font-medium">{staff.name}</p>
+        <p className="text-xs text-muted-foreground">{staff.role}</p>
+      </div>
+      <Input
+        value={pin}
+        onChange={(e) => setPin(e.target.value.replace(/\D/g, "").slice(0, 4))}
+        inputMode="numeric"
+        placeholder="––––"
+        aria-label={`Clock PIN for ${staff.name}`}
+        className="w-24 font-mono tracking-widest"
+      />
+      <Button size="sm" variant={dirty ? "default" : "outline"} onClick={save} disabled={!dirty || pending}>
+        {pending ? <Loader2 className="size-4 animate-spin" /> : saved ? <Check className="size-4" /> : null}
+        {saved ? "Saved" : "Save"}
+      </Button>
+    </li>
   )
 }

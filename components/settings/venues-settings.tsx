@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { VenueDialog } from "@/components/settings/venue-dialog"
+import { KioskSettings } from "@/components/settings/kiosk-settings"
 import { deleteVenue, setActiveVenue } from "@/app/actions/venues"
 import type { VenueSummary } from "@/components/venue-provider"
 
@@ -45,7 +46,10 @@ export function VenuesSettings({
     }
   }
 
+  const activeVenue = venues.find((v) => v.id === activeVenueId) ?? null
+
   return (
+    <div className="flex flex-col gap-6">
     <Card>
       <CardHeader className="flex-row items-center justify-between">
         <div>
@@ -137,5 +141,8 @@ export function VenuesSettings({
         </ul>
       </CardContent>
     </Card>
+
+      {activeVenue && <KioskSettings venueId={activeVenue.id} venueName={activeVenue.name} />}
+    </div>
   )
 }

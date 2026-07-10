@@ -94,6 +94,50 @@ export async function revokeKioskDevice(deviceId: number) {
   await db.delete(kioskDevice).where(and(eq(kioskDevice.id, deviceId), eq(kioskDevice.userId, accountId)))
 }
 
+/** Staff members for a venue with their kiosk clock PIN (owner view). */
+export async function getStaffClockPins(venueId: number) {
+  const accountId = await getAccountId()
+  await assertOwnedVenue(accountId, venueId)
+  return db
+    .select({ id: staffMember.id, name: staffMember.name, role: staffMember.role, clockPin: staffMember.clockPin })
+    .from(staffMember)
+    .where(and(eq(staffMember.userId, accountId), eq(staffMember.venueId, venueId)))
+    .orderBy(staffMember.name)
+}
+
+/** Set or clear a staff member's 4-digit kiosk clock PIN. Owner-only. */
+export async function setStaffClockPin(staffId: number, pin: string) {
+  const accountId = await getAccountId()
+  const clean = pin.trim()
+  if (clean && !/^\d{4}$/.test(clean)) throw new Error("Clock PIN must be exactly 4 digits")
+
+  if (clean) {
+    // PINs must be unique within the same venue so a punch resolves to one person.
+    const [target] = await db
+      .select({ venueId: staffMember.venueId })
+      .from(staffMember)
+      .where(and(eq(staffMember.id, staffId), eq(staffMember.userId, accountId)))
+      .limit(1)
+    if (!target) throw new Error("Staff member not found")
+    const clash = await db
+      .select({ id: staffMember.id })
+      .from(staffMember)
+      .where(
+        and(
+          eq(staffMember.userId, accountId),
+          eq(staffMember.venueId, target.venueId),
+          eq(staffMember.clockPin, clean),
+        ),
+      )
+    if (clash.some((c) => c.id !== staffId)) throw new Error("That PIN is already in use at this venue")
+  }
+
+  await db
+    .update(staffMember)
+    .set({ clockPin: clean || null })
+    .where(and(eq(staffMember.id, staffId), eq(staffMember.userId, accountId)))
+}
+
 /* =============================== Kiosk side =============================== */
 // These run on the paired iPad, authenticated by the device-token cookie.
 
