@@ -192,6 +192,43 @@
   }
 }
 
+/* --- Kiosk mode ---------------------------------------------------------- */
+/* Lock the surface down: no text selection, no callouts, no overscroll bounce,
+   no tap-highlight — so the iPad feels like a dedicated appliance. */
+.kiosk-surface {
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-touch-callout: none;
+  -webkit-tap-highlight-color: transparent;
+  overscroll-behavior: none;
+  touch-action: manipulation;
+}
+.kiosk-surface input,
+.kiosk-surface textarea {
+  -webkit-user-select: text;
+  user-select: text;
+}
+
+/* Full-bleed red alert: a pulsing overlay shown when a venue is off-track. */
+@keyframes kiosk-alert-pulse {
+  0%,
+  100% {
+    opacity: 0.28;
+  }
+  50% {
+    opacity: 0.62;
+  }
+}
+.kiosk-alert-overlay {
+  animation: kiosk-alert-pulse 1.15s ease-in-out infinite;
+}
+@media (prefers-reduced-motion: reduce) {
+  .kiosk-alert-overlay {
+    animation: none;
+    opacity: 0.45;
+  }
+}
+
 /* Theme-aware brand logo visibility.
    Matches the same conditions that flip the color tokens:
    the .dark class and the prefers-color-scheme media query. */
@@ -214,4 +251,30 @@
   :root:not(.light) .logo-dark {
     display: block;
   }
+}
+
+/* ---- Kiosk (iPad lock-mode) --------------------------------------------- */
+/* Full-bleed pulsing red alert overlay. Non-blocking (pointer-events:none) so
+   staff can still clock in / complete tasks to clear the alert. */
+@keyframes kiosk-alert-pulse {
+  0%,
+  100% {
+    box-shadow: inset 0 0 0 0 var(--destructive);
+    opacity: 0.55;
+  }
+  50% {
+    box-shadow: inset 0 0 140px 24px var(--destructive);
+    opacity: 1;
+  }
+}
+.kiosk-alert-overlay {
+  animation: kiosk-alert-pulse 1.6s ease-in-out infinite;
+}
+/* Disable text selection, callouts and tap highlight across the kiosk. */
+.kiosk-surface {
+  -webkit-touch-callout: none;
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-tap-highlight-color: transparent;
+  overscroll-behavior: none;
 }
