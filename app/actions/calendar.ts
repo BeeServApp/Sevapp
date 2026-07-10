@@ -144,6 +144,105 @@ export async function deleteCalendarEvent(id: number) {
 const isIso = (value: string | null | undefined): value is string =>
   !!value && /^\d{4}-\d{2}-\d{2}$/.test(value)
 
+/* --------------------- Recurring task-check projection -------------------- */
+
+// The tasks board only ever spawns a real task instance for the *current*
+// period (today for Daily, this week for Weekly, this month for Monthly), so
+// the calendar would otherwise show recurring tasks on a single day only. To
+// make daily/weekly/monthly tasks appear on every applicable day, we project
+// virtual occurrences across a bounded window. Real generated instances always
+// take precedence for their date (so completion state and edits are preserved).
+const RECUR_WINDOW_BACK_MONTHS = 1
+const RECUR_WINDOW_FWD_MONTHS = 4
+const DAY_LABELS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"] as const
+
+function isoOf(d: Date) {
+  const y = d.getFullYear()
+  const m = String(d.getMonth() + 1).padStart(2, "0")
+  const day = String(d.getDate()).padStart(2, "0")
+  return `${y}-${m}-${day}`
+}
+
+function recurrenceWindow(now = new Date()) {
+  const start = new Date(now.getFullYear(), now.getMonth() - RECUR_WINDOW_BACK_MONTHS, 1)
+  const end = new Date(now.getFullYear(), now.getMonth() + RECUR_WINDOW_FWD_MONTHS + 1, 0)
+  return { start, end }
+}
+
+/** All ISO dates a recurrence lands on within [start, end] (inclusive). */
+function projectOccurrences(frequency: string, repeatDays: string | null, start: Date, end: Date): string[] {
+  const out: string[] = []
+  if (frequency === "Monthly") {
+    let d = new Date(start.getFullYear(), start.getMonth(), 1)
+    while (d <= end) {
+      if (d >= start) out.push(isoOf(d))
+      d = new Date(d.getFullYear(), d.getMonth() + 1, 1)
+    }
+    return out
+  }
+  const days = (repeatDays ?? "").split(",").map((s) => s.trim()).filter(Boolean)
+  const cur = new Date(start)
+  while (cur <= end) {
+    const label = DAY_LABELS[cur.getDay()]
+    if (frequency === "Daily") out.push(isoOf(cur))
+    else if (frequency === "Weekly") {
+      // Weekly instances are generated on the Monday week-start, so mirror that.
+      if (label === "Mon") out.push(isoOf(cur))
+    } else if (frequency === "Set days") {
+      if (days.includes(label)) out.push(isoOf(cur))
+    }
+    cur.setDate(cur.getDate() + 1)
+  }
+  return out
+}
+
+interface ProjectedCheck {
+  id: number
+  title: string
+  dueDate: string
+  dueTime: string | null
+  status: string
+  priority: string
+  venueId: number
+}
+
+/**
+ * Given the full set of task-check rows, returns projected occurrences for every
+ * recurring template across the window, excluding any date already covered by a
+ * real generated instance (so nothing is double-shown).
+ */
+function buildRecurringCheckProjections(
+  checks: (typeof taskCheck.$inferSelect)[],
+  now = new Date(),
+): ProjectedCheck[] {
+  const templates = checks.filter((c) => c.recurring)
+  if (templates.length === 0) return []
+  const { start, end } = recurrenceWindow(now)
+  // Dates already materialised as real instances, keyed by template + date.
+  const realByParentDate = new Set(
+    checks
+      .filter((c) => !c.recurring && c.recurrenceParentId != null && isIso(c.dueDate))
+      .map((c) => `${c.recurrenceParentId}:${c.dueDate}`),
+  )
+  const out: ProjectedCheck[] = []
+  for (const t of templates) {
+    if (t.frequency === "One-off") continue
+    for (const date of projectOccurrences(t.frequency, t.repeatDays, start, end)) {
+      if (realByParentDate.has(`${t.id}:${date}`)) continue
+      out.push({
+        id: t.id,
+        title: t.title,
+        dueDate: date,
+        dueTime: t.dueTime ?? null,
+        status: "Pending",
+        priority: t.priority,
+        venueId: t.venueId,
+      })
+    }
+  }
+  return out
+}
+
 export interface LinkableItems {
   events: { id: number; name: string; date: string | null; status: string }[]
   tasks: { id: number; title: string; due: string | null; priority: string }[]
@@ -196,16 +295,28 @@ export async function getCalendarData(venueId: number) {
       .map((e) => `${e.linkType}:${e.linkId}`),
   )
 
-  const datedChecks = checks
-    .filter((c) => isIso(c.dueDate) && !linkedKeys.has(`taskCheck:${c.id}`))
-    .map((c) => ({
-      id: c.id,
-      title: c.title,
-      dueDate: c.dueDate as string,
-      dueTime: c.dueTime ?? null,
-      status: c.status,
-      priority: c.priority,
-    }))
+  const datedChecks = [
+    // Real dated task instances (templates are projected separately below).
+    ...checks
+      .filter((c) => !c.recurring && isIso(c.dueDate) && !linkedKeys.has(`taskCheck:${c.id}`))
+      .map((c) => ({
+        id: c.id,
+        title: c.title,
+        dueDate: c.dueDate as string,
+        dueTime: c.dueTime ?? null,
+        status: c.status,
+        priority: c.priority,
+      })),
+    // Projected occurrences of recurring templates across the window.
+    ...buildRecurringCheckProjections(checks).map((p) => ({
+      id: p.id,
+      title: p.title,
+      dueDate: p.dueDate,
+      dueTime: p.dueTime,
+      status: p.status,
+      priority: p.priority,
+    })),
+  ]
 
   const datedActions = actions
     .filter((a) => isIso(a.dueDate) && !linkedKeys.has(`correctiveAction:${a.id}`))
@@ -327,17 +438,30 @@ export async function getWorkspaceCalendarData(venueIds?: number[]) {
     events.filter((e) => e.linkType && e.linkId != null).map((e) => `${e.linkType}:${e.linkId}`),
   )
 
-  const datedChecks = checks
-    .filter((c) => isIso(c.dueDate) && !linkedKeys.has(`taskCheck:${c.id}`))
-    .map((c) => ({
-      id: c.id,
-      title: c.title,
-      dueDate: c.dueDate as string,
-      dueTime: c.dueTime ?? null,
-      status: c.status,
-      priority: c.priority,
-      venueId: c.venueId,
-    }))
+  const datedChecks = [
+    // Real dated task instances (templates are projected separately below).
+    ...checks
+      .filter((c) => !c.recurring && isIso(c.dueDate) && !linkedKeys.has(`taskCheck:${c.id}`))
+      .map((c) => ({
+        id: c.id,
+        title: c.title,
+        dueDate: c.dueDate as string,
+        dueTime: c.dueTime ?? null,
+        status: c.status,
+        priority: c.priority,
+        venueId: c.venueId,
+      })),
+    // Projected occurrences of recurring templates across the window.
+    ...buildRecurringCheckProjections(checks).map((p) => ({
+      id: p.id,
+      title: p.title,
+      dueDate: p.dueDate,
+      dueTime: p.dueTime,
+      status: p.status,
+      priority: p.priority,
+      venueId: p.venueId,
+    })),
+  ]
 
   const datedActions = actions
     .filter((a) => isIso(a.dueDate) && !linkedKeys.has(`correctiveAction:${a.id}`))

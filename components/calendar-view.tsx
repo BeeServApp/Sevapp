@@ -256,7 +256,7 @@ export function CalendarView({
     }
     for (const c of datedChecks) {
       out.push({
-        key: `tc-${c.id}`,
+        key: `tc-${c.id}-${c.dueDate}`,
         kind: "taskCheck",
         refId: c.id,
         title: c.title,
