@@ -37,7 +37,7 @@ export function ModuleInstallButton({
   if (!canManage) {
     // Staff can't install, but can open an already-installed module.
     return installed ? (
-      <Button variant="secondary" className="w-full" render={<Link href={openHref} />}>
+      <Button variant="secondary" className="w-full" nativeButton={false} render={<Link href={openHref} />}>
         <Monitor className="size-4" />
         Open
       </Button>
@@ -52,7 +52,7 @@ export function ModuleInstallButton({
     return (
       <div className="flex flex-col gap-2">
         <div className="flex gap-2">
-          <Button className="flex-1" render={<Link href={openHref} />}>
+          <Button className="flex-1" nativeButton={false} render={<Link href={openHref} />}>
             <Monitor className="size-4" />
             Open
           </Button>
