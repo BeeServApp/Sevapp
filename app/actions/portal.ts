@@ -75,6 +75,58 @@ function emptyStats(): WeekStats {
   return { hoursScheduled: 0, hoursWorked: 0, tipsPence: 0, estimatedEarningsPence: 0, commissionsPence: 0 }
 }
 
+/** Whether the signed-in employee already has a kiosk clock-in PIN set. */
+export async function getMyClockPinStatus(): Promise<{ hasPin: boolean }> {
+  const me = await getCurrentUser()
+  if (me.staffMemberId == null) return { hasPin: false }
+  const [profile] = await db
+    .select({ clockPin: staffMember.clockPin })
+    .from(staffMember)
+    .where(and(eq(staffMember.id, me.staffMemberId), eq(staffMember.userId, me.accountId)))
+    .limit(1)
+  return { hasPin: !!profile?.clockPin }
+}
+
+/**
+ * Let an employee set or clear their own 4-digit kiosk clock-in PIN. PINs must
+ * be unique within their venue so a kiosk punch resolves to exactly one person.
+ */
+export async function setMyClockPin(pin: string): Promise<{ ok: true }> {
+  const me = await getCurrentUser()
+  if (me.staffMemberId == null) throw new Error("Your account isn't linked to a staff profile.")
+  const clean = pin.trim()
+  if (clean && !/^\d{4}$/.test(clean)) throw new Error("Clock-in PIN must be exactly 4 digits.")
+
+  const [profile] = await db
+    .select({ venueId: staffMember.venueId })
+    .from(staffMember)
+    .where(and(eq(staffMember.id, me.staffMemberId), eq(staffMember.userId, me.accountId)))
+    .limit(1)
+  if (!profile) throw new Error("Staff profile not found.")
+
+  if (clean) {
+    const clash = await db
+      .select({ id: staffMember.id })
+      .from(staffMember)
+      .where(
+        and(
+          eq(staffMember.userId, me.accountId),
+          eq(staffMember.venueId, profile.venueId),
+          eq(staffMember.clockPin, clean),
+        ),
+      )
+    if (clash.some((c) => c.id !== me.staffMemberId)) {
+      throw new Error("That PIN is already in use at your venue. Try another.")
+    }
+  }
+
+  await db
+    .update(staffMember)
+    .set({ clockPin: clean || null })
+    .where(and(eq(staffMember.id, me.staffMemberId), eq(staffMember.userId, me.accountId)))
+  return { ok: true }
+}
+
 /**
  * Everything the staff Home tab needs: next shift, clock state, and the
  * computed "My week" figures (hours, tips, estimated pay, commission).

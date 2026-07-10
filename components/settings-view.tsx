@@ -14,6 +14,7 @@ import type { ReminderSettings } from "@/app/actions/reminders"
 import { StaffPreferencesSettings } from "@/components/settings/staff-preferences-settings"
 import { BillingSettings } from "@/components/settings/billing-settings"
 import { IntegrationsSettings, type IntegrationVenue } from "@/components/settings/integrations-settings"
+import { KioskSettings } from "@/components/settings/kiosk-settings"
 import { SETTINGS_TABS } from "@/lib/nav-config"
 import type { VenueSummary } from "@/components/venue-provider"
 import type { CompanyData } from "@/app/actions/company"
@@ -135,6 +136,15 @@ export function SettingsView({
               locations={square.locations}
               flash={square.flash}
             />
+          </TabsContent>
+        )}
+        {visibleIds.has("kiosk") && (
+          <TabsContent value="kiosk">
+            {activeVenueId ? (
+              <KioskSettings venueId={activeVenueId} venueName={activeVenueName} />
+            ) : (
+              <p className="text-sm text-muted-foreground">Add a venue first to configure a kiosk.</p>
+            )}
           </TabsContent>
         )}
         {visibleIds.has("notifications") && (

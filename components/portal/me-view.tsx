@@ -7,6 +7,7 @@ import { authClient } from "@/lib/auth-client"
 import { setAvailability } from "@/app/actions/scheduling"
 import { PortalHeader } from "@/components/portal/portal-header"
 import { ChangePasswordCard } from "@/components/portal/change-password-card"
+import { ClockPinCard } from "@/components/portal/clock-pin-card"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { buttonVariants } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
@@ -142,6 +143,9 @@ export function MeView({
           })}
         </CardContent>
       </Card>
+
+      {/* Kiosk clock-in PIN */}
+      <ClockPinCard staffMemberId={staffMemberId} />
 
       {/* Change password */}
       <ChangePasswordCard />

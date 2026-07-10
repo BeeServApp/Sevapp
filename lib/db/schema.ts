@@ -113,6 +113,13 @@ export const venue = pgTable("venue", {
   // their shift starts (opening checklist) and before it ends (closing checklist).
   remindersEnabled: boolean("remindersEnabled").notNull().default(true),
   reminderLeadMins: integer("reminderLeadMins").notNull().default(30),
+  // Kiosk: short-lived pairing code an iPad enters to bind itself to this venue.
+  kioskPairCode: text("kioskPairCode"),
+  kioskPairExpiresAt: timestamp("kioskPairExpiresAt"),
+  // Admin PIN that exits kiosk lock mode and gates manager-only kiosk areas.
+  kioskAdminPin: text("kioskAdminPin"),
+  // Spotify playlist URL embedded in the kiosk music player.
+  spotifyPlaylistUrl: text("spotifyPlaylistUrl"),
   createdAt: timestamp("createdAt").notNull().defaultNow(),
 })
 
@@ -377,6 +384,8 @@ export const staffMember = pgTable("staff_member", {
   commissionPct: integer("commissionPct").notNull().default(0),
   // Default hourly pay rate, pre-filled into new shifts and timecards.
   defaultPayRatePence: integer("defaultPayRatePence").notNull().default(0),
+  // 4-digit numeric PIN this employee types on the venue kiosk to clock in/out.
+  clockPin: text("clockPin"),
   createdAt: timestamp("createdAt").notNull().defaultNow(),
 })
 
@@ -843,6 +852,21 @@ export const staffPolicy = pgTable("staff_policy", {
   fileUrl: text("fileUrl"),
   content: text("content"),
   status: text("status").notNull().default("Published"),
+  createdAt: timestamp("createdAt").notNull().defaultNow(),
+})
+
+// --- Kiosk -----------------------------------------------------------------
+
+// A paired iPad kiosk. Authenticated by an opaque `token` stored in an httpOnly
+// cookie (not a Better Auth session). `userId` is the owning account and
+// `venueId` the venue the device is locked to. Revoking a row logs the device out.
+export const kioskDevice = pgTable("kiosk_device", {
+  id: serial("id").primaryKey(),
+  userId: text("userId").notNull(),
+  venueId: integer("venueId").notNull(),
+  token: text("token").notNull().unique(),
+  label: text("label"),
+  lastSeenAt: timestamp("lastSeenAt"),
   createdAt: timestamp("createdAt").notNull().defaultNow(),
 })
 

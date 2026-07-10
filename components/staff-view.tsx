@@ -58,6 +58,7 @@ import {
   deleteStaffMember,
 } from "@/app/actions/staff"
 import { createStaffInvite, revokeStaffInvite } from "@/app/actions/invites"
+import { setStaffClockPin } from "@/app/actions/kiosk"
 import { resolveSwap } from "@/app/actions/scheduling"
 import { RotaBoard } from "@/components/staff/rota-board"
 import type { ScheduledPublishInfo } from "@/app/actions/scheduled-publish"
@@ -232,7 +233,7 @@ export function StaffView({
   const pendingLeave = useMemo(() => leaveReqs.filter((l) => l.status === "Pending").length, [leaveReqs])
 
   // ── Add staff dialog ──────────────────────────────────────────────────────
-  const emptyStaffForm = { name: "", role: "Staff", contract: "Full-time", hoursWk: "40", status: "Off", email: "", phone: "" }
+  const emptyStaffForm = { name: "", role: "Staff", contract: "Full-time", hoursWk: "40", status: "Off", email: "", phone: "", clockPin: "" }
   const [addStaffOpen, setAddStaffOpen] = useState(false)
   const [editingStaffId, setEditingStaffId] = useState<number | null>(null)
   const [staffForm, setStaffForm] = useState(emptyStaffForm)
@@ -256,6 +257,7 @@ export function StaffView({
       status: s.status,
       email: s.email ?? "",
       phone: s.phone ?? "",
+      clockPin: s.clockPin ?? "",
     })
     setStaffError(null)
     setAddStaffOpen(true)
@@ -265,9 +267,14 @@ export function StaffView({
     if (!staffForm.name.trim()) return setStaffError("Name is required.")
     const hrs = Number.parseInt(staffForm.hoursWk, 10)
     if (Number.isNaN(hrs) || hrs < 0) return setStaffError("Enter valid hours.")
+    const pin = staffForm.clockPin.trim()
+    if (pin && !/^\d{4}$/.test(pin)) return setStaffError("Clock-in PIN must be exactly 4 digits.")
     setStaffError(null)
     setStaffSaving(true)
     try {
+      // The PIN lives on its own owner action so per-venue uniqueness is enforced
+      // in one place; the staff CRUD action itself never touches clockPin.
+      let savedId: number
       if (editingStaffId != null) {
         const updated = await updateStaffMember(editingStaffId, {
           name: staffForm.name.trim(),
@@ -278,7 +285,9 @@ export function StaffView({
           email: staffForm.email.trim() || undefined,
           phone: staffForm.phone.trim() || undefined,
         })
-        setStaff((prev) => prev.map((s) => (s.id === editingStaffId ? { ...s, ...updated } : s)))
+        savedId = editingStaffId
+        await setStaffClockPin(savedId, pin)
+        setStaff((prev) => prev.map((s) => (s.id === editingStaffId ? { ...s, ...updated, clockPin: pin || null } : s)))
       } else {
         const created = await createStaffMember({
           venueId,
@@ -290,13 +299,21 @@ export function StaffView({
           email: staffForm.email.trim() || undefined,
           phone: staffForm.phone.trim() || undefined,
         })
-        setStaff((prev) => [...prev, created])
+        savedId = created.id
+        if (pin) await setStaffClockPin(savedId, pin)
+        setStaff((prev) => [...prev, { ...created, clockPin: pin || null }])
       }
       setAddStaffOpen(false)
       setEditingStaffId(null)
       setStaffForm(emptyStaffForm)
-    } catch {
-      setStaffError(editingStaffId != null ? "Failed to update staff member." : "Failed to add staff member.")
+    } catch (e) {
+      setStaffError(
+        e instanceof Error
+          ? e.message
+          : editingStaffId != null
+            ? "Failed to update staff member."
+            : "Failed to add staff member.",
+      )
     } finally {
       setStaffSaving(false)
     }
@@ -1030,6 +1047,22 @@ export function StaffView({
             <p className="text-xs text-muted-foreground">
               Add an email so you can invite this person to the staff app and email them their shifts.
             </p>
+            <div className="grid gap-2">
+              <Label htmlFor="s-clock-pin">Kiosk clock-in PIN</Label>
+              <Input
+                id="s-clock-pin"
+                inputMode="numeric"
+                autoComplete="off"
+                value={staffForm.clockPin}
+                onChange={(e) => setStaffForm((f) => ({ ...f, clockPin: e.target.value.replace(/\D/g, "").slice(0, 4) }))}
+                placeholder="4 digits, e.g. 4821"
+                className="max-w-[160px] font-mono tracking-widest"
+              />
+              <p className="text-xs text-muted-foreground">
+                Used to clock in and out on the venue iPad kiosk. Must be unique within this venue. Leave blank to
+                clear; staff can also set their own from their app.
+              </p>
+            </div>
             {staffError && <p className="text-sm text-destructive">{staffError}</p>}
           </div>
           <DialogFooter>
