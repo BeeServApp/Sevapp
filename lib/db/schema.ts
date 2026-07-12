@@ -259,6 +259,84 @@ export const supplier = pgTable("supplier", {
   createdAt: timestamp("createdAt").notNull().defaultNow(),
 })
 
+// --- Stock Management ------------------------------------------------------
+// A dedicated module for hospitality stock control: products (with costing &
+// GP), purchase orders built from a product shopping list, and stock takes
+// (physical counts with variance). Reuses the `supplier` and `order` tables
+// above. All values are scoped per account owner + venue.
+
+export const stockProduct = pgTable("stock_product", {
+  id: serial("id").primaryKey(),
+  userId: text("userId").notNull(),
+  venueId: integer("venueId").notNull(),
+  name: text("name").notNull(),
+  sku: text("sku"),
+  barcode: text("barcode"),
+  category: text("category").notNull().default("General"),
+  // How one countable item is measured: each, bottle, keg, case, kg, litre…
+  unit: text("unit").notNull().default("each"),
+  // Units per pack/case used when ordering (e.g. 24 bottles per case).
+  packSize: integer("packSize").notNull().default(1),
+  // Optional link to the supplier this product is usually bought from.
+  supplierId: integer("supplierId"),
+  // Cost price per stock unit, ex-VAT, in pence.
+  costPricePence: integer("costPricePence").notNull().default(0),
+  // Sale price per stock unit, ex-VAT, in pence.
+  salePricePence: integer("salePricePence").notNull().default(0),
+  // VAT rate applied on sale as a whole percent (e.g. 20 for 20%).
+  vatRatePct: integer("vatRatePct").notNull().default(20),
+  // Reorder threshold and current quantity on hand. Fractional to support
+  // partial kegs / litres.
+  parLevel: doublePrecision("parLevel").notNull().default(0),
+  onHandQty: doublePrecision("onHandQty").notNull().default(0),
+  active: boolean("active").notNull().default(true),
+  createdAt: timestamp("createdAt").notNull().defaultNow(),
+})
+
+// A single line on a purchase order, linked to a product where possible.
+export const stockOrderItem = pgTable("stock_order_item", {
+  id: serial("id").primaryKey(),
+  userId: text("userId").notNull(),
+  orderId: integer("orderId").notNull(),
+  productId: integer("productId"),
+  name: text("name").notNull(),
+  qty: doublePrecision("qty").notNull().default(0),
+  unitCostPence: integer("unitCostPence").notNull().default(0),
+  linePence: integer("linePence").notNull().default(0),
+  createdAt: timestamp("createdAt").notNull().defaultNow(),
+})
+
+// A stock take (physical count) session. Variance is computed against the
+// expected on-hand quantity captured when the count is started.
+export const stockCount = pgTable("stock_count", {
+  id: serial("id").primaryKey(),
+  userId: text("userId").notNull(),
+  venueId: integer("venueId").notNull(),
+  reference: text("reference").notNull(),
+  area: text("area"),
+  status: text("status").notNull().default("In progress"),
+  countedBy: text("countedBy"),
+  notes: text("notes"),
+  expectedValuePence: integer("expectedValuePence").notNull().default(0),
+  countedValuePence: integer("countedValuePence").notNull().default(0),
+  varianceValuePence: integer("varianceValuePence").notNull().default(0),
+  startedAt: timestamp("startedAt").notNull().defaultNow(),
+  completedAt: timestamp("completedAt"),
+  createdAt: timestamp("createdAt").notNull().defaultNow(),
+})
+
+export const stockCountItem = pgTable("stock_count_item", {
+  id: serial("id").primaryKey(),
+  userId: text("userId").notNull(),
+  countId: integer("countId").notNull(),
+  productId: integer("productId").notNull(),
+  name: text("name").notNull(),
+  expectedQty: doublePrecision("expectedQty").notNull().default(0),
+  countedQty: doublePrecision("countedQty").notNull().default(0),
+  unitCostPence: integer("unitCostPence").notNull().default(0),
+  createdAt: timestamp("createdAt").notNull().defaultNow(),
+})
+
 export const maintenance = pgTable("maintenance", {
   id: serial("id").primaryKey(),
   userId: text("userId").notNull(),
@@ -1219,6 +1297,10 @@ export type Member = typeof member.$inferSelect
 export type DbAsset = typeof asset.$inferSelect
 export type DbOrder = typeof order.$inferSelect
 export type DbSupplier = typeof supplier.$inferSelect
+export type DbStockProduct = typeof stockProduct.$inferSelect
+export type DbStockOrderItem = typeof stockOrderItem.$inferSelect
+export type DbStockCount = typeof stockCount.$inferSelect
+export type DbStockCountItem = typeof stockCountItem.$inferSelect
 export type DbMaintenance = typeof maintenance.$inferSelect
 export type DbEvent = typeof venueEvent.$inferSelect
 export type DbCalendarEvent = typeof calendarEvent.$inferSelect
@@ -1268,7 +1350,7 @@ export type DbFoodPolicy = typeof foodPolicy.$inferSelect
 export type DbGamingMachine = typeof gamingMachine.$inferSelect
 export type DbGamingEntry = typeof gamingEntry.$inferSelect
 
-// ── EPOS (Marketplace add-on module) ────────────────────────────────────────
+// ── EPOS (Marketplace add-on module) ───────────────────────��────────────────
 // Point-of-sale catalog, orders and linked card terminals. All rows are scoped
 // to the owning account (`userId`) and a venue, matching the rest of the app.
 
