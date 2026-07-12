@@ -14,7 +14,6 @@ import {
   UtensilsCrossed,
   GraduationCap,
   Package,
-  Boxes,
   Settings,
   LifeBuoy,
   Building2,
@@ -29,7 +28,6 @@ import { useVenue } from "@/components/venue-provider"
 const moduleIcons: Record<string, LucideIcon> = {
   "/calendar": CalendarDays,
   "/operations": ClipboardList,
-  "/stock": Boxes,
   "/tasks": ListChecks,
   "/assets": Package,
   "/financials": Wallet,

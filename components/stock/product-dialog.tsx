@@ -111,13 +111,11 @@ export function ProductDialog({ venueId, suppliers, product, open, onOpenChange 
   return (
     <Dialog open={isOpen} onOpenChange={setOpen}>
       {!controlled && (
-        <DialogTrigger
-          render={
-            <Button>
-              <Plus className="size-4" /> New product
-            </Button>
-          }
-        />
+        <DialogTrigger asChild>
+          <Button>
+            <Plus className="size-4" /> New product
+          </Button>
+        </DialogTrigger>
       )}
       <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-lg">
         <DialogHeader>

@@ -205,13 +205,11 @@ function NewCountDialog({
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
-      <DialogTrigger
-        render={
-          <Button>
-            <Plus className="size-4" /> Start stock take
-          </Button>
-        }
-      />
+      <DialogTrigger asChild>
+        <Button>
+          <Plus className="size-4" /> Start stock take
+        </Button>
+      </DialogTrigger>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
           <DialogTitle>Start a stock take</DialogTitle>

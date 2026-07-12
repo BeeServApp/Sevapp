@@ -130,13 +130,11 @@ export function OrderDialog({
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
-      <DialogTrigger
-        render={
-          <Button>
-            <Plus className="size-4" /> New order
-          </Button>
-        }
-      />
+      <DialogTrigger asChild>
+        <Button>
+          <Plus className="size-4" /> New order
+        </Button>
+      </DialogTrigger>
       <DialogContent className="max-h-[92vh] overflow-hidden sm:max-w-2xl">
         <DialogHeader>
           <DialogTitle>New stock order</DialogTitle>
