@@ -9,7 +9,6 @@ import {
   Wrench,
   CalendarDays,
   ListChecks,
-  Star,
   MoreVertical,
   Pencil,
   Trash2,
@@ -68,25 +67,17 @@ import {
 import {
   createEvent,
   createMaintenance,
-  createOrder,
-  createSupplier,
   createTask,
   deleteEvent,
   deleteMaintenance,
-  deleteOrder,
-  deleteSupplier,
   deleteTask,
   toggleTask,
   updateEventStatus,
   updateMaintenanceStatus,
-  updateOrderStatus,
-  updateSupplier,
 } from "@/app/actions/operations"
 import type {
   DbEvent,
   DbMaintenance,
-  DbOrder,
-  DbSupplier,
   DbTask,
 } from "@/lib/db/schema"
 import { cn } from "@/lib/utils"
@@ -97,23 +88,15 @@ export interface AssetOption {
   name: string
 }
 
-const gbp = new Intl.NumberFormat("en-GB", { style: "currency", currency: "GBP" })
-
 const priorityClasses: Record<string, string> = {
   High: "bg-destructive/12 text-destructive",
   Medium: "bg-chart-4/20 text-[oklch(0.45_0.11_70)]",
   Low: "bg-muted text-muted-foreground",
 }
 
-const orderStatuses = ["Draft", "Submitted", "Confirmed", "Delivered"]
 const maintenanceStatuses = ["Open", "In progress", "Resolved"]
 const eventStatuses = ["Enquiry", "Provisional", "Confirmed"]
 const priorities = ["Low", "Medium", "High"]
-const termOptions = ["Net 7", "Net 14", "Net 30", "Net 60", "On delivery"]
-
-function pounds(pence: number) {
-  return gbp.format(pence / 100)
-}
 
 // Renders a stored date, formatting ISO (YYYY-MM-DD) values for display and
 // passing through any legacy free-text dates unchanged.
@@ -159,246 +142,6 @@ function RowActions({
         </DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>
-  )
-}
-
-/* ------------------------------ Order dialog ------------------------------ */
-
-function OrderDialog({ venueId }: { venueId: number }) {
-  const router = useRouter()
-  const [open, setOpen] = useState(false)
-  const [reference, setReference] = useState("")
-  const [supplierName, setSupplierName] = useState("")
-  const [items, setItems] = useState("")
-  const [total, setTotal] = useState("")
-  const [status, setStatus] = useState("Draft")
-  const [due, setDue] = useState("")
-  const [saving, setSaving] = useState(false)
-  const [error, setError] = useState<string | null>(null)
-
-  async function handleSubmit(e: React.FormEvent) {
-    e.preventDefault()
-    if (!reference.trim()) return setError("Order reference is required.")
-    if (!supplierName.trim()) return setError("Supplier is required.")
-    setSaving(true)
-    setError(null)
-    try {
-      await createOrder({
-        venueId,
-        reference,
-        supplier: supplierName,
-        items: Number.parseInt(items, 10) || 0,
-        totalPence: Math.round((Number.parseFloat(total) || 0) * 100),
-        status,
-        due,
-      })
-      setReference("")
-      setSupplierName("")
-      setItems("")
-      setTotal("")
-      setStatus("Draft")
-      setDue("")
-      setOpen(false)
-      router.refresh()
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to create order.")
-    } finally {
-      setSaving(false)
-    }
-  }
-
-  return (
-    <Dialog open={open} onOpenChange={setOpen}>
-      <DialogTrigger
-        render={
-          <Button className="gap-1.5">
-            <Plus className="size-4" /> New order
-          </Button>
-        }
-      />
-      <DialogContent className="sm:max-w-md">
-        <DialogHeader>
-          <DialogTitle>New purchase order</DialogTitle>
-          <DialogDescription>Raise an order with one of your suppliers.</DialogDescription>
-        </DialogHeader>
-        <form onSubmit={handleSubmit} className="grid gap-4">
-          <div className="grid grid-cols-2 gap-3">
-            <div className="grid gap-2">
-              <Label htmlFor="order-ref">Reference</Label>
-              <Input id="order-ref" value={reference} onChange={(e) => setReference(e.target.value)} placeholder="BK-2301" />
-            </div>
-            <div className="grid gap-2">
-              <Label htmlFor="order-status">Status</Label>
-              <Select value={status} onValueChange={(v) => setStatus(v ?? "Draft")}>
-                <SelectTrigger id="order-status">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {orderStatuses.map((s) => (
-                    <SelectItem key={s} value={s}>
-                      {s}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
-          <div className="grid gap-2">
-            <Label htmlFor="order-supplier">Supplier</Label>
-            <Input id="order-supplier" value={supplierName} onChange={(e) => setSupplierName(e.target.value)} placeholder="Booker Wholesale" />
-          </div>
-          <div className="grid grid-cols-3 gap-3">
-            <div className="grid gap-2">
-              <Label htmlFor="order-items">Items</Label>
-              <Input id="order-items" type="number" min="0" value={items} onChange={(e) => setItems(e.target.value)} placeholder="12" />
-            </div>
-            <div className="grid gap-2">
-              <Label htmlFor="order-total">Total (£)</Label>
-              <Input id="order-total" type="number" min="0" step="0.01" value={total} onChange={(e) => setTotal(e.target.value)} placeholder="1284.50" />
-            </div>
-            <div className="grid gap-2">
-              <Label htmlFor="order-due">Due</Label>
-              <Input id="order-due" value={due} onChange={(e) => setDue(e.target.value)} placeholder="Tomorrow" />
-            </div>
-          </div>
-          {error && <p className="text-sm text-destructive">{error}</p>}
-          <DialogFooter>
-            <Button type="button" variant="outline" onClick={() => setOpen(false)} disabled={saving}>
-              Cancel
-            </Button>
-            <Button type="submit" disabled={saving}>
-              {saving ? "Saving..." : "Create order"}
-            </Button>
-          </DialogFooter>
-        </form>
-      </DialogContent>
-    </Dialog>
-  )
-}
-
-/* ---------------------------- Supplier dialog ----------------------------- */
-
-function SupplierDialog({
-  venueId,
-  supplier,
-  open,
-  onOpenChange,
-}: {
-  venueId: number
-  supplier?: DbSupplier
-  open?: boolean
-  onOpenChange?: (open: boolean) => void
-}) {
-  const router = useRouter()
-  const isEdit = !!supplier
-  const [internalOpen, setInternalOpen] = useState(false)
-  const dialogOpen = open ?? internalOpen
-  const setDialogOpen = onOpenChange ?? setInternalOpen
-
-  const [name, setName] = useState(supplier?.name ?? "")
-  const [category, setCategory] = useState(supplier?.category ?? "")
-  const [terms, setTerms] = useState(supplier?.terms ?? "Net 30")
-  const [spend, setSpend] = useState(supplier ? String(supplier.spendMtdPence / 100) : "")
-  const [rating, setRating] = useState(supplier?.rating ?? "4.5")
-  const [saving, setSaving] = useState(false)
-  const [error, setError] = useState<string | null>(null)
-
-  async function handleSubmit(e: React.FormEvent) {
-    e.preventDefault()
-    if (!name.trim()) return setError("Supplier name is required.")
-    setSaving(true)
-    setError(null)
-    const payload = {
-      name,
-      category,
-      terms,
-      spendMtdPence: Math.round((Number.parseFloat(spend) || 0) * 100),
-      rating,
-    }
-    try {
-      if (isEdit) {
-        await updateSupplier(supplier.id, payload)
-      } else {
-        await createSupplier({ venueId, ...payload })
-        setName("")
-        setCategory("")
-        setTerms("Net 30")
-        setSpend("")
-        setRating("4.5")
-      }
-      setDialogOpen(false)
-      router.refresh()
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to save supplier.")
-    } finally {
-      setSaving(false)
-    }
-  }
-
-  return (
-    <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-      {!isEdit && (
-        <DialogTrigger
-          render={
-            <Button className="gap-1.5">
-              <Plus className="size-4" /> Add supplier
-            </Button>
-          }
-        />
-      )}
-      <DialogContent className="sm:max-w-md">
-        <DialogHeader>
-          <DialogTitle>{isEdit ? "Edit supplier" : "Add supplier"}</DialogTitle>
-          <DialogDescription>
-            {isEdit ? "Update this supplier's details." : "Add a supplier to this venue."}
-          </DialogDescription>
-        </DialogHeader>
-        <form onSubmit={handleSubmit} className="grid gap-4">
-          <div className="grid gap-2">
-            <Label htmlFor="sup-name">Name</Label>
-            <Input id="sup-name" value={name} onChange={(e) => setName(e.target.value)} placeholder="Booker Wholesale" />
-          </div>
-          <div className="grid gap-2">
-            <Label htmlFor="sup-cat">Category</Label>
-            <Input id="sup-cat" value={category} onChange={(e) => setCategory(e.target.value)} placeholder="Draught & beer" />
-          </div>
-          <div className="grid grid-cols-3 gap-3">
-            <div className="grid gap-2">
-              <Label htmlFor="sup-terms">Terms</Label>
-              <Select value={terms} onValueChange={(v) => setTerms(v ?? "Net 30")}>
-                <SelectTrigger id="sup-terms">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {termOptions.map((t) => (
-                    <SelectItem key={t} value={t}>
-                      {t}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="grid gap-2">
-              <Label htmlFor="sup-spend">Spend MTD (£)</Label>
-              <Input id="sup-spend" type="number" min="0" step="0.01" value={spend} onChange={(e) => setSpend(e.target.value)} placeholder="8420" />
-            </div>
-            <div className="grid gap-2">
-              <Label htmlFor="sup-rating">Rating</Label>
-              <Input id="sup-rating" type="number" min="0" max="5" step="0.1" value={rating} onChange={(e) => setRating(e.target.value)} placeholder="4.6" />
-            </div>
-          </div>
-          {error && <p className="text-sm text-destructive">{error}</p>}
-          <DialogFooter>
-            <Button type="button" variant="outline" onClick={() => setDialogOpen(false)} disabled={saving}>
-              Cancel
-            </Button>
-            <Button type="submit" disabled={saving}>
-              {saving ? "Saving..." : isEdit ? "Save changes" : "Add supplier"}
-            </Button>
-          </DialogFooter>
-        </form>
-      </DialogContent>
-    </Dialog>
   )
 }
 
@@ -766,16 +509,12 @@ function TaskDialog({ venueId }: { venueId: number }) {
 
 export function OperationsView({
   venueId,
-  orders,
-  suppliers,
   maintenance,
   events,
   tasks,
   assetOptions,
 }: {
   venueId: number
-  orders: DbOrder[]
-  suppliers: DbSupplier[]
   maintenance: DbMaintenance[]
   events: DbEvent[]
   tasks: DbTask[]
@@ -783,11 +522,11 @@ export function OperationsView({
 }) {
   const router = useRouter()
   const searchParams = useSearchParams()
-  const initialTab = ["orders", "suppliers", "maintenance", "events", "tasks"].includes(
+  const initialTab = ["maintenance", "events", "tasks"].includes(
     searchParams.get("tab") ?? "",
   )
     ? (searchParams.get("tab") as string)
-    : "orders"
+    : "maintenance"
   const [tab, setTab] = useState(initialTab)
   const [busyId, setBusyId] = useState<string | null>(null)
 
@@ -795,31 +534,24 @@ export function OperationsView({
   // global search) switch tabs even when already on this page.
   const tabParam = searchParams.get("tab")
   useEffect(() => {
-    if (tabParam && ["orders", "suppliers", "maintenance", "events", "tasks"].includes(tabParam)) {
+    if (tabParam && ["maintenance", "events", "tasks"].includes(tabParam)) {
       setTab(tabParam)
     }
   }, [tabParam])
-  const [editingSupplier, setEditingSupplier] = useState<DbSupplier | null>(null)
   const [deleting, setDeleting] = useState<{ kind: string; id: number; label: string } | null>(null)
   const [removing, setRemoving] = useState(false)
 
   const summary = useMemo(
     () => [
-      { label: "Open orders", value: orders.filter((o) => o.status !== "Delivered").length, icon: Truck },
-      { label: "Active suppliers", value: suppliers.length, icon: Truck },
       { label: "Maintenance jobs", value: maintenance.filter((m) => m.status !== "Resolved").length, icon: Wrench },
       { label: "Upcoming events", value: events.length, icon: CalendarDays },
       { label: "Tasks due", value: tasks.filter((t) => !t.done).length, icon: ListChecks },
     ],
-    [orders, suppliers, maintenance, events, tasks],
+    [maintenance, events, tasks],
   )
 
   const headerAction =
-    tab === "orders" ? (
-      <OrderDialog venueId={venueId} />
-    ) : tab === "suppliers" ? (
-      <SupplierDialog venueId={venueId} />
-    ) : tab === "maintenance" ? (
+    tab === "maintenance" ? (
       <MaintenanceDialog venueId={venueId} assetOptions={assetOptions} />
     ) : tab === "events" ? (
       <EventDialog venueId={venueId} />
@@ -841,9 +573,7 @@ export function OperationsView({
     if (!deleting) return
     setRemoving(true)
     try {
-      if (deleting.kind === "order") await deleteOrder(deleting.id)
-      else if (deleting.kind === "supplier") await deleteSupplier(deleting.id)
-      else if (deleting.kind === "maintenance") await deleteMaintenance(deleting.id)
+      if (deleting.kind === "maintenance") await deleteMaintenance(deleting.id)
       else if (deleting.kind === "event") await deleteEvent(deleting.id)
       else if (deleting.kind === "task") await deleteTask(deleting.id)
       setDeleting(null)
@@ -857,24 +587,22 @@ export function OperationsView({
     <>
       <PageHeader
         title="Operations"
-        description="Orders, suppliers, maintenance, events and day-to-day tasks."
+        description="Maintenance, events and day-to-day tasks."
         actions={headerAction}
       />
 
       <Tabs value={tab} onValueChange={(v) => v && setTab(v)} className="mt-2">
         <div className="-mx-1 overflow-x-auto px-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
           <TabsList className="w-max">
-            <TabsTrigger value="orders">Orders</TabsTrigger>
-            <TabsTrigger value="suppliers">Suppliers</TabsTrigger>
             <TabsTrigger value="maintenance">Maintenance</TabsTrigger>
             <TabsTrigger value="events">Events</TabsTrigger>
             <TabsTrigger value="tasks">Tasks</TabsTrigger>
           </TabsList>
         </div>
 
-        {/* Orders */}
-        <TabsContent value="orders" className="mt-4 flex flex-col gap-4">
-          <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
+        {/* Maintenance */}
+        <TabsContent value="maintenance" className="flex flex-col gap-4">
+          <div className="grid grid-cols-3 gap-3">
             {summary.map((s) => {
               const Icon = s.icon
               return (
@@ -886,111 +614,6 @@ export function OperationsView({
               )
             })}
           </div>
-          <Card>
-            <CardContent className="p-0">
-              {orders.length === 0 ? (
-                <p className="p-10 text-center text-sm text-muted-foreground">
-                  No orders yet. Use “New order” to raise your first one.
-                </p>
-              ) : (
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Order</TableHead>
-                      <TableHead>Supplier</TableHead>
-                      <TableHead className="text-right">Items</TableHead>
-                      <TableHead className="text-right">Total</TableHead>
-                      <TableHead>Due</TableHead>
-                      <TableHead>Status</TableHead>
-                      <TableHead className="w-10" />
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {orders.map((o) => (
-                      <TableRow key={o.id}>
-                        <TableCell className="font-medium">{o.reference}</TableCell>
-                        <TableCell>{o.supplier}</TableCell>
-                        <TableCell className="text-right tabular-nums">{o.items}</TableCell>
-                        <TableCell className="text-right font-medium tabular-nums">{pounds(o.totalPence)}</TableCell>
-                        <TableCell className="text-muted-foreground">{o.due}</TableCell>
-                        <TableCell>
-                          <Select
-                            value={o.status}
-                            onValueChange={(v) => v && runStatus(`order-${o.id}`, () => updateOrderStatus(o.id, v))}
-                            disabled={busyId === `order-${o.id}`}
-                          >
-                            <SelectTrigger size="sm" className="w-36" aria-label={`Status for ${o.reference}`}>
-                              <SelectValue />
-                            </SelectTrigger>
-                            <SelectContent>
-                              {orderStatuses.map((s) => (
-                                <SelectItem key={s} value={s}>
-                                  {s}
-                                </SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
-                        </TableCell>
-                        <TableCell>
-                          <RowActions
-                            label={`Actions for ${o.reference}`}
-                            onDelete={() => setDeleting({ kind: "order", id: o.id, label: o.reference })}
-                          />
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              )}
-            </CardContent>
-          </Card>
-        </TabsContent>
-
-        {/* Suppliers */}
-        <TabsContent value="suppliers">
-          {suppliers.length === 0 ? (
-            <Card className="p-10 text-center text-sm text-muted-foreground">
-              No suppliers yet. Use “Add supplier” to add one.
-            </Card>
-          ) : (
-            <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-              {suppliers.map((s) => (
-                <Card key={s.id}>
-                  <CardContent className="flex items-start gap-4">
-                    <div className="flex size-11 items-center justify-center rounded-md bg-primary/10 font-semibold text-primary">
-                      {s.name.charAt(0)}
-                    </div>
-                    <div className="flex-1">
-                      <div className="flex items-center justify-between gap-2">
-                        <p className="font-medium text-foreground">{s.name}</p>
-                        <div className="flex items-center gap-1">
-                          <span className="flex items-center gap-1 text-sm text-muted-foreground">
-                            <Star className="size-3.5 fill-chart-4 text-chart-4" /> {s.rating}
-                          </span>
-                          <RowActions
-                            label={`Actions for ${s.name}`}
-                            onEdit={() => setEditingSupplier(s)}
-                            onDelete={() => setDeleting({ kind: "supplier", id: s.id, label: s.name })}
-                          />
-                        </div>
-                      </div>
-                      <p className="text-sm text-muted-foreground">{s.category}</p>
-                      <div className="mt-3 flex items-center gap-2">
-                        <Badge variant="outline" className="font-normal">{s.terms}</Badge>
-                        <span className="text-sm text-muted-foreground">
-                          {pounds(s.spendMtdPence)} <span className="text-xs">MTD</span>
-                        </span>
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
-              ))}
-            </div>
-          )}
-        </TabsContent>
-
-        {/* Maintenance */}
-        <TabsContent value="maintenance">
           <Card>
             <CardContent className="p-0">
               {maintenance.length === 0 ? (
@@ -1170,16 +793,6 @@ export function OperationsView({
           </Card>
         </TabsContent>
       </Tabs>
-
-      {/* Supplier edit dialog */}
-      {editingSupplier && (
-        <SupplierDialog
-          venueId={venueId}
-          supplier={editingSupplier}
-          open={!!editingSupplier}
-          onOpenChange={(o) => !o && setEditingSupplier(null)}
-        />
-      )}
 
       {/* Delete confirmation */}
       <AlertDialog open={!!deleting} onOpenChange={(o) => !o && setDeleting(null)}>
