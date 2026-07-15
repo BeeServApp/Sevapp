@@ -130,11 +130,13 @@ export function OrderDialog({
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
-      <DialogTrigger asChild>
-        <Button>
-          <Plus className="size-4" /> New order
-        </Button>
-      </DialogTrigger>
+      <DialogTrigger
+        render={
+          <Button>
+            <Plus className="size-4" /> New order
+          </Button>
+        }
+      />
       <DialogContent className="max-h-[92vh] overflow-hidden sm:max-w-2xl">
         <DialogHeader>
           <DialogTitle>New stock order</DialogTitle>
@@ -154,7 +156,7 @@ export function OrderDialog({
             </div>
             <div className="flex flex-col gap-1.5">
               <Label>Supplier</Label>
-              <Select value={supplierName} onValueChange={setSupplierName}>
+              <Select value={supplierName} onValueChange={(v) => v && setSupplierName(v)}>
                 <SelectTrigger aria-label="Supplier">
                   <SelectValue placeholder="Choose a supplier" />
                 </SelectTrigger>

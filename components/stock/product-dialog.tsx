@@ -111,11 +111,13 @@ export function ProductDialog({ venueId, suppliers, product, open, onOpenChange 
   return (
     <Dialog open={isOpen} onOpenChange={setOpen}>
       {!controlled && (
-        <DialogTrigger asChild>
-          <Button>
-            <Plus className="size-4" /> New product
-          </Button>
-        </DialogTrigger>
+        <DialogTrigger
+          render={
+            <Button>
+              <Plus className="size-4" /> New product
+            </Button>
+          }
+        />
       )}
       <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-lg">
         <DialogHeader>
@@ -147,7 +149,7 @@ export function ProductDialog({ venueId, suppliers, product, open, onOpenChange 
           <div className="grid grid-cols-2 gap-3">
             <div className="flex flex-col gap-1.5">
               <Label>Category</Label>
-              <Select value={category} onValueChange={setCategory}>
+              <Select value={category} onValueChange={(v) => v && setCategory(v)}>
                 <SelectTrigger aria-label="Category">
                   <SelectValue />
                 </SelectTrigger>
@@ -162,7 +164,7 @@ export function ProductDialog({ venueId, suppliers, product, open, onOpenChange 
             </div>
             <div className="flex flex-col gap-1.5">
               <Label>Stock unit</Label>
-              <Select value={unit} onValueChange={setUnit}>
+              <Select value={unit} onValueChange={(v) => v && setUnit(v)}>
                 <SelectTrigger aria-label="Unit">
                   <SelectValue />
                 </SelectTrigger>
@@ -189,7 +191,7 @@ export function ProductDialog({ venueId, suppliers, product, open, onOpenChange 
             </div>
             <div className="flex flex-col gap-1.5">
               <Label>Supplier</Label>
-              <Select value={supplierId} onValueChange={setSupplierId}>
+              <Select value={supplierId} onValueChange={(v) => v && setSupplierId(v)}>
                 <SelectTrigger aria-label="Supplier">
                   <SelectValue />
                 </SelectTrigger>
@@ -216,7 +218,7 @@ export function ProductDialog({ venueId, suppliers, product, open, onOpenChange 
             </div>
             <div className="flex flex-col gap-1.5">
               <Label>VAT</Label>
-              <Select value={vat} onValueChange={setVat}>
+              <Select value={vat} onValueChange={(v) => v && setVat(v)}>
                 <SelectTrigger aria-label="VAT rate">
                   <SelectValue />
                 </SelectTrigger>

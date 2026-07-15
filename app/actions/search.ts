@@ -136,7 +136,7 @@ export async function globalSearch(venueId: number, rawQuery: string): Promise<S
       group: "Orders",
       title: o.reference,
       subtitle: `${o.supplier} · ${o.status}`,
-      href: "/operations?tab=orders",
+      href: "/stock?tab=orders",
     })
   }
   for (const s of suppliers) {
@@ -145,7 +145,7 @@ export async function globalSearch(venueId: number, rawQuery: string): Promise<S
       group: "Suppliers",
       title: s.name,
       subtitle: s.category ?? "Supplier",
-      href: "/operations?tab=suppliers",
+      href: "/stock?tab=suppliers",
     })
   }
   for (const s of staff) {
