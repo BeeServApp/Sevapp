@@ -215,7 +215,7 @@ export function StockView({
                 className="pl-9"
               />
             </div>
-            <Select value={category} onValueChange={setCategory}>
+            <Select value={category} onValueChange={(v) => v && setCategory(v)}>
               <SelectTrigger className="sm:w-52">
                 <SelectValue />
               </SelectTrigger>
@@ -301,12 +301,14 @@ export function StockView({
                           <TableCell>
                             {canManageProducts && (
                               <DropdownMenu>
-                                <DropdownMenuTrigger asChild>
-                                  <Button variant="ghost" size="icon" className="h-8 w-8">
-                                    <MoreVertical className="h-4 w-4" />
-                                    <span className="sr-only">Actions</span>
-                                  </Button>
-                                </DropdownMenuTrigger>
+                                <DropdownMenuTrigger
+                                  render={
+                                    <Button variant="ghost" size="icon" className="h-8 w-8">
+                                      <MoreVertical className="h-4 w-4" />
+                                      <span className="sr-only">Actions</span>
+                                    </Button>
+                                  }
+                                />
                                 <DropdownMenuContent align="end">
                                   <DropdownMenuItem onClick={() => setEditing(p)}>
                                     <Pencil className="mr-2 h-4 w-4" /> Edit
@@ -367,7 +369,7 @@ export function StockView({
                         <TableCell>
                           <Select
                             value={o.status}
-                            onValueChange={(v) => handleOrderStatus(o.id, v)}
+                            onValueChange={(v) => v && handleOrderStatus(o.id, v)}
                           >
                             <SelectTrigger className="h-8 w-36">
                               <SelectValue />
@@ -383,12 +385,14 @@ export function StockView({
                         </TableCell>
                         <TableCell>
                           <DropdownMenu>
-                            <DropdownMenuTrigger asChild>
-                              <Button variant="ghost" size="icon" className="h-8 w-8">
-                                <MoreVertical className="h-4 w-4" />
-                                <span className="sr-only">Actions</span>
-                              </Button>
-                            </DropdownMenuTrigger>
+                            <DropdownMenuTrigger
+                              render={
+                                <Button variant="ghost" size="icon" className="h-8 w-8">
+                                  <MoreVertical className="h-4 w-4" />
+                                  <span className="sr-only">Actions</span>
+                                </Button>
+                              }
+                            />
                             <DropdownMenuContent align="end">
                               <DropdownMenuItem
                                 className="text-destructive focus:text-destructive"

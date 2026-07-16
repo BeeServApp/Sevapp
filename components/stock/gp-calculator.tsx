@@ -63,7 +63,7 @@ export function GpCalculator({ products }: { products: DbStockProduct[] }) {
           {products.length > 0 && (
             <div className="flex flex-col gap-1.5">
               <Label>Pre-fill from a product</Label>
-              <Select onValueChange={(v) => v && loadProduct(v)}>
+              <Select onValueChange={(v) => loadProduct(String(v ?? ""))}>
                 <SelectTrigger aria-label="Pick a product to pre-fill">
                   <SelectValue placeholder="Choose a product…" />
                 </SelectTrigger>
