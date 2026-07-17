@@ -7,8 +7,6 @@ import { guardModuleAccess } from "@/lib/plan-guard"
 import {
   getEvents,
   getMaintenance,
-  getOrders,
-  getSuppliers,
   getTasks,
 } from "@/app/actions/operations"
 import { getAssets } from "@/app/actions/assets"
@@ -32,9 +30,7 @@ export default async function OperationsPage() {
     )
   }
 
-  const [orders, suppliers, maintenance, events, tasks, assets] = await Promise.all([
-    getOrders(venueId),
-    getSuppliers(venueId),
+  const [maintenance, events, tasks, assets] = await Promise.all([
     getMaintenance(venueId),
     getEvents(venueId),
     getTasks(venueId),
@@ -48,8 +44,6 @@ export default async function OperationsPage() {
   return (
     <OperationsView
       venueId={venueId}
-      orders={orders}
-      suppliers={suppliers}
       maintenance={maintenance}
       events={events}
       tasks={tasks}

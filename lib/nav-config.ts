@@ -19,7 +19,8 @@ export const CALENDAR_ITEM = {
 // Toggleable sidebar modules. The Dashboard is intentionally omitted because it
 // is the workspace home and cannot be hidden.
 export const MODULES: ModuleDef[] = [
-  { href: "/operations", label: "Operations", description: "Orders, suppliers, events and maintenance." },
+  { href: "/operations", label: "Operations", description: "Events, maintenance and day-to-day tasks." },
+  { href: "/stock", label: "Stock", description: "Products, purchase orders, stock takes and GP." },
   { href: "/tasks", label: "Task Management", description: "Checklists, corrective actions and audits." },
   { href: "/assets", label: "Asset Tracking", description: "Equipment register and lifecycle." },
   { href: "/financials", label: "Financials", description: "Takings, expenses and reporting." },
@@ -37,7 +38,7 @@ export const STAFF_ALLOWED_PATHS = ["/staff", "/tasks", "/training"]
 // Extra module paths that elevated staff (managers and area managers) get on
 // top of the plain-staff set. Managers run day-to-day operations, so they get
 // the Operations module in addition to the calendar handled below.
-export const MANAGER_EXTRA_PATHS = ["/operations"]
+export const MANAGER_EXTRA_PATHS = ["/operations", "/stock"]
 
 /**
  * The module paths a given role may see in the sidebar (and reach at the route

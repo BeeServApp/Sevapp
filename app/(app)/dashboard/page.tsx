@@ -41,7 +41,7 @@ import {
 } from "@/lib/finance"
 
 const quickLinks = [
-  { href: "/operations", label: "Operations", desc: "Orders, suppliers, tasks", icon: ClipboardList },
+  { href: "/operations", label: "Operations", desc: "Maintenance, events & tasks", icon: ClipboardList },
   { href: "/financials", label: "Financials", desc: "P&L & spending", icon: Wallet },
   { href: "/staff", label: "HR", desc: "Onboarding, rotas & leave", icon: Users },
   { href: "/compliance", label: "Compliance", desc: "Checks & certificates", icon: ShieldCheck },

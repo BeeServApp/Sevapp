@@ -25,6 +25,7 @@ export type PlanId = "hr" | "pro" | "enterprise"
  */
 export const PREMIUM_MODULE_PATHS = [
   "/operations",
+  "/stock",
   "/tasks",
   "/assets",
   "/financials",

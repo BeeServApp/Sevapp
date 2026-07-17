@@ -5,7 +5,19 @@ import { cookies } from "next/headers"
 import { and, desc, eq } from "drizzle-orm"
 
 import { db } from "@/lib/db"
-import { clockEvent, kioskDevice, maintenance, order, staffMember, supplier, taskCheck, venue } from "@/lib/db/schema"
+import {
+  clockEvent,
+  kioskDevice,
+  maintenance,
+  order,
+  staffMember,
+  stockCount,
+  stockCountItem,
+  stockProduct,
+  supplier,
+  taskCheck,
+  venue,
+} from "@/lib/db/schema"
 import { getAccountId } from "@/lib/session"
 import { KIOSK_COOKIE, getKioskContext, requireKioskContext, type KioskContext } from "@/lib/kiosk-session"
 import { computeAlertState, computeVenueScore } from "@/lib/kiosk-score"
@@ -426,4 +438,143 @@ export async function updateKioskOrderStatus(pin: string, orderId: number, statu
     .where(and(eq(order.id, orderId), eq(order.userId, ctx.accountId), eq(order.venueId, ctx.venueId)))
   await emitChange(ctx.accountId, "all")
   return { ok: true }
+}
+
+/* --------------------- Stock take (kiosk counting) ------------------------ */
+// The kiosk shares the same products and stock-count tables as the web Stock
+// module, so a count entered on the iPad is instantly visible in Beeserv and
+// updates the product's on-hand quantity when completed.
+
+/** Products available to count, ordered by category then name. */
+export async function getKioskProducts(pin: string) {
+  const ctx = await requireAdmin(pin)
+  const products = await db
+    .select()
+    .from(stockProduct)
+    .where(
+      and(
+        eq(stockProduct.userId, ctx.accountId),
+        eq(stockProduct.venueId, ctx.venueId),
+        eq(stockProduct.active, true),
+      ),
+    )
+    .orderBy(stockProduct.category, stockProduct.name)
+  return products.map((p) => ({
+    id: p.id,
+    name: p.name,
+    category: p.category,
+    unit: p.unit,
+    onHandQty: p.onHandQty,
+    costPricePence: p.costPricePence,
+  }))
+}
+
+/**
+ * Start a kiosk stock take. Snapshots the current on-hand quantity of every
+ * active product as the "expected" figure so variance can be computed later.
+ */
+export async function startKioskStockCount(pin: string, area?: string) {
+  const ctx = await requireAdmin(pin)
+  const products = await db
+    .select()
+    .from(stockProduct)
+    .where(
+      and(
+        eq(stockProduct.userId, ctx.accountId),
+        eq(stockProduct.venueId, ctx.venueId),
+        eq(stockProduct.active, true),
+      ),
+    )
+  const now = new Date()
+  const reference = `SC-${now.toISOString().slice(0, 10)}-${now.getTime().toString().slice(-4)}`
+  const expectedValuePence = products.reduce(
+    (sum, p) => sum + Math.round(p.onHandQty * p.costPricePence),
+    0,
+  )
+  const [created] = await db
+    .insert(stockCount)
+    .values({
+      userId: ctx.accountId,
+      venueId: ctx.venueId,
+      reference,
+      area: area?.trim() || "Kiosk count",
+      status: "In progress",
+      countedBy: "Kiosk",
+      expectedValuePence,
+    })
+    .returning()
+  if (products.length > 0) {
+    await db.insert(stockCountItem).values(
+      products.map((p) => ({
+        userId: ctx.accountId,
+        countId: created.id,
+        productId: p.id,
+        name: p.name,
+        expectedQty: p.onHandQty,
+        countedQty: p.onHandQty,
+        unitCostPence: p.costPricePence,
+      })),
+    )
+  }
+  await emitChange(ctx.accountId, "all")
+  return { id: created.id, reference: created.reference }
+}
+
+/** Save a single counted quantity as the manager works through the list. */
+export async function saveKioskCountItem(pin: string, countId: number, productId: number, countedQty: number) {
+  const ctx = await requireAdmin(pin)
+  await db
+    .update(stockCountItem)
+    .set({ countedQty: Number.isFinite(countedQty) ? countedQty : 0 })
+    .where(
+      and(
+        eq(stockCountItem.countId, countId),
+        eq(stockCountItem.productId, productId),
+        eq(stockCountItem.userId, ctx.accountId),
+      ),
+    )
+  return { ok: true }
+}
+
+/**
+ * Complete a kiosk stock take: recompute the counted value + variance and push
+ * the counted quantities back onto each product's on-hand figure.
+ */
+export async function completeKioskStockCount(pin: string, countId: number) {
+  const ctx = await requireAdmin(pin)
+  const [count] = await db
+    .select()
+    .from(stockCount)
+    .where(and(eq(stockCount.id, countId), eq(stockCount.userId, ctx.accountId)))
+    .limit(1)
+  if (!count) throw new Error("Stock take not found")
+
+  const items = await db
+    .select()
+    .from(stockCountItem)
+    .where(and(eq(stockCountItem.countId, countId), eq(stockCountItem.userId, ctx.accountId)))
+
+  const countedValuePence = items.reduce((sum, i) => sum + Math.round(i.countedQty * i.unitCostPence), 0)
+  const varianceValuePence = countedValuePence - count.expectedValuePence
+
+  await db
+    .update(stockCount)
+    .set({
+      status: "Completed",
+      countedValuePence,
+      varianceValuePence,
+      completedAt: new Date(),
+    })
+    .where(and(eq(stockCount.id, countId), eq(stockCount.userId, ctx.accountId)))
+
+  // Reconcile product on-hand quantities to the counted figures.
+  for (const item of items) {
+    await db
+      .update(stockProduct)
+      .set({ onHandQty: item.countedQty })
+      .where(and(eq(stockProduct.id, item.productId), eq(stockProduct.userId, ctx.accountId)))
+  }
+
+  await emitChange(ctx.accountId, "all")
+  return { ok: true, countedValuePence, varianceValuePence }
 }
