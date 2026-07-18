@@ -27,6 +27,8 @@ import { getDashboardLayout } from "@/app/actions/company"
 import { getBudget } from "@/app/actions/budget"
 import { evaluateTarget, type TargetStatus } from "@/lib/budget"
 import { SquareSalesSection } from "@/components/square-sales-section"
+import { VenueScorecards } from "@/components/group/venue-scorecards"
+import { getVenueScore } from "@/app/actions/group"
 import { DashboardGrid, type DashboardSection } from "@/components/dashboard/dashboard-grid"
 import { DASHBOARD_SECTIONS } from "@/lib/dashboard-sections"
 import { sumEntries, entriesForMonth } from "@/lib/gaming"
@@ -73,6 +75,7 @@ export default async function DashboardPage() {
 
   const dashboardLayout = await getDashboardLayout()
   const venueBudget = venueId ? await getBudget(venueId) : null
+  const venueScore = venueId ? await getVenueScore(venueId) : null
 
   // --- KPIs ----------------------------------------------------------------
   const weekRevenue = revenuePenceForWeek(takings, 0)
@@ -180,6 +183,29 @@ export default async function DashboardPage() {
         })}
       </div>
     ),
+    venueScore:
+      venueScore && activeVenue ? (
+        <Card>
+          <CardHeader>
+            <CardTitle>Venue score</CardTitle>
+            <p className="mt-1 text-sm text-muted-foreground">
+              Today&apos;s task completion &amp; staff punctuality
+            </p>
+          </CardHeader>
+          <CardContent>
+            <VenueScorecards
+              rows={[
+                {
+                  venueId: activeVenue.id,
+                  name: activeVenue.name,
+                  location: activeVenue.city ?? activeVenue.type ?? "—",
+                  score: venueScore,
+                },
+              ]}
+            />
+          </CardContent>
+        </Card>
+      ) : null,
     revenue: (
       <Card>
         <CardHeader className="flex-row items-center justify-between">

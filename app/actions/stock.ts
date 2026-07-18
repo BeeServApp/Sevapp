@@ -10,7 +10,9 @@ import {
   stockCountItem,
   stockOrderItem,
   stockProduct,
+  stockTransfer,
   supplier,
+  venue,
 } from "@/lib/db/schema"
 import { getAccountId, requireOwner } from "@/lib/session"
 import { emitChange } from "@/lib/realtime"
@@ -429,6 +431,129 @@ export async function deleteStockCount(id: number) {
   await db.delete(stockCountItem).where(and(eq(stockCountItem.userId, userId), eq(stockCountItem.countId, id)))
   await db.delete(stockCount).where(and(eq(stockCount.id, id), eq(stockCount.userId, userId)))
   revalidatePath(STOCK_PATH)
+}
+
+/* ------------------------------- Transfers -------------------------------- */
+
+export async function getStockTransfers() {
+  const userId = await getAccountId()
+  return db
+    .select()
+    .from(stockTransfer)
+    .where(eq(stockTransfer.userId, userId))
+    .orderBy(desc(stockTransfer.id))
+}
+
+/**
+ * Move stock from one venue to another. Deducts the quantity from the source
+ * product and adds it to a matching product at the destination (matched by
+ * name, created there if it doesn't already exist), then logs the movement.
+ * Owner-only, since it spans venues.
+ */
+export async function transferStock(data: {
+  fromVenueId: number
+  fromProductId: number
+  toVenueId: number
+  qty: number
+  note?: string
+  movedBy?: string
+}) {
+  const me = await requireOwner()
+  const userId = me.accountId
+  const qty = numOr(data.qty, 0)
+  if (qty <= 0) throw new Error("Enter a quantity greater than zero")
+  if (data.fromVenueId === data.toVenueId) throw new Error("Choose a different destination venue")
+
+  // Load and verify the source product.
+  const [source] = await db
+    .select()
+    .from(stockProduct)
+    .where(
+      and(
+        eq(stockProduct.id, data.fromProductId),
+        eq(stockProduct.userId, userId),
+        eq(stockProduct.venueId, data.fromVenueId),
+      ),
+    )
+    .limit(1)
+  if (!source) throw new Error("Source product not found")
+  if (qty > (source.onHandQty ?? 0)) throw new Error("Not enough stock on hand to transfer")
+
+  // Verify the destination venue belongs to this account.
+  const [dest] = await db
+    .select({ id: venue.id })
+    .from(venue)
+    .where(and(eq(venue.id, data.toVenueId), eq(venue.userId, userId)))
+    .limit(1)
+  if (!dest) throw new Error("Destination venue not found")
+
+  const valuePence = Math.round(qty * (source.costPricePence ?? 0))
+  let toProductId: number | null = null
+
+  await db.transaction(async (tx) => {
+    // Deduct from source.
+    await tx
+      .update(stockProduct)
+      .set({ onHandQty: (source.onHandQty ?? 0) - qty })
+      .where(and(eq(stockProduct.id, source.id), eq(stockProduct.userId, userId)))
+
+    // Find a matching product at the destination by (case-insensitive) name.
+    const destProducts = await tx
+      .select()
+      .from(stockProduct)
+      .where(and(eq(stockProduct.userId, userId), eq(stockProduct.venueId, data.toVenueId)))
+    const match = destProducts.find((p) => p.name.trim().toLowerCase() === source.name.trim().toLowerCase())
+
+    if (match) {
+      toProductId = match.id
+      await tx
+        .update(stockProduct)
+        .set({ onHandQty: (match.onHandQty ?? 0) + qty })
+        .where(and(eq(stockProduct.id, match.id), eq(stockProduct.userId, userId)))
+    } else {
+      // Recreate the product at the destination, carrying over its attributes.
+      const [created] = await tx
+        .insert(stockProduct)
+        .values({
+          userId,
+          venueId: data.toVenueId,
+          name: source.name,
+          sku: source.sku,
+          barcode: source.barcode,
+          category: source.category,
+          unit: source.unit,
+          packSize: source.packSize,
+          supplierId: null,
+          costPricePence: source.costPricePence,
+          salePricePence: source.salePricePence,
+          vatRatePct: source.vatRatePct,
+          parLevel: source.parLevel,
+          onHandQty: qty,
+          active: true,
+        })
+        .returning({ id: stockProduct.id })
+      toProductId = created.id
+    }
+
+    await tx.insert(stockTransfer).values({
+      userId,
+      fromVenueId: data.fromVenueId,
+      toVenueId: data.toVenueId,
+      fromProductId: source.id,
+      toProductId,
+      productName: source.name,
+      qty,
+      unitCostPence: source.costPricePence ?? 0,
+      valuePence,
+      note: data.note?.trim() || null,
+      movedBy: data.movedBy?.trim() || null,
+    })
+  })
+
+  revalidatePath(STOCK_PATH)
+  revalidatePath("/stock/group")
+  await emitChange(userId, "all")
+  return { ok: true, valuePence }
 }
 
 /* -------------------------------- Analytics ------------------------------- */

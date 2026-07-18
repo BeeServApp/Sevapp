@@ -1,4 +1,4 @@
-import { Building2, ArrowRight, ListChecks } from "lucide-react"
+import { Building2, ArrowRight, ListChecks, Gauge } from "lucide-react"
 import Link from "next/link"
 import { PageHeader } from "@/components/page-header"
 import { StatCard } from "@/components/stat-card"
@@ -7,9 +7,11 @@ import { buttonVariants } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
 import { RevenueChart, SalesMixChart } from "@/components/charts"
 import { GroupVenueRow } from "@/components/group-venue-row"
+import { VenueScorecards } from "@/components/group/venue-scorecards"
 import type { Kpi } from "@/lib/mock-data"
 import { guardOwnerPage } from "@/lib/session"
 import { getVenues } from "@/app/actions/venues"
+import { getVenueScores } from "@/app/actions/group"
 import { getTasks } from "@/app/actions/operations"
 import { getTakings } from "@/app/actions/takings"
 import { getExpenses } from "@/app/actions/financials"
@@ -37,6 +39,7 @@ export default async function GroupDashboardPage() {
   const venues = await getVenues()
 
   const squareConn = await getSquareConnection()
+  const venueScores = await getVenueScores()
 
   // Pull each venue's data in parallel, then aggregate across the group.
   const perVenue = await Promise.all(
@@ -159,7 +162,16 @@ export default async function GroupDashboardPage() {
         ))}
       </div>
 
-      <div className="mt-4 grid grid-cols-1 gap-4 lg:grid-cols-3">
+      <div className="mt-6">
+        <div className="mb-3 flex items-center gap-2">
+          <Gauge className="size-4 text-primary" />
+          <h2 className="text-sm font-semibold text-foreground">Venue scores today</h2>
+          <span className="text-sm text-muted-foreground">Tasks &amp; punctuality, live</span>
+        </div>
+        <VenueScorecards rows={venueScores} clickable />
+      </div>
+
+      <div className="mt-6 grid grid-cols-1 gap-4 lg:grid-cols-3">
         <Card className="lg:col-span-2">
           <CardHeader className="flex-row items-center justify-between">
             <div>

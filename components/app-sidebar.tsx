@@ -73,8 +73,16 @@ export function AppSidebar({ onNavigate }: { onNavigate?: () => void }) {
           label: "Workspace",
           items: [
             { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
-            { href: "/dashboard/group", label: "Group overview", icon: Building2 },
             calendarItem,
+          ],
+        },
+        {
+          label: "Group",
+          items: [
+            { href: "/dashboard/group", label: "Group overview", icon: Building2 },
+            { href: "/assets/group", label: "Group assets", icon: Package },
+            { href: "/compliance/group", label: "Group compliance", icon: ShieldCheck },
+            { href: "/stock/group", label: "Group stock", icon: Boxes },
           ],
         },
         ...(moduleItems.length > 0 ? [{ label: "Modules", items: moduleItems }] : []),
@@ -94,10 +102,7 @@ export function AppSidebar({ onNavigate }: { onNavigate?: () => void }) {
             </p>
             <ul className="flex flex-col gap-1">
               {section.items.map((item) => {
-                const active =
-                  item.href === "/dashboard"
-                    ? pathname === "/dashboard"
-                    : pathname.startsWith(item.href)
+                const active = isItemActive(pathname, item.href)
                 const Icon = item.icon
                 return (
                   <li key={item.href}>

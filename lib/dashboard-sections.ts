@@ -10,6 +10,7 @@ export interface DashboardSectionMeta {
 
 export const DASHBOARD_SECTIONS: DashboardSectionMeta[] = [
   { id: "kpis", label: "Key metrics", hint: "Revenue, gross profit, labour, open tasks" },
+  { id: "venueScore", label: "Venue score", hint: "Today's task & punctuality score" },
   { id: "revenue", label: "Revenue this week", hint: "Daily takings trend" },
   { id: "salesMix", label: "Sales mix", hint: "Revenue split by category" },
   { id: "square", label: "Square sales", hint: "Live Square POS totals" },

@@ -337,6 +337,25 @@ export const stockCountItem = pgTable("stock_count_item", {
   createdAt: timestamp("createdAt").notNull().defaultNow(),
 })
 
+// A record of stock moving between two venues on the same account. Quantity is
+// deducted from the source product and added to the matching product at the
+// destination (matched by name, created there if it doesn't exist yet).
+export const stockTransfer = pgTable("stock_transfer", {
+  id: serial("id").primaryKey(),
+  userId: text("userId").notNull(),
+  fromVenueId: integer("fromVenueId").notNull(),
+  toVenueId: integer("toVenueId").notNull(),
+  fromProductId: integer("fromProductId").notNull(),
+  toProductId: integer("toProductId"),
+  productName: text("productName").notNull(),
+  qty: doublePrecision("qty").notNull().default(0),
+  unitCostPence: integer("unitCostPence").notNull().default(0),
+  valuePence: integer("valuePence").notNull().default(0),
+  note: text("note"),
+  movedBy: text("movedBy"),
+  createdAt: timestamp("createdAt").notNull().defaultNow(),
+})
+
 export const maintenance = pgTable("maintenance", {
   id: serial("id").primaryKey(),
   userId: text("userId").notNull(),
@@ -1301,6 +1320,7 @@ export type DbStockProduct = typeof stockProduct.$inferSelect
 export type DbStockOrderItem = typeof stockOrderItem.$inferSelect
 export type DbStockCount = typeof stockCount.$inferSelect
 export type DbStockCountItem = typeof stockCountItem.$inferSelect
+export type DbStockTransfer = typeof stockTransfer.$inferSelect
 export type DbMaintenance = typeof maintenance.$inferSelect
 export type DbEvent = typeof venueEvent.$inferSelect
 export type DbCalendarEvent = typeof calendarEvent.$inferSelect
