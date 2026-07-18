@@ -13,6 +13,7 @@ import {
   riskHazard,
   safetyRecord,
   staffPolicy,
+  taskCheck,
 } from "@/lib/db/schema"
 import { getAccountId as getUserId } from "@/lib/session"
 import { and, asc, desc, eq } from "drizzle-orm"
@@ -164,6 +165,69 @@ export async function deleteSafetyRecord(id: number) {
   const userId = await getUserId()
   await db.delete(safetyRecord).where(and(eq(safetyRecord.id, id), eq(safetyRecord.userId, userId)))
   revalidatePath(COMPLIANCE_PATH)
+}
+
+/**
+ * Push a safety record (typically a fire safety check) into Task Management as a
+ * recurring logbook task, so it appears on the tasks board and is assignable to
+ * staff. Task recurrence supports Daily/Weekly/Monthly; less frequent cadences
+ * become a dated one-off on the record's next-due date. Idempotent per record:
+ * re-pushing updates the existing linked task rather than duplicating it.
+ */
+export async function pushSafetyRecordToLogbook(id: number) {
+  const userId = await getUserId()
+  const [rec] = await db
+    .select()
+    .from(safetyRecord)
+    .where(and(eq(safetyRecord.id, id), eq(safetyRecord.userId, userId)))
+    .limit(1)
+  if (!rec) throw new Error("Record not found")
+
+  // Map compliance frequency onto the task recurrence model.
+  const recurringFreqs = ["Daily", "Weekly", "Monthly"]
+  const isRecurring = recurringFreqs.includes(rec.frequency)
+  const frequency = isRecurring ? rec.frequency : "One-off"
+  const title = rec.reference ? `${rec.name} (${rec.reference})` : rec.name
+  const notesParts = [
+    `Pushed from ${rec.module} register.`,
+    rec.owner ? `Responsible: ${rec.owner}.` : "",
+    rec.notes ?? "",
+  ].filter(Boolean)
+
+  // A stable link back to the source record keeps this idempotent.
+  const existing = await db
+    .select({ id: taskCheck.id })
+    .from(taskCheck)
+    .where(and(eq(taskCheck.userId, userId), eq(taskCheck.sourceSafetyRecordId, id)))
+    .limit(1)
+
+  const values = {
+    userId,
+    venueId: rec.venueId,
+    title,
+    category: "Compliance",
+    assignee: rec.owner ?? null,
+    dueDate: !isRecurring ? rec.nextDue ?? null : null,
+    frequency,
+    priority: "High",
+    requiresPhoto: false,
+    recurring: isRecurring,
+    sourceSafetyRecordId: id,
+    notes: notesParts.join(" ").trim() || null,
+  }
+
+  if (existing.length > 0) {
+    await db
+      .update(taskCheck)
+      .set({ title: values.title, frequency, recurring: isRecurring, notes: values.notes, dueDate: values.dueDate })
+      .where(and(eq(taskCheck.id, existing[0].id), eq(taskCheck.userId, userId)))
+  } else {
+    await db.insert(taskCheck).values(values)
+  }
+
+  revalidatePath(COMPLIANCE_PATH)
+  revalidatePath("/tasks")
+  return { ok: true, recurring: isRecurring }
 }
 
 /* --------------------------- Risk assessments ----------------------------- */

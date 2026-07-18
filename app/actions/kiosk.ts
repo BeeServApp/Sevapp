@@ -6,10 +6,12 @@ import { and, desc, eq } from "drizzle-orm"
 
 import { db } from "@/lib/db"
 import {
+  certificate,
   clockEvent,
   kioskDevice,
   maintenance,
   order,
+  safetyRecord,
   staffMember,
   stockCount,
   stockCountItem,
@@ -661,4 +663,85 @@ export async function completeKioskStockCount(pin: string, countId: number) {
 
   await emitChange(ctx.accountId, "all")
   return { ok: true, countedValuePence, varianceValuePence }
+}
+
+/* ------------------------- Compliance (view-only) ------------------------- */
+// Licensing and Fire safety records surfaced on the kiosk so a licensing
+// officer or fire brigade inspector can see live compliance without a login.
+// No admin PIN required — this is read-only and deliberately public on-device.
+
+export interface KioskComplianceRecord {
+  id: number
+  name: string
+  reference: string | null
+  owner: string | null
+  frequency: string
+  lastDone: string | null
+  nextDue: string | null
+  status: string
+  notes: string | null
+}
+
+export interface KioskComplianceCert {
+  id: number
+  name: string
+  authority: string | null
+  expires: string | null
+  status: string
+}
+
+export interface KioskCompliancePayload {
+  venueName: string
+  licensing: KioskComplianceRecord[]
+  fire: KioskComplianceRecord[]
+  certificates: KioskComplianceCert[]
+}
+
+export async function getKioskCompliance(): Promise<KioskCompliancePayload> {
+  const ctx = await requireKioskContext()
+
+  const [v] = await db
+    .select({ name: venue.name })
+    .from(venue)
+    .where(and(eq(venue.id, ctx.venueId), eq(venue.userId, ctx.accountId)))
+    .limit(1)
+
+  const records = await db
+    .select()
+    .from(safetyRecord)
+    .where(and(eq(safetyRecord.userId, ctx.accountId), eq(safetyRecord.venueId, ctx.venueId)))
+
+  const certs = await db
+    .select()
+    .from(certificate)
+    .where(and(eq(certificate.userId, ctx.accountId), eq(certificate.venueId, ctx.venueId)))
+
+  const toRecord = (r: (typeof records)[number]): KioskComplianceRecord => ({
+    id: r.id,
+    name: r.name,
+    reference: r.reference,
+    owner: r.owner,
+    frequency: r.frequency,
+    lastDone: r.lastDone,
+    nextDue: r.nextDue,
+    status: r.status,
+    notes: r.notes,
+  })
+
+  // Surface licensing- and fire-relevant certificates alongside the registers.
+  const relevantCert = (c: (typeof certs)[number]) =>
+    /fire|licen|premises|alcohol|gas|electr|pat|legionella/i.test(`${c.name} ${c.authority ?? ""}`)
+
+  return {
+    venueName: v?.name ?? "Venue",
+    licensing: records.filter((r) => r.module === "Licensing").map(toRecord),
+    fire: records.filter((r) => r.module === "Fire Safety").map(toRecord),
+    certificates: certs.filter(relevantCert).map((c) => ({
+      id: c.id,
+      name: c.name,
+      authority: c.authority,
+      expires: c.expires,
+      status: c.status,
+    })),
+  }
 }

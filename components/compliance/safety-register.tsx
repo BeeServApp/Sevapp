@@ -3,7 +3,7 @@
 import type React from "react"
 import { useState } from "react"
 import { useRouter } from "next/navigation"
-import { CheckCircle2, Plus } from "lucide-react"
+import { CheckCircle2, ClipboardCheck, Plus } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
@@ -23,7 +23,12 @@ import {
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { StatusBadge } from "@/components/status-badge"
 import { RowActions } from "@/components/compliance/row-actions"
-import { createSafetyRecord, deleteSafetyRecord, logSafetyRecord } from "@/app/actions/safety"
+import {
+  createSafetyRecord,
+  deleteSafetyRecord,
+  logSafetyRecord,
+  pushSafetyRecordToLogbook,
+} from "@/app/actions/safety"
 import type { DbSafetyRecord } from "@/lib/db/schema"
 
 const frequencies = ["Daily", "Weekly", "Monthly", "Quarterly", "6-monthly", "Annual"]
@@ -145,6 +150,12 @@ export function SafetyRegister({
 }) {
   const router = useRouter()
   const [busyId, setBusyId] = useState<number | null>(null)
+  const [pushingId, setPushingId] = useState<number | null>(null)
+  const [pushedId, setPushedId] = useState<number | null>(null)
+
+  // Fire safety is the primary logbook candidate, but any recurring register
+  // obligation can be pushed to Task Management for assignment and tracking.
+  const canPushToLogbook = module === "Fire Safety" || module === "Health & Safety" || module === "Property"
 
   async function handleLog(id: number) {
     setBusyId(id)
@@ -153,6 +164,18 @@ export function SafetyRegister({
       router.refresh()
     } finally {
       setBusyId(null)
+    }
+  }
+
+  async function handlePush(id: number) {
+    setPushingId(id)
+    try {
+      await pushSafetyRecordToLogbook(id)
+      setPushedId(id)
+      setTimeout(() => setPushedId((cur) => (cur === id ? null : cur)), 2500)
+      router.refresh()
+    } finally {
+      setPushingId(null)
     }
   }
 
@@ -206,6 +229,19 @@ export function SafetyRegister({
                         <CheckCircle2 className="size-4" />
                         {r.status === "Complete" ? "Done" : "Log done"}
                       </Button>
+                      {canPushToLogbook && (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="gap-1.5"
+                          disabled={pushingId === r.id}
+                          onClick={() => handlePush(r.id)}
+                          title="Create a Task Management logbook entry from this record"
+                        >
+                          <ClipboardCheck className="size-4" />
+                          {pushedId === r.id ? "Added" : pushingId === r.id ? "Adding…" : "To logbook"}
+                        </Button>
+                      )}
                       <RowActions
                         deleteLabel={`Delete ${r.name}`}
                         deleteAction={async () => {

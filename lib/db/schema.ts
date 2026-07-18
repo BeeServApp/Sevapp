@@ -791,6 +791,9 @@ export const taskCheck = pgTable("task_check", {
   recurrenceParentId: integer("recurrenceParentId"),
   // Last period date a template generated an instance for (YYYY-MM-DD).
   lastGeneratedDate: text("lastGeneratedDate"),
+  // When a task was created by pushing a compliance/safety record to the
+  // logbook, this links back to that safetyRecord so re-pushing is idempotent.
+  sourceSafetyRecordId: integer("sourceSafetyRecordId"),
   createdAt: timestamp("createdAt").notNull().defaultNow(),
 })
 

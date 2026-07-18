@@ -1,7 +1,7 @@
 "use client"
 
 import { useEffect, useRef, useState } from "react"
-import { AlertTriangle, ClipboardList, Clock, Gauge, Lock, Music, Package, Wrench } from "lucide-react"
+import { AlertTriangle, ClipboardList, Clock, Gauge, Lock, Music, Package, ShieldCheck, Wrench } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { AdminMenu } from "@/components/kiosk/admin-menu"
 import type { KioskNav } from "@/components/kiosk/kiosk-root"
@@ -23,6 +23,7 @@ const NAV_ITEMS: { key: KioskNav; label: string; icon: typeof Gauge }[] = [
   { key: "tasks", label: "Tasks", icon: ClipboardList },
   { key: "stock", label: "Stock", icon: Package },
   { key: "maintenance", label: "Maintenance", icon: Wrench },
+  { key: "compliance", label: "Compliance", icon: ShieldCheck },
 ]
 
 function LiveClock() {
@@ -147,7 +148,7 @@ export function KioskShell({
       <main className="relative z-30 flex-1 overflow-y-auto p-6">{children}</main>
 
       {/* Bottom nav */}
-      <nav className="z-30 grid grid-cols-5 gap-1 border-t border-border bg-card/90 px-2 py-2 backdrop-blur">
+      <nav className="z-30 grid grid-cols-6 gap-1 border-t border-border bg-card/90 px-2 py-2 backdrop-blur">
         {NAV_ITEMS.map((item) => {
           const Icon = item.icon
           const active = nav === item.key

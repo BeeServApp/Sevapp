@@ -9,10 +9,11 @@ import { DashboardView } from "@/components/kiosk/dashboard-view"
 import { TasksView } from "@/components/kiosk/tasks-view"
 import { StockView } from "@/components/kiosk/stock-view"
 import { MaintenanceView } from "@/components/kiosk/maintenance-view"
+import { ComplianceView } from "@/components/kiosk/compliance-view"
 import { MusicDialog } from "@/components/kiosk/music-dialog"
 import { getKioskAlertState } from "@/app/actions/kiosk"
 
-export type KioskNav = "home" | "dashboard" | "tasks" | "stock" | "maintenance"
+export type KioskNav = "home" | "dashboard" | "tasks" | "stock" | "maintenance" | "compliance"
 
 const ALERT_POLL_MS = 20000
 
@@ -71,6 +72,7 @@ export function KioskRoot({ initialState }: { initialState: KioskStatePayload })
         {nav === "tasks" && <TasksView onChange={refreshAlert} />}
         {nav === "stock" && <StockView hasAdminPin={!!state.hasAdminPin} />}
         {nav === "maintenance" && <MaintenanceView />}
+        {nav === "compliance" && <ComplianceView />}
       </KioskShell>
       <MusicDialog open={musicOpen} onOpenChange={setMusicOpen} hasSpotify={!!state.hasSpotify} />
     </>
