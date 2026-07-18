@@ -62,3 +62,64 @@ export function penceFromPounds(value: string): number {
   const n = Number.parseFloat(String(value).replace(/[^0-9.]/g, ""))
   return Number.isFinite(n) ? Math.round(n * 100) : 0
 }
+
+/* ----------------------------- Reorder list ------------------------------ */
+// Shared shape so the same "what needs ordering" logic can drive the web
+// checklist tab and the kiosk ordering basket.
+
+export interface ReorderProduct {
+  id: number
+  name: string
+  category: string
+  unit: string
+  packSize: number
+  parLevel: number
+  onHandQty: number
+  costPricePence: number
+  supplierId: number | null
+}
+
+export interface ReorderLine {
+  productId: number
+  name: string
+  category: string
+  unit: string
+  onHandQty: number
+  parLevel: number
+  shortfall: number
+  suggestedQty: number
+  unitCostPence: number
+  linePence: number
+  supplierId: number | null
+}
+
+/**
+ * Work out what should be reordered to bring every product back up to its par
+ * level. Suggested quantities are rounded up to the product's pack size so the
+ * order matches how the item is actually purchased.
+ */
+export function buildReorderList(products: ReorderProduct[]): ReorderLine[] {
+  const lines: ReorderLine[] = []
+  for (const p of products) {
+    const par = p.parLevel ?? 0
+    const onHand = p.onHandQty ?? 0
+    const shortfall = par - onHand
+    if (par <= 0 || shortfall <= 0) continue
+    const pack = p.packSize && p.packSize > 0 ? p.packSize : 1
+    const suggestedQty = Math.max(pack, Math.ceil(shortfall / pack) * pack)
+    lines.push({
+      productId: p.id,
+      name: p.name,
+      category: p.category,
+      unit: p.unit,
+      onHandQty: onHand,
+      parLevel: par,
+      shortfall: Math.round(shortfall * 100) / 100,
+      suggestedQty,
+      unitCostPence: p.costPricePence ?? 0,
+      linePence: Math.round(suggestedQty * (p.costPricePence ?? 0)),
+      supplierId: p.supplierId ?? null,
+    })
+  }
+  return lines.sort((a, b) => a.name.localeCompare(b.name))
+}

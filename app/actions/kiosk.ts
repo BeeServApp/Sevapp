@@ -13,6 +13,7 @@ import {
   staffMember,
   stockCount,
   stockCountItem,
+  stockOrderItem,
   stockProduct,
   supplier,
   taskCheck,
@@ -430,12 +431,92 @@ export async function createKioskOrder(input: {
   return created
 }
 
+/**
+ * Create a kiosk purchase order from a shopping-list basket. Stores each line
+ * in the shared stock_order_item table so it behaves exactly like an order
+ * raised in Beeserv — including receiving stock when marked Delivered.
+ */
+export async function createKioskOrderFromLines(input: {
+  pin: string
+  supplier: string
+  lines: { productId: number; name: string; qty: number; unitCostPence: number }[]
+}) {
+  const ctx = await requireAdmin(input.pin)
+  const supplierName = input.supplier.trim()
+  if (!supplierName) throw new Error("Choose a supplier")
+  const lines = (input.lines ?? []).filter((l) => l.name.trim() && (Number(l.qty) || 0) > 0)
+  if (lines.length === 0) throw new Error("Add at least one product to the order")
+
+  const totalPence = lines.reduce((sum, l) => sum + Math.round((l.qty || 0) * (l.unitCostPence || 0)), 0)
+  const itemCount = lines.reduce((sum, l) => sum + (l.qty || 0), 0)
+  const now = new Date()
+  const reference = `KO-${now.toISOString().slice(5, 10).replace("-", "")}-${now.getTime().toString().slice(-3)}`
+
+  const [created] = await db
+    .insert(order)
+    .values({
+      userId: ctx.accountId,
+      venueId: ctx.venueId,
+      reference,
+      supplier: supplierName,
+      items: Math.round(itemCount),
+      totalPence,
+      status: "Submitted",
+      due: null,
+    })
+    .returning()
+
+  await db.insert(stockOrderItem).values(
+    lines.map((l) => ({
+      userId: ctx.accountId,
+      orderId: created.id,
+      productId: l.productId ?? null,
+      name: l.name.trim(),
+      qty: l.qty || 0,
+      unitCostPence: l.unitCostPence || 0,
+      linePence: Math.round((l.qty || 0) * (l.unitCostPence || 0)),
+    })),
+  )
+
+  await emitChange(ctx.accountId, "all")
+  return { id: created.id, reference: created.reference }
+}
+
 export async function updateKioskOrderStatus(pin: string, orderId: number, status: string) {
   const ctx = await requireAdmin(pin)
+  const [existing] = await db
+    .select()
+    .from(order)
+    .where(and(eq(order.id, orderId), eq(order.userId, ctx.accountId), eq(order.venueId, ctx.venueId)))
+    .limit(1)
+  if (!existing) throw new Error("Order not found")
+
   await db
     .update(order)
     .set({ status })
     .where(and(eq(order.id, orderId), eq(order.userId, ctx.accountId), eq(order.venueId, ctx.venueId)))
+
+  // Receive ordered quantities into stock exactly once, on transition to Delivered.
+  if (status === "Delivered" && existing.status !== "Delivered") {
+    const items = await db
+      .select()
+      .from(stockOrderItem)
+      .where(and(eq(stockOrderItem.userId, ctx.accountId), eq(stockOrderItem.orderId, orderId)))
+    for (const it of items) {
+      if (it.productId == null) continue
+      const [p] = await db
+        .select({ onHandQty: stockProduct.onHandQty })
+        .from(stockProduct)
+        .where(and(eq(stockProduct.id, it.productId), eq(stockProduct.userId, ctx.accountId)))
+        .limit(1)
+      if (!p) continue
+      await db
+        .update(stockProduct)
+        .set({ onHandQty: (p.onHandQty ?? 0) + it.qty })
+        .where(and(eq(stockProduct.id, it.productId), eq(stockProduct.userId, ctx.accountId)))
+    }
+  }
+
   await emitChange(ctx.accountId, "all")
   return { ok: true }
 }
@@ -466,6 +547,9 @@ export async function getKioskProducts(pin: string) {
     unit: p.unit,
     onHandQty: p.onHandQty,
     costPricePence: p.costPricePence,
+    packSize: p.packSize,
+    parLevel: p.parLevel,
+    supplierId: p.supplierId ?? null,
   }))
 }
 

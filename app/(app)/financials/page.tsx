@@ -1,4 +1,5 @@
-import { TrendingUp, TrendingDown, Lightbulb } from "lucide-react"
+import type { ReactNode } from "react"
+import { TrendingUp, TrendingDown, Lightbulb, Package, Boxes } from "lucide-react"
 import { PageHeader } from "@/components/page-header"
 import { StatCard } from "@/components/stat-card"
 import { Button } from "@/components/ui/button"
@@ -13,6 +14,8 @@ import type { Kpi } from "@/lib/mock-data"
 import { getUserId, getActiveVenueId, guardOwnerPage } from "@/lib/session"
 import { guardModuleAccess } from "@/lib/plan-guard"
 import { getExpenses } from "@/app/actions/financials"
+import { getStockAnalytics, getProducts } from "@/app/actions/stock"
+import { poundsFromPence, computeGp } from "@/lib/stock"
 import { getTakings } from "@/app/actions/takings"
 import { getGamingMachines } from "@/app/actions/gaming"
 import { getAssets } from "@/app/actions/assets"
@@ -62,7 +65,7 @@ export default async function FinancialsPage({
   const venueId = await getActiveVenueId(userId)
 
   const squareConn = await getSquareConnection()
-  const [expenses, takings, gamingMachines, assets, venues, venueBudget] = venueId
+  const [expenses, takings, gamingMachines, assets, venues, venueBudget, stockAnalytics, products] = venueId
     ? await Promise.all([
         getExpenses(venueId),
         getTakings(venueId),
@@ -70,8 +73,22 @@ export default async function FinancialsPage({
         getAssets(venueId),
         getVenues(),
         getBudget(venueId),
+        getStockAnalytics(venueId),
+        getProducts(venueId),
       ])
-    : [[], [], [], [], [], null]
+    : [[], [], [], [], [], null, null, []]
+
+  // Top products by GP margin, for the stock/COGS view.
+  const topMarginProducts = [...products]
+    .filter((p) => p.salePricePence > 0)
+    .map((p) => ({
+      name: p.name,
+      category: p.category,
+      gp: computeGp(p.costPricePence, p.salePricePence, p.vatRatePct),
+    }))
+    .sort((a, b) => b.gp.marginPct - a.gp.marginPct)
+    .slice(0, 8)
+  const maxStockCatValue = Math.max(...(stockAnalytics?.categories ?? []).map((c) => c.valuePence), 1)
 
   const assetOptions = assets.map((a) => ({ id: a.id, name: a.name }))
   const activeVenue = venues.find((v) => v.id === venueId)
@@ -312,6 +329,7 @@ export default async function FinancialsPage({
         <div className="-mx-1 overflow-x-auto px-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
           <TabsList className="w-max">
             <TabsTrigger value="overview">Overview</TabsTrigger>
+            <TabsTrigger value="stock">Stock &amp; COGS</TabsTrigger>
             <TabsTrigger value="gaming">Gaming machines</TabsTrigger>
           </TabsList>
         </div>
@@ -510,6 +528,126 @@ export default async function FinancialsPage({
           </div>
         </TabsContent>
 
+        <TabsContent value="stock" className="mt-4">
+          {!venueId || !stockAnalytics ? (
+            <Card>
+              <CardHeader>
+                <CardTitle>Stock &amp; COGS</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <p className="text-sm text-muted-foreground">Create a venue to see stock valuation and margins.</p>
+              </CardContent>
+            </Card>
+          ) : stockAnalytics.productCount === 0 ? (
+            <Card>
+              <CardHeader>
+                <CardTitle>Stock &amp; COGS</CardTitle>
+                <p className="mt-1 text-sm text-muted-foreground">
+                  Product catalogue, stock valuation and margins from the Stock module
+                </p>
+              </CardHeader>
+              <CardContent>
+                <EmptyBlock body="Add products in the Stock module to see valuation and margins here." />
+              </CardContent>
+            </Card>
+          ) : (
+            <div className="flex flex-col gap-4">
+              {/* Stock KPIs */}
+              <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
+                <StockStat
+                  icon={<Package className="size-4" />}
+                  label="Products"
+                  value={String(stockAnalytics.productCount)}
+                />
+                <StockStat
+                  icon={<Boxes className="size-4" />}
+                  label="Stock value (cost)"
+                  value={poundsFromPence(stockAnalytics.stockValuePence)}
+                />
+                <StockStat
+                  icon={<TrendingUp className="size-4" />}
+                  label="Retail value"
+                  value={poundsFromPence(stockAnalytics.retailValuePence)}
+                />
+                <StockStat
+                  icon={<TrendingUp className="size-4" />}
+                  label="Avg GP margin"
+                  value={`${stockAnalytics.avgMarginPct.toFixed(1)}%`}
+                />
+              </div>
+
+              <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+                {/* Stock value by category */}
+                <Card>
+                  <CardHeader>
+                    <CardTitle>Stock value by category</CardTitle>
+                    <p className="mt-1 text-sm text-muted-foreground">Where your money is tied up</p>
+                  </CardHeader>
+                  <CardContent className="flex flex-col gap-4">
+                    {stockAnalytics.categories.length === 0 ? (
+                      <p className="py-6 text-center text-sm text-muted-foreground">No stock on hand.</p>
+                    ) : (
+                      stockAnalytics.categories.map((c) => (
+                        <div key={c.category}>
+                          <div className="mb-1.5 flex items-center justify-between text-sm">
+                            <span className="font-medium text-foreground">{c.category}</span>
+                            <span className="text-muted-foreground">
+                              {poundsFromPence(c.valuePence)} · {c.count} item{c.count === 1 ? "" : "s"}
+                            </span>
+                          </div>
+                          <Progress value={Math.round((c.valuePence / maxStockCatValue) * 100)} />
+                        </div>
+                      ))
+                    )}
+                  </CardContent>
+                </Card>
+
+                {/* Top products by margin */}
+                <Card>
+                  <CardHeader>
+                    <CardTitle>Best margin products</CardTitle>
+                    <p className="mt-1 text-sm text-muted-foreground">Highest gross profit lines</p>
+                  </CardHeader>
+                  <CardContent>
+                    {topMarginProducts.length === 0 ? (
+                      <p className="py-6 text-center text-sm text-muted-foreground">
+                        Set sale prices on products to rank by margin.
+                      </p>
+                    ) : (
+                      <ul className="flex flex-col divide-y divide-border">
+                        {topMarginProducts.map((p) => (
+                          <li key={p.name} className="flex items-center justify-between gap-3 py-2.5">
+                            <div className="min-w-0">
+                              <p className="truncate text-sm font-medium text-foreground">{p.name}</p>
+                              <p className="text-xs text-muted-foreground">{p.category}</p>
+                            </div>
+                            <div className="text-right">
+                              <p className="text-sm font-semibold tabular-nums text-foreground">
+                                {p.gp.marginPct.toFixed(1)}%
+                              </p>
+                              <p className="text-xs text-muted-foreground">
+                                {poundsFromPence(p.gp.profitPence)} / unit
+                              </p>
+                            </div>
+                          </li>
+                        ))}
+                      </ul>
+                    )}
+                  </CardContent>
+                </Card>
+              </div>
+
+              <p className="text-xs text-muted-foreground">
+                Potential profit if all current stock sells:{" "}
+                <span className="font-medium text-foreground">
+                  {poundsFromPence(stockAnalytics.potentialProfitPence)}
+                </span>
+                . Figures come straight from the Stock module and update as you count and reorder.
+              </p>
+            </div>
+          )}
+        </TabsContent>
+
         <TabsContent value="gaming" className="mt-4">
           {venueId ? (
             <GamingMachines
@@ -541,5 +679,19 @@ function EmptyBlock({ body }: { body: string }) {
     <div className="flex h-[220px] items-center justify-center text-center">
       <p className="max-w-xs text-sm text-muted-foreground">{body}</p>
     </div>
+  )
+}
+
+function StockStat({ icon, label, value }: { icon: ReactNode; label: string; value: string }) {
+  return (
+    <Card>
+      <CardContent className="p-4">
+        <div className="flex items-center gap-2 text-muted-foreground">
+          {icon}
+          <span className="text-xs font-medium">{label}</span>
+        </div>
+        <p className="mt-1.5 text-xl font-semibold tabular-nums text-foreground">{value}</p>
+      </CardContent>
+    </Card>
   )
 }

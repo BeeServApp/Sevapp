@@ -8,6 +8,7 @@ import {
   Package,
   ShoppingCart,
   ClipboardList,
+  ListChecks,
   Calculator,
   BarChart3,
   Search,
@@ -58,6 +59,7 @@ import {
 
 import { ProductDialog } from "@/components/stock/product-dialog"
 import { OrderDialog } from "@/components/stock/order-dialog"
+import { StockChecklist } from "@/components/stock/stock-checklist"
 import { StockTake } from "@/components/stock/stock-take"
 import { StockAnalyticsView } from "@/components/stock/stock-analytics"
 import { GpCalculator } from "@/components/stock/gp-calculator"
@@ -188,6 +190,14 @@ export function StockView({
           </TabsTrigger>
           <TabsTrigger value="orders" className="gap-1.5">
             <ShoppingCart className="h-4 w-4" /> Orders
+          </TabsTrigger>
+          <TabsTrigger value="checklist" className="gap-1.5">
+            <ListChecks className="h-4 w-4" /> Order list
+            {analytics.belowParCount > 0 && (
+              <Badge variant="secondary" className="ml-1 px-1.5 py-0 text-xs">
+                {analytics.belowParCount}
+              </Badge>
+            )}
           </TabsTrigger>
           <TabsTrigger value="suppliers" className="gap-1.5">
             <Truck className="h-4 w-4" /> Suppliers
@@ -413,6 +423,17 @@ export function StockView({
           <p className="mt-3 text-xs text-muted-foreground">
             Marking an order as <strong>Delivered</strong> receives the ordered quantities into stock automatically.
           </p>
+        </TabsContent>
+
+        {/* Order list / checklist */}
+        <TabsContent value="checklist">
+          <div className="mb-4">
+            <h2 className="text-base font-semibold text-foreground">Reorder checklist</h2>
+            <p className="text-sm text-muted-foreground">
+              Everything below par, grouped by supplier — so staff know exactly what to order.
+            </p>
+          </div>
+          <StockChecklist venueId={venueId} products={products} suppliers={suppliers} />
         </TabsContent>
 
         {/* Suppliers */}
