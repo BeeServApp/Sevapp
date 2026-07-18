@@ -115,12 +115,14 @@ export function StockTransferPanel({
         if (!o) reset()
       }}
     >
-      <DialogTrigger asChild>
-        <Button className="gap-2" disabled={!canTransfer}>
-          <ArrowRightLeft className="size-4" />
-          Transfer stock
-        </Button>
-      </DialogTrigger>
+      <DialogTrigger
+        render={
+          <Button className="gap-2" disabled={!canTransfer}>
+            <ArrowRightLeft className="size-4" />
+            Transfer stock
+          </Button>
+        }
+      />
       <DialogContent>
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">

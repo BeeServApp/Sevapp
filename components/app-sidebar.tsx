@@ -39,6 +39,22 @@ const moduleIcons: Record<string, LucideIcon> = {
   "/training": GraduationCap,
 }
 
+// Determines whether a nav item should show as active. Group pages (e.g.
+// /assets/group) are distinct entries, so a module link like /assets must not
+// stay highlighted while on its /group child, and vice-versa.
+function isItemActive(pathname: string, href: string): boolean {
+  if (href === "/dashboard") return pathname === "/dashboard"
+  if (href === "/dashboard/group") return pathname === "/dashboard/group"
+
+  const isGroupHref = href.endsWith("/group")
+  const onGroupPath = pathname.endsWith("/group") || pathname.includes("/group/")
+
+  // A module link (e.g. /assets) should not activate on its group child.
+  if (!isGroupHref && onGroupPath && pathname.startsWith(href)) return false
+
+  return pathname === href || pathname.startsWith(`${href}/`) || pathname.startsWith(`${href}?`)
+}
+
 export function AppSidebar({ onNavigate }: { onNavigate?: () => void }) {
   const pathname = usePathname()
   const { hiddenModules, installedModules, appRole, managerRole } = useVenue()
